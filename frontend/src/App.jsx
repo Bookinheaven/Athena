@@ -13,7 +13,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 
 import MainLayout from './pages/user/MainLayout';
 import Dashboard from "./pages/user/dashboard/Dashboard";
-import FocusSession from './pages/user/FocusSession';
+import FocusSession from './pages/user/focus/FocusSession';
 
 function App() {
   return (
