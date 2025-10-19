@@ -14,18 +14,18 @@ export const CurrentProgress = ({ todos }) => {
 
   if (inProgress.length === 0) {
     return (
-      <div className="p-6 bg-card-background border border-card-border rounded-2xl shadow-md text-center">
+      <div className="min-w-md max-w-md p-6 bg-card-background border border-card-border rounded-2xl shadow-md text-center">
         <p className="text-text-muted">No tasks in progress right now.</p>
       </div>
     );
   }
 
   return (
-    <div className="min-w-md max-w-nd p-6 bg-card-background border border-card-border rounded-2xl shadow-md">
+    <div className="lg:min-w-md lg:max-w-md flex flex-col lg:h-150 p-6 bg-card-background border border-card-border rounded-2xl shadow-md">
       <h3 className="text-lg font-semibold text-text-primary mb-4">
         Current Tasks
       </h3>
-      <div className="overflow-y-auto">
+      <div className="p-2 overflow-y-auto">
         <ul className="space-y-3">
             {inProgress.map((todo) => {
             const Icon = STATUS_ICON[todo.status];
