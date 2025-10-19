@@ -18,10 +18,12 @@ export const Settings = ({
         "Are you sure you want to clear all data? This will reset the timer, todos, and session history."
       )
     ) {
-      localStorage.removeItem("timerStateFocus");
-      localStorage.removeItem("timerStateBreak");
+      localStorage.removeItem("breaksNumber");
+      localStorage.removeItem("breakDuration");
+      localStorage.removeItem("autoStartBreaks");
       localStorage.removeItem("focusSessionState");
       localStorage.removeItem("sessionHistory");
+      localStorage.removeItem("totalFocusDuration");
       localStorage.removeItem("focusTodos");
       localStorage.removeItem("focusTabHiddenAt");
       window.location.reload();
@@ -73,7 +75,7 @@ export const Settings = ({
             </label>
             <input
               type="number"
-              min="1"
+              min="0"
               max="30"
               value={breakDuration / 60}
               onChange={(e) => setBreakDuration(parseInt(e.target.value, 10) * 60)}
@@ -83,18 +85,18 @@ export const Settings = ({
 
           <div className="flex items-center justify-between p-3 rounded-lg bg-background-secondary">
             <label className="text-sm font-medium text-text-primary">
-              Breaks per session
+              Maximium breaks per session
             </label>
             <input
               type="number"
-              min="1"
+              min="0"
               max="10"
               value={totalBreaks}
               onChange={(e) => {
                 const val = parseInt(e.target.value, 10);
-                if (!isNaN(val) && val > 0) {
+                if (!isNaN(val) && val >= 0) {
                   setTotalBreaks(val);
-                  setBreaksLeft(val);
+                  // setBreaksLeft(val);
                 }
               }}
               className="w-20 px-3 py-2 rounded-lg text-center focus-ring-primary bg-input-background border border-input-border text-text-primary"

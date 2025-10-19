@@ -1,5 +1,12 @@
 import React from "react";
-import { X, PlusCircle, Circle, Clock, CheckCircle2, XCircle } from "lucide-react";
+import {
+  X,
+  PlusCircle,
+  Circle,
+  Clock,
+  CheckCircle2,
+  XCircle,
+} from "lucide-react";
 
 const STATUS_CONFIG = {
   "Not Started": {
@@ -48,9 +55,13 @@ const TodoItem = ({ todo, onUpdateStatus, onDelete }) => {
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3 flex-1">
-          <StatusIcon className={`w-5 h-5 mt-0.5 flex-shrink-0 ${statusConfig.color}`} />
+          <StatusIcon
+            className={`w-5 h-5 mt-0.5 flex-shrink-0 ${statusConfig.color}`}
+          />
           <div className="flex-1">
-            <p className="font-medium text-text-primary break-words">{todo.text}</p>
+            <p className="font-medium text-text-primary break-words">
+              {todo.text}
+            </p>
             <span className={`text-xs ${statusConfig.color} font-medium`}>
               {statusConfig.label}
             </span>
@@ -110,20 +121,21 @@ export const TodoList = ({
   onUpdateStatus,
   onDeleteTodo,
 }) => {
-    const handleAddTodo = () => {
-        onAddTodo();
-        setNewTodo("");
-    };
+  const handleAddTodo = () => {
+    onAddTodo();
+    setNewTodo("");
+  };
 
-    const stats = {
-        total: todos.length,
-        completed: todos.filter((t) => t.status === "Completed").length,
-        inProgress: todos.filter((t) => t.status === "In Progress").length,
-        notStarted: todos.filter((t) => t.status === "Not Started").length,
-        skipped: todos.filter((t) => t.status === "Skipped").length, 
-    };
-    const progressCount = stats.completed + stats.skipped;
-    const progressPercent = stats.total > 0 ? Math.round((progressCount / stats.total) * 100) : 0;
+  const stats = {
+    total: todos.length,
+    completed: todos.filter((t) => t.status === "Completed").length,
+    inProgress: todos.filter((t) => t.status === "In Progress").length,
+    notStarted: todos.filter((t) => t.status === "Not Started").length,
+    skipped: todos.filter((t) => t.status === "Skipped").length,
+  };
+  const progressCount = stats.completed + stats.skipped;
+  const progressPercent =
+    stats.total > 0 ? Math.round((progressCount / stats.total) * 100) : 0;
 
   return (
     <div
@@ -131,11 +143,11 @@ export const TodoList = ({
         show ? "opacity-100 visible" : "opacity-0 invisible"
       }`}
     >
-      <div 
+      <div
         className="absolute inset-0 bg-black/20 backdrop-blur-sm"
         onClick={onClose}
       />
-      
+
       <div
         className={`flex flex-col absolute right-0 top-0 h-full w-full max-w-md bg-card-background border-l border-card-border shadow-2xl transform transition-transform duration-300 ease-in-out ${
           show ? "translate-x-0" : "translate-x-full"
@@ -221,16 +233,14 @@ export const TodoList = ({
         </div>
 
         {todos.length > 0 && (
-            <div className="p-4 border-t border-card-border bg-background-secondary/50">
-                <div className="flex justify-between text-xs text-text-muted">
-                <span>
-                    {progressCount} of {stats.total} done
-                </span>
-                <span>
-                    {progressPercent}% done
-                </span>
-                </div>
+          <div className="p-4 border-t border-card-border bg-background-secondary/50">
+            <div className="flex justify-between text-xs text-text-muted">
+              <span>
+                {progressCount} of {stats.total} done
+              </span>
+              <span>{progressPercent}% done</span>
             </div>
+          </div>
         )}
       </div>
     </div>
