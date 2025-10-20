@@ -65,14 +65,19 @@ const MotivationalQuotes = ({ show, onClose }) => {
   const [quote, setQuote] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [isInCooldown, setIsInCooldown] = useState(false);
   const lastFetchRef = useRef(0);
-  const FETCH_COOLDOWN_MS = 60000; // 1 minute cooldown
+  const FETCH_COOLDOWN_MS = 10000; // 10sec cooldown
 
   const fetchQuote = useCallback(async () => {
     const now = Date.now();
-    if (now - lastFetchRef.current < FETCH_COOLDOWN_MS) return; // Cooldown active
+    if (now - lastFetchRef.current < FETCH_COOLDOWN_MS) {
+      setIsInCooldown(true);
+      return;
+    }
 
     lastFetchRef.current = now;
+    setIsInCooldown(false);
 
     setLoading(true);
     setError(null);
@@ -96,12 +101,30 @@ const MotivationalQuotes = ({ show, onClose }) => {
       }
     }
 
-    // Fallback to local quotes if all APIs fail
-    const randomQuote = FALLBACK_QUOTES[Math.floor(Math.random() * FALLBACK_QUOTES.length)];
+    const randomQuote =
+      FALLBACK_QUOTES[Math.floor(Math.random() * FALLBACK_QUOTES.length)];
     setQuote(randomQuote);
     setLoading(false);
     setError("Failed to fetch online quotes. Showing fallback.");
   }, []);
+
+  useEffect(() => {
+    if (!show) return;
+
+    const checkCooldown = () => {
+      const now = Date.now();
+      if (now - lastFetchRef.current < FETCH_COOLDOWN_MS) {
+        setIsInCooldown(true);
+      } else {
+        setIsInCooldown(false);
+      }
+    };
+
+    checkCooldown();
+    const interval = setInterval(checkCooldown, 1000);
+
+    return () => clearInterval(interval);
+  }, [show, FETCH_COOLDOWN_MS]);
 
   useEffect(() => {
     if (show && !quote) {
@@ -119,8 +142,7 @@ const MotivationalQuotes = ({ show, onClose }) => {
     <div
       className="w-full max-w-2xl mt-4 relative z-10 overflow-hidden transition-all duration-300 ease-in-out"
       style={{
-        maxHeight: show ? "400px" : "0",
-        opacity: show ? 1 : 0,
+        display: show ? "block" : "none",
       }}
     >
       <div className="p-6 rounded-2xl shadow-lg bg-card-background border border-card-border">
@@ -132,15 +154,19 @@ const MotivationalQuotes = ({ show, onClose }) => {
           <div className="flex gap-2">
             <button
               onClick={handleRefresh}
-              disabled={loading}
-              className="p-2 rounded-lg transition-all duration-300 bg-button-secondary text-button-secondary-text hover:bg-button-secondary-hover disabled:opacity-50"
-              title="Get new quote"
+              disabled={loading || isInCooldown}
+              className="p-2 rounded-lg transition-all duration-300 bg-button-secondary text-button-secondary-text hover:bg-button-secondary-hover disabled:opacity-50 disabled:cursor-not-allowed"
+              title={
+                isInCooldown ? "Please wait before refreshing" : "Get new quote"
+              }
             >
-              <RefreshCw className={`w-5 h-5 ${loading ? "animate-spin" : ""}`} />
+              <RefreshCw
+                className={`w-5 h-5 ${loading ? "animate-spin" : ""}`}
+              />
             </button>
             <button
               onClick={onClose}
-              className="p-2 rounded-lg transition-all duration-300 text-text-secondary hover:text-text-primary"
+              className="p-2 rounded-lg transition-all duration-300 text-text-secondary hover:text-text-primary shadow-none hover:scale-110"
             >
               <X className="w-5 h-5" />
             </button>
@@ -158,7 +184,9 @@ const MotivationalQuotes = ({ show, onClose }) => {
               <blockquote className="text-lg font-medium text-text-primary leading-relaxed px-4">
                 "{quote.text}"
               </blockquote>
-              <cite className="text-text-secondary font-semibold block">— {quote.author}</cite>
+              <cite className="text-text-secondary font-semibold block">
+                — {quote.author}
+              </cite>
               <div className="flex justify-center pt-2">
                 <div className="w-12 h-1 bg-text-accent rounded-full opacity-30"></div>
               </div>
@@ -167,7 +195,10 @@ const MotivationalQuotes = ({ show, onClose }) => {
             <div className="text-center text-text-muted">
               <Quote className="w-12 h-12 mx-auto mb-2 opacity-30" />
               <p>Unable to load quote</p>
-              <button onClick={handleRefresh} className="mt-2 text-text-accent hover:underline">
+              <button
+                onClick={handleRefresh}
+                className="mt-2 text-text-accent hover:underline"
+              >
                 Try again
               </button>
             </div>
