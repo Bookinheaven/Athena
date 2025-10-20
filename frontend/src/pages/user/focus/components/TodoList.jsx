@@ -59,9 +59,14 @@ const TodoItem = ({ todo, onUpdateStatus, onDelete }) => {
             className={`w-5 h-5 mt-0.5 flex-shrink-0 ${statusConfig.color}`}
           />
           <div className="flex-1">
-            <p className="font-medium text-text-primary break-words">
-              {todo.text}
-            </p>
+            <div className="flex items-center flex-wrap gap-2 mb-1">
+              <p className="font-medium text-text-primary break-all pr-2">
+                {todo.text}
+              </p>
+              {/* <div className="flex-shrink-0 px-1.5 py-0.5 text-xs font-mono rounded bg-background-secondary text-text-muted border border-border-secondary">
+                ID: {todo.id}
+              </div> */}
+          </div>
             <span className={`text-xs ${statusConfig.color} font-medium`}>
               {statusConfig.label}
             </span>
@@ -157,7 +162,7 @@ export const TodoList = ({
           <h3 className="text-xl font-semibold text-text-primary">Tasks</h3>
           <button
             onClick={onClose}
-            className="text-text-secondary hover:text-text-primary transition-colors p-2 rounded-lg hover:bg-background-secondary"
+            className="p-2 rounded-lg transition-all duration-300 text-text-secondary hover:text-text-primary shadow-none hover:scale-110"
           >
             <X className="w-5 h-5" />
           </button>
@@ -169,7 +174,7 @@ export const TodoList = ({
               type="text"
               value={newTodo}
               onChange={(e) => setNewTodo(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleAddTodo()}
+              onKeyDown={(e) => {e.stopPropagation(); e.key === "Enter" && handleAddTodo();}}
               placeholder="Add a new task..."
               className="flex-1 px-4 py-3 rounded-xl focus-ring-primary bg-input-background border border-input-border text-text-primary placeholder:text-input-placeholder"
             />

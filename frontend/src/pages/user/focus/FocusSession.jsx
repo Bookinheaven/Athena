@@ -1,18 +1,31 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { ListTodo, Quote, Settings as SettingsIcon } from "lucide-react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import {
+  List,
+  ListTodo,
+  NotebookPen,
+  Quote,
+  Settings as SettingsIcon,
+} from "lucide-react";
 import createSessionData from "./hooks/useSessionData";
 import { useLocalStorage } from "./hooks/useLocalStorage";
+import { useSessionStorage } from "./hooks/useSessionStorage";
 import { Settings } from "./components/Setting";
-import { useTimer } from "./hooks/useTimer";
 import { Timer } from "./components/Timer";
 import { TodoList } from "./components/TodoList";
 import MotivationalQuotes from "./components/MotivationalQuotes";
 import CurrentProgress from "./components/CurrentProgress";
+import Notes from "./components/Notes";
+import { SessionReview } from "./components/SessionReview";
+import { useSegmentManager } from "./hooks/useSegmentManager";
+import sessionService from "../../../../services/sessionService";
+import { useAuth } from "../../../../contexts/AuthContext";
+import toast from "react-hot-toast";
+import { v4 as uuidv4 } from "uuid";
 
 const FocusSession = () => {
-  const [showSettings, setShowSettings] = useState(false);
-  const [showTodos, setShowTodos] = useState(false);
   const [showQuotes, setShowQuotes] = useState(true);
+  const [activePanel, setActivePanel] = useState("notes");
+  const { user } = useAuth();
 
   const [breakDuration, setBreakDuration] = useLocalStorage(
     "breakDuration",
@@ -27,111 +40,193 @@ const FocusSession = () => {
     "totalFocusDuration",
     25 * 60
   );
-
   const [todos, setTodos] = useLocalStorage("focusTodos", []);
-  const [newTodo, setNewTodo] = useState("");
+  const [notes, setNotes] = useLocalStorage("notes", [
+    {
+      id: 1,
+      text: "Welcome to your notes!",
+      group: "General",
+      createdAt: new Date().toISOString(),
+    },
+    {
+      id: 2,
+      text: "Try editing this note.",
+      group: "General",
+      createdAt: new Date().toISOString(),
+    },
+  ]);
   const [sessionHistory, setSessionHistory] = useLocalStorage(
     "sessionHistory",
     []
   );
 
-  const [sessionTitle, setSessionTitle] = useState("Pomodoro");
-  const [currentSegmentIndex, setCurrentSegmentIndex] = useState(0);
-  const [currentFocusDuration, setCurrentFocusDuration] = useLocalStorage(0);
+  const [newTodo, setNewTodo] = useState("");
+  const [sessionTitle, setSessionTitle] = useState("Untitled Work");
   const [newSession, setNewSession] = useState(false);
+  const [sessionReview, setSessionReview] = useSessionStorage("sessionReview", {
+    mood: null,
+    focus: null,
+    distractions: "",
+  });
 
-  const initialSession = () => {
+  const initialSession = useCallback(() => {
+    const safeTotalFocus = totalFocusDuration ?? 25 * 60;
+    const safeBreak = breakDuration ?? 60;
+    const safeBreaksNum = breaksNumber ?? 4;
     const segments = createSessionData(
-      totalFocusDuration,
-      breakDuration,
-      breaksNumber
+      safeTotalFocus,
+      safeBreak,
+      safeBreaksNum
     );
+
+    setSessionReview({ mood: null, focus: null, distractions: "" });
+
     return {
+      sessionId: uuidv4(),
       title: sessionTitle,
       segmentIndex: 0,
       totalBreaks: segments.filter((s) => s.type === "break").length,
-      breakDuration,
-      maxBreaks: breaksNumber,
+      breakDuration: safeBreak,
+      maxBreaks: safeBreaksNum,
       currentDuration: 0,
-      totalDuration: totalFocusDuration,
+      totalDuration: safeTotalFocus,
       segments,
       isDone: false,
       timestamp: new Date().toISOString(),
     };
-  };
+  }, [
+    sessionTitle,
+    totalFocusDuration,
+    breakDuration,
+    breaksNumber,
+    setSessionReview,
+  ]);
 
-  const [sessionData, setSessionData] = useLocalStorage(
+  const [sessionData, setSessionData] = useSessionStorage(
     "sessionData",
     initialSession
   );
 
-  useEffect(() => {
-    setCurrentSegmentIndex(sessionData?.segmentIndex || 0);
-  }, []);
-
-  useEffect(() => {
-    console.log("data ", sessionData)
-  }, [sessionData]);
+  const {
+    currentSegmentIndex,
+    currentSegment,
+    updateSegment,
+    timeLeft,
+    isStarted,
+    start,
+    pause,
+    reset,
+  } = useSegmentManager({
+    sessionData,
+    setSessionData,
+    totalFocusDuration,
+    autoStartBreaks,
+    setSessionHistory,
+  });
 
   useEffect(() => {
     if (newSession) {
-      setSessionData(initialSession());
-      setCurrentSegmentIndex(0);
-      setNewSession(p=> false);
+      const fresh = initialSession();
+      setSessionData(fresh);
+      // reset();
+      setSessionHistory([])
+      setNewSession(false);
     }
-  }, [newSession]);
+  }, [newSession, initialSession, setSessionData, reset]);
 
-  const initialTimeLeft = useMemo(() => {
-    const segment = sessionData.segments?.[currentSegmentIndex];
-    console.log("called initialTimeLeft");
-    if (!segment) return 0;
-    if (!segment.startTimestamp) return (segment.totalDuration) - (segment.duration || 0);
-    const startTime = new Date(segment.startTimestamp).getTime();
-    const now = Date.now();
-    const elapsedSinceStart = Math.floor((now - startTime) / 1000);
-    const totalElapsed = (segment.duration || 0) + elapsedSinceStart;
-    return Math.max((segment.totalDuration || totalFocusDuration) - totalElapsed, 0);
-  }, [sessionData.segments, currentSegmentIndex, totalFocusDuration]);
-
-  
-  const timerControls = useTimer(initialTimeLeft, () => {
-    const seg = sessionData.segments[currentSegmentIndex];
-    setSessionHistory((h) => [...h, { ...seg, completedAt: new Date().toISOString() }]);
-    if (currentSegmentIndex + 1 < sessionData.segments.length) {
-      const nextIndex = currentSegmentIndex + 1;
-      setCurrentSegmentIndex(nextIndex);
-      setSessionData((prev) => {
-        const newSegments = [...prev.segments];
-        newSegments[nextIndex] = {
-          ...newSegments[nextIndex],
-          startTimestamp: null,
-          duration: 0,
-        };
-        return { ...prev, segments: newSegments, segmentIndex: nextIndex };
-      });
-    } else {
-      setSessionData((prev) => ({ ...prev, isDone: true }));
+  const handleSaveToBackend = useCallback(async () => {
+    if (!user || !sessionData || !sessionData.sessionId) return;
+    const payload = {
+      userId: user._id,
+      sessionId: sessionData.sessionId,
+      session: { ...sessionData, title: sessionTitle },
+      userSettings: {
+        totalFocusDuration,
+        breakDuration,
+        autoStartBreaks,
+        breaksNumber,
+      },
+      userData: { todos, notes },
+      sessionReview: sessionReview,
+      history: sessionHistory?.length ? sessionHistory : undefined,
+    };
+    console.log(payload);
+    try {
+      await sessionService.saveSession(payload);
+    } catch (error) {
+      console.error("Session save error: ", error);
     }
-  });
+  }, [
+    user,
+    sessionData,
+    sessionTitle,
+    totalFocusDuration,
+    breakDuration,
+    autoStartBreaks,
+    breaksNumber,
+    todos,
+    notes,
+    sessionHistory,
+    sessionReview,
+  ]);
 
-  const updateSegment = (index, updates) => {
-    setSessionData((prev) => {
-      const newSegments = prev.segments.map((seg, idx) => idx === index ? { ...seg, ...updates } : seg);
-      return { ...prev, segments: newSegments };
-    });
-
-  };
+  const savedCallback = useRef();
+  useEffect(() => {
+    savedCallback.current = handleSaveToBackend;
+  }, [handleSaveToBackend]);
 
   useEffect(() => {
-    if (
-      sessionData?.segments &&
-      sessionData.segments.length > 0 &&
-      sessionData.segments[currentSegmentIndex] &&
-      sessionData.segments[currentSegmentIndex]?.length > 0
-    ) {
-      timerControls.start();
+    if (sessionData?.isDone || currentSegmentIndex > 0) {
+      if (savedCallback.current) savedCallback.current();
     }
-  }, [currentSegmentIndex, sessionData.segments, timerControls]);
+  }, [currentSegmentIndex, sessionData?.isDone]);
+
+  useEffect(() => {
+    let intervalId = null;
+    if (isStarted) {
+      const fiveMinutes = 5 * 60 * 1000;
+      intervalId = setInterval(() => {
+        if (savedCallback.current) savedCallback.current();
+      }, fiveMinutes);
+    }
+    return () => clearInterval(intervalId);
+  }, [isStarted]);
+
+  const handleFinalSaveAndStartNew = useCallback(async () => {
+    if (savedCallback.current) {
+      await savedCallback.current();
+    }
+    setNewSession(true);
+  }, []);
+
+  const handleReviewUpdate = useCallback(
+    (field, value) => {
+      setSessionReview((prev) => ({ ...prev, [field]: value }));
+    },
+    [setSessionReview]
+  );
+  const handleDistractionToggle = useCallback(
+    (distraction) => {
+      setSessionReview((prev) => {
+        const currentDistractions = (prev.distractions || "")
+          .split(",")
+          .map((d) => d.trim().toLowerCase())
+          .filter(Boolean);
+
+        const distractionLower = distraction.toLowerCase();
+        let newDistractions;
+        if (currentDistractions.includes(distractionLower)) {
+          newDistractions = currentDistractions
+            .filter((d) => d !== distractionLower)
+            .join(", ");
+        } else {
+          newDistractions = [...currentDistractions, distraction].join(", ");
+        }
+        return { ...prev, distractions: newDistractions };
+      });
+    },
+    [setSessionReview]
+  );
 
   const handleAddTodo = useCallback(() => {
     if (!newTodo.trim()) return;
@@ -158,108 +253,117 @@ const FocusSession = () => {
     [setTodos]
   );
 
-  const handleShowQuotes = () => {
-    setShowQuotes(!showQuotes);
-    setShowSettings(false);
-    setShowTodos(false);
+  const handlePanelToggle = (panelName) => {
+    setActivePanel((current) => (current === panelName ? null : panelName));
   };
+
+  const handleClearHistory = useCallback(() => {
+    setSessionHistory([]);
+    toast.success("Session history has been cleared.");
+  }, [setSessionHistory]);
 
   return (
     <div className="pt-23 lg:pt-2 min-h-screen flex flex-col p-4 relative theme-transition bg-background-color">
-      <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-30">
-        <div
-          className="absolute -top-40 -right-40 w-80 h-80 rounded-full blur-3xl animate-pulse bg-button-primary"
-          style={{ opacity: 0.1, animationDuration: "4s" }}
-        />
-        <div
-          className="absolute -bottom-40 -left-40 w-80 h-80 rounded-full blur-3xl animate-pulse bg-text-accent"
-          style={{
-            opacity: 0.1,
-            animationDuration: "6s",
-            animationDelay: "1s",
-          }}
-        />
-      </div>
+      <div className="w-full mb-6 relative z-10 fade-in flex justify-end gap-2">
+        <button
+          onClick={() => setShowQuotes((s) => !s)}
+          className="flex items-center gap-2 px-3 py-1 rounded-lg bg-button-secondary text-button-secondary-text hover:bg-button-secondary-hover transition-colors"
+          title="Get motivated"
+        >
+          <Quote className="w-5 h-5" />
+          <span className="text-sm">Inspire Me</span>
+        </button>
 
-      <div className="w-full mb-6 relative z-10 fade-in">
-        <div className="flex justify-end">
-          <div className="flex gap-2">
-            <button
-              onClick={handleShowQuotes}
-              className="flex items-center gap-2 px-3 py-1 rounded-lg bg-button-secondary text-button-secondary-text hover:bg-button-secondary-hover transition-colors"
-              title="Get motivated"
-            >
-              <Quote className="w-5 h-5" />
-              <span className="text-sm">Inspire Me</span>
-            </button>
-            <button
-              onClick={() => {
-                setShowTodos((v) => !v);
-                setShowSettings(false);
-              }}
-              className={`p-3 rounded-xl shadow-md transition-all duration-300 border border-card-border ${
-                showTodos
-                  ? "bg-button-primary text-button-primary-text"
-                  : "bg-card-background text-text-primary"
-              }`}
-              aria-label="Toggle tasks"
-            >
-              <ListTodo className="w-5 h-5" />
-            </button>
-            <button
-              onClick={() => {
-                setShowSettings((v) => !v);
-                setShowTodos(false);
-              }}
-              className={`p-3 rounded-xl shadow-md transition-all duration-300 border border-card-border ${
-                showSettings
-                  ? "bg-button-primary text-button-primary-text"
-                  : "bg-card-background text-text-primary"
-              }`}
-              aria-label="Toggle settings"
-            >
-              <SettingsIcon className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
+        {[
+          { icon: List, key: "progress" },
+          { icon: NotebookPen, key: "notes" },
+          { icon: ListTodo, key: "todos" },
+          { icon: SettingsIcon, key: "settings" },
+        ].map(({ icon: Icon, key }) => (
+          <button
+            key={key}
+            onClick={() => handlePanelToggle(key)}
+            className={`p-3 rounded-xl shadow-md transition-all duration-300 border border-card-border ${
+              activePanel === key
+                ? "bg-button-primary text-button-primary-text"
+                : "bg-card-background text-text-primary"
+            }`}
+            aria-label={`Toggle ${key}`}
+          >
+            <Icon className="w-5 h-5" />
+          </button>
+        ))}
       </div>
 
       <div className="flex justify-center items-center flex-grow">
         <Settings
-          show={showSettings}
           breakDuration={breakDuration}
           setBreakDuration={setBreakDuration}
           autoStartBreaks={autoStartBreaks}
           setAutoStartBreaks={setAutoStartBreaks}
           totalBreaks={breaksNumber}
           setTotalBreaks={setBreaksNumber}
-          onClose={() => setShowSettings(false)}
+          onClearHistory={handleClearHistory}
+          show={activePanel === "settings"}
+          onClose={() => setActivePanel(null)}
         />
 
         <div className="flex flex-col gap-10 lg:flex-row mt-2 lg:mt-10">
-          {sessionData?.segments && sessionData.segments.length > 0 && (
+          {sessionData?.isDone ? (
+            <SessionReview
+              reviewData={sessionReview}
+              onUpdate={handleReviewUpdate}
+              onDistractionToggle={handleDistractionToggle}
+              onNewSession={handleFinalSaveAndStartNew}
+            />
+          ) : sessionData?.segments?.length > 0 ? (
             <Timer
-              timeLeft={timerControls.timeLeft}
-              isStarted={timerControls.isStarted}
-              start={timerControls.start}
-              pause={timerControls.pause}
-              reset={timerControls.reset}
-              isBreak={
-                sessionData.segments[currentSegmentIndex]?.type === "break"
-              }
+              timeLeft={timeLeft}
+              isStarted={isStarted}
+              start={start}
+              pause={pause}
+              reset={reset}
+              isBreak={currentSegment?.type === "break"}
               sessionType={sessionTitle}
               setSessionType={setSessionTitle}
               setTotalFocusDuration={setTotalFocusDuration}
               totalFocusDuration={totalFocusDuration}
-              breaksLeft={sessionData.segments.filter((s) => s.type === "break" && s.completedAt == null).length}
-              currentFocusDuration={currentFocusDuration}
-              setCurrentFocusDuration={setCurrentFocusDuration}
-              currentSegmentData={sessionData.segments[currentSegmentIndex]}
+              breaksLeft={
+                sessionData.segments.filter(
+                  (s) => s.type === "break" && !s.completedAt
+                ).length
+              }
+              currentSegmentData={currentSegment}
+              currentSegmentIndex={currentSegmentIndex}
+              totalSegments={sessionData.segments.length}
+              totalfocusSegments={
+                sessionData.segments.filter((s) => s.type === "focus").length
+              }
+              totalbreakSegments={
+                sessionData.segments.filter((s) => s.type === "break").length
+              }
+              foucsSegments={
+                sessionData.segments.filter(
+                  (s) => s.type === "focus" && !s.completedAt
+                ).length
+              }
               onSegmentUpdate={(x) => updateSegment(currentSegmentIndex, x)}
-              setNewSession={() => setNewSession(p => true)}
+              setNewSession={() => setNewSession(true)}
+              isDone={sessionData?.isDone}
             />
-          )}
-          <CurrentProgress todos={todos} />
+          ) : null}
+
+          <CurrentProgress
+            todos={todos}
+            show={activePanel === "progress"}
+            onClose={() => setActivePanel(null)}
+          />
+          <Notes
+            notes={notes}
+            setNotes={setNotes}
+            show={activePanel === "notes"}
+            onClose={() => setActivePanel(null)}
+          />
         </div>
 
         <TodoList
@@ -269,8 +373,8 @@ const FocusSession = () => {
           onAddTodo={handleAddTodo}
           onUpdateStatus={handleUpdateTodoStatus}
           onDeleteTodo={handleDeleteTodo}
-          show={showTodos}
-          onClose={() => setShowTodos(false)}
+          show={activePanel === "todos"}
+          onClose={() => setActivePanel(null)}
         />
       </div>
 

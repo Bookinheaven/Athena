@@ -1,5 +1,5 @@
 import React from "react";
-import { Clock, CheckCircle2, XCircle } from "lucide-react";
+import { Clock, CheckCircle2, XCircle, X } from "lucide-react";
 
 const STATUS_ICON = {
   "In Progress": Clock,
@@ -7,24 +7,49 @@ const STATUS_ICON = {
   Skipped: XCircle,
 };
 
-export const CurrentProgress = ({ todos }) => {
+export const CurrentProgress = ({ todos, show, onClose }) => {
   const inProgress = todos.filter(
     (t) => t.status === "In Progress"
   );
 
   if (inProgress.length === 0) {
     return (
-      <div className="min-w-md max-w-md p-6 bg-card-background border border-card-border rounded-2xl shadow-md text-center">
+      <div className="min-w-md max-w-md p-6 bg-card-background border border-card-border rounded-2xl shadow-md text-center"
+      style={{
+        display: show ? "block" : "none",
+      }}>
+        <div className="flex justify-between">
+          <h3 className="text-lg font-semibold text-text-primary mb-4">
+            Current Tasks
+          </h3>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-lg transition-all duration-300 text-text-secondary hover:text-text-primary shadow-none hover:scale-110"
+          >
+            <X className="w-5 h-5" />
+          </button>
+      </div>
         <p className="text-text-muted">No tasks in progress right now.</p>
       </div>
     );
   }
 
   return (
-    <div className="lg:min-w-md lg:max-w-md flex flex-col lg:h-150 p-6 bg-card-background border border-card-border rounded-2xl shadow-md">
-      <h3 className="text-lg font-semibold text-text-primary mb-4">
-        Current Tasks
-      </h3>
+    <div className="lg:min-w-md lg:max-w-md flex flex-col lg:h-150 p-6 bg-card-background border border-card-border rounded-2xl shadow-md"
+    style={{
+        display: show ? "flex" : "none",
+    }}>
+      <div className="flex justify-between">
+        <h3 className="text-lg font-semibold text-text-primary mb-4">
+          Current Tasks
+        </h3>
+        <button
+          onClick={onClose}
+          className="p-2 rounded-lg transition-all duration-300 text-text-secondary hover:text-text-primary shadow-none hover:scale-110"
+        >
+          <X className="w-5 h-5" />
+        </button>
+      </div>
       <div className="p-2 overflow-y-auto">
         <ul className="space-y-3">
             {inProgress.map((todo) => {
