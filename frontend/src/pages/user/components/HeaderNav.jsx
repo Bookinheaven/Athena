@@ -27,74 +27,69 @@ export default function HeaderNav() {
 
   useEffect(() => {
     const handleScroll = () => {
-      if (window.scrollY > lastScrollY && window.scrollY > 100) {
+      const currentScrollY = window.scrollY;
+      if (currentScrollY > lastScrollY && currentScrollY > 80) { 
         setIsVisible(false);
       } else {
         setIsVisible(true);
       }
-      setLastScrollY(window.scrollY);
+      setLastScrollY(currentScrollY);
     };
-    window.addEventListener("scroll", handleScroll);
+    window.addEventListener("scroll", handleScroll, { passive: true }); 
     return () => window.removeEventListener("scroll", handleScroll);
   }, [lastScrollY]);
 
   useEffect(() => {
     const interval = setInterval(() => {
       setTime(new Date());
-    }, 1000);
+    }, 1000); 
     return () => clearInterval(interval);
   }, []);
 
   return (
     <header
-      className={`
-        fixed top-4 z-50 flex items-center justify-between
-        py-1 rounded-2xl lg:w-[20%] pr-10 pl-4
-        bg-card-background/80 backdrop-blur-md border border-border-primary
-        shadow-lg shadow-shadow-primary hover:shadow-shadow-hover
-        transition-all duration-500 ease-in-out
-        ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-10"}
-      `}
+      className={`fixed top-4 left-1/2 z-50 flex -translate-x-1/2 transform items-center justify-between rounded-full border border-border-primary/50 bg-card-background/70 px-4 py-2 shadow-lg shadow-shadow-primary/30 backdrop-blur-lg transition-all duration-300 ease-in-out w-[90%] md:w-[60%] lg:w-[40%] xl:w-[30%] ${isVisible ? "translate-y-0 opacity-100" : "-translate-y-16 opacity-0"}`}
     >
-      <nav className="flex items-center gap-6 flex-grow">
+      <nav className="flex items-center gap-4 border-r border-border-primary/50 pr-1">
         {navItems.map(({ to, icon: Icon, label }) => (
           <NavLink
             key={to}
             to={to}
             title={label}
             className={({ isActive }) =>
-              `flex flex-col items-center text-sm font-medium transition-all duration-200 ${
+              `relative flex items-center justify-center rounded-full p-2 transition-all duration-200 ease-in-out group focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary focus-visible:ring-offset-2 focus-visible:ring-offset-card-background
+              ${
                 isActive
-                  ? "text-accent-primary scale-110"
-                  : "text-text-muted hover:text-accent-primary"
-              }`
+                  ? "bg-accent-primary/20 text-accent-primary scale-105" 
+                  : "text-text-muted hover:text-accent-primary hover:bg-white/5" 
+              }
+            `
             }
           >
-            <Icon className="w-5 h-5 mb-1" />
+            <Icon className="h-5 w-5" />
           </NavLink>
         ))}
       </nav>
 
-      <div className="px-4 text-sm font-medium text-text-secondary">
-        {time.toLocaleTimeString()}
+      <div className="px-4 text-xl font-medium text-text-secondary tabular-nums">
+        {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 border-l border-border-primary/50 pl-3">
         <ThemeToggle />
         <button
           onClick={handleLogout}
           title="Logout"
           className="
-            flex items-center justify-center
-            p-2 rounded-full
-            bg-red-500/80 hover:bg-red-500
-            text-white
-            transition-all duration-300
-            hover:scale-110 focus:outline-none
-            focus:ring-2 focus:ring-offset-2 focus:ring-red-400
+            flex h-8 w-8 items-center justify-center rounded-full
+            bg-red-500/30 text-red-400
+            transition-all duration-300 ease-in-out
+            hover:scale-110 hover:bg-red-500 hover:text-white 
+            focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-red-500 focus-visible:ring-offset-card-background
           "
+          aria-label="Logout" 
         >
-          <LogOut className="w-5 h-5" />
+          <LogOut className="h-4 w-4" /> 
         </button>
       </div>
     </header>

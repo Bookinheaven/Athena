@@ -8,9 +8,9 @@ import {
   Clock,
   Target,
   Coffee,
-  Pencil,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { EditableTitle } from "./EditableTitle";
 
 const R = 45;
 const CIRCUMFERENCE = 2 * Math.PI * R;
@@ -22,8 +22,8 @@ export const Timer = ({
   pause,
   reset,
   isBreak,
-  sessionType,
-  setSessionType,
+  sessionTitle,
+  setSessionTitle,
   setTotalFocusDuration,
   totalFocusDuration,
   breaksLeft,
@@ -40,7 +40,7 @@ export const Timer = ({
   const [customMinutes, setCustomMinutes] = useState(25);
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [paused, setPaused] = useState(false);
-  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [sessionType, setSessionType] = useState("")
 
   const timeoutRef = useRef(null);
   const intervalRef = useRef(null);
@@ -48,10 +48,12 @@ export const Timer = ({
   const breakEndSound = useRef(null);
   const lastUpdateRef = useRef(Date.now());
   const lastActiveRef = useRef(Date.now());
-  const titleInputRef = useRef(null);
+
   useEffect(() => {
     focusEndSound.current = new Audio("/focus_ended.mp3");
     breakEndSound.current = new Audio("/break_ended.mp3");
+    setPaused(!currentSegmentData?.startTimestamp);
+
   }, []);
 
   const notify = useCallback((msg, type = "success") => {
@@ -89,7 +91,6 @@ export const Timer = ({
         startTimestamp: new Date().toISOString(),
       });
       lastActiveRef.current = Date.now();
-      // console.log("here")
     }
   }, [isStarted, pause, start, onSegmentUpdate, currentSegmentData]);
 
@@ -101,7 +102,7 @@ export const Timer = ({
       const elapsed = (now - lastActiveRef.current) / 1000;
 
       if (elapsed > 3) {
-        console.warn("⏱ Timer inactivity detected. Attempting auto-resume...");
+        // console.warn("⏱ Timer inactivity detected. Attempting auto-resume...");
         start(); 
       }
     }, 5000);
@@ -147,35 +148,31 @@ export const Timer = ({
       intervalRef.current = setInterval(action, 100);
     }, 400);
   };
-
+  useEffect(()=> {console.log(paused)}, [paused])
   const handleCustomTimeSet = useCallback(() => {
     const customDuration = customMinutes * 60;
     setTotalFocusDuration(customDuration);
     setNewSession();
     setShowCustomInput(false);
+    setPaused(false)
     setSessionType(`${customMinutes}m Custom`);
   }, [customMinutes, setTotalFocusDuration, setNewSession, setSessionType]);
 
   useEffect(() => {
-    setPaused(!currentSegmentData?.startTimestamp);
-  }, [currentSegmentData]);
-
-  useEffect(() => {
     const handleKeyDown = (event) => {
       const isTyping = /^(input|textarea)$/i.test(event.target.tagName);
-      if (isEditingTitle) return; 
 
       if (event.code === "Space" && !isTyping) {
         event.preventDefault();
         handleStartPause();
       } else if (event.key.toLowerCase() === "r" && !isTyping) {
         setPaused(false);
-        // reset();
+        reset();
       }
     };
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [handleStartPause, reset, isEditingTitle]);
+  }, [handleStartPause, reset]);
 
   useEffect(() => {
     if (!isStarted || isBreak) return;
@@ -210,13 +207,6 @@ export const Timer = ({
   }, [isDone])
 
   useEffect(() => {
-    if (isEditingTitle && titleInputRef.current) {
-      titleInputRef.current.focus();
-      titleInputRef.current.select(); 
-    }
-  }, [isEditingTitle]);
-
-  useEffect(() => {
     const handleVisibilityChange = () => {
       if (!document.hidden && isStarted && !isBreak) {
         const now = Date.now();
@@ -246,6 +236,12 @@ export const Timer = ({
 
   return (
     <div className="lg:min-w-md lg:max-w-md p-8 rounded-3xl shadow-2xl w-full max-w-md bg-card-background border border-card-border card-hover relative flex flex-col">
+      <div className="text-center mb-6 pt-4 h-10 flex items-center justify-center">
+        <EditableTitle
+            title={sessionTitle}
+            setTitle={setSessionTitle}
+          />
+      </div>
       {totalSegments > 0 && (
         <div className="flex items-center justify-center gap-2 flex-wrap">
           {Array.from({ length: totalSegments }).map((_, i) => {
@@ -272,25 +268,7 @@ export const Timer = ({
       )}
 
       <div className="text-center mb-6 pt-4 h-10 flex items-center justify-center">
-        {isEditingTitle && !isBreak ? (
-          <input
-            ref={titleInputRef}
-            type="text"
-            value={sessionType}
-            onChange={(e) => setSessionType(e.target.value)}
-            onBlur={() => setIsEditingTitle(false)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                setIsEditingTitle(false);
-                toast.success("Title updated!");
-              }
-            }}
-            className="w-48 text-center bg-input-background text-text-primary px-3 py-2 text-sm font-medium rounded-full border border-button-primary focus:ring-2 focus:ring-button-primary outline-none transition"
-            maxLength={30}
-          />
-        ) : (
-          <span
-            onClick={() => { if (!isBreak) setIsEditingTitle(true) }}
+        <span
             className={`group inline-flex items-center gap-2 px-6 py-2 rounded-full text-sm font-medium border transition-colors ${
               isBreak
                 ? "bg-success-bg text-success-text border-button-success"
@@ -299,9 +277,7 @@ export const Timer = ({
             title={isBreak ? "" : "Click to edit title"}
           >
             {isBreak ? "☕ Break Time" : `🎯 ${sessionType || "Focus Session"}`}
-            {!isBreak && <Pencil className="w-3 h-3 opacity-0 group-hover:opacity-60 transition-opacity" />}
           </span>
-        )}
       </div>
 
       <div className="flex flex-col items-center mb-8 flex-grow">
@@ -376,10 +352,10 @@ export const Timer = ({
                 key={opt.value}
                 onClick={() => {
                   setShowCustomInput(false);
-                  setPaused(false);
                   setSessionType(opt.type);
                   setTotalFocusDuration(opt.value);
                   setNewSession();
+                  setPaused(false);
                 }}
                 className={`px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 border border-card-border ${
                   totalFocusDuration === opt.value && !showCustomInput

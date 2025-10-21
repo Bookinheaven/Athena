@@ -1,11 +1,11 @@
-import { useState, useMemo, useEffect } from "react";
-import { X, Edit3, Trash2, Plus, Link } from "lucide-react";
+import { useState, useMemo } from "react";
+import { X, Edit3, Trash2, Plus, Link, ChevronDown } from "lucide-react";
 
 const Notes = ({ show, onClose, notes = [], setNotes, todos = [] }) => {
-  const [selectedTaskId, setSelectedTaskId] = useState(null); // null means "General Notes"
+  const [selectedTaskId, setSelectedTaskId] = useState(null);
   const [newText, setNewText] = useState("");
   const [editingId, setEditingId] = useState(null);
-  
+
   const selectedTask = useMemo(
     () => todos.find((todo) => String(todo.id) === String(selectedTaskId)),
     [selectedTaskId, todos]
@@ -67,7 +67,7 @@ const Notes = ({ show, onClose, notes = [], setNotes, todos = [] }) => {
   };
 
   return (
-    <div className="lg:min-w-[400px] w-full flex flex-col lg:h-[600px] p-6 bg-card-background border border-card-border rounded-2xl shadow-card-shadow relative overflow-hidden">
+    <div className="min-w-md max-w-md h-170 flex flex-col p-6 bg-card-background border border-card-border rounded-2xl shadow-card-shadow relative overflow-hidden">
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-lg font-semibold text-text-primary truncate">
           {selectedTask ? `Notes for: ${selectedTask.text}` : "General Notes"}
@@ -89,19 +89,36 @@ const Notes = ({ show, onClose, notes = [], setNotes, todos = [] }) => {
             </button>
           )}
         </div>
-        <select
-          id="task-selector"
-          value={selectedTaskId || ""}
-          onChange={(e) => setSelectedTaskId(e.target.value || null)}
-          className="w-full p-2.5 rounded-md bg-input-background border border-input-border text-text-primary focus:ring-2 focus:ring-input-focus"
-        >
-          <option value="">-- General Notes -- ({noteCounts['general'] || 0})</option>
-          {todos.map((todo) => (
-            <option key={todo.id} value={todo.id}>
-              {todo.text} ({noteCounts[todo.id] || 0})
-            </option>
-          ))}
-        </select>
+        <div className="relative w-full">
+          <select
+            id="task-selector"
+            value={selectedTaskId || ""}
+            onChange={(e) => setSelectedTaskId(e.target.value || null)}
+            className="
+              w-full appearance-none rounded-lg border border-input-border bg-input-background
+              px-4 py-2.5  /* Adjust padding */
+              text-sm text-text-primary placeholder-text-muted /* Style placeholder/default text */
+              transition duration-200 ease-in-out
+              focus:border-input-focus focus:outline-none focus:ring-2 focus:ring-input-focus/50 /* Enhanced focus */
+              hover:border-input-border-hover /* Subtle hover */
+              cursor-pointer /* Indicate it's clickable */
+            "
+          >
+              <option value="" className="text-text-muted">
+                General Notes [{noteCounts['general'] || 0}]
+              </option>
+
+              {todos.map((todo) => (
+                <option key={todo.id} value={todo.id} className="text-text-primary bg-input-background"> 
+                  {todo.text} [{noteCounts[todo.id] || 0}]
+                </option>
+              ))}
+            </select>
+
+            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-text-muted">
+              <ChevronDown className="h-4 w-4 fill-current" />
+            </div>
+          </div>
       </div>
       
       <div className="flex gap-3 mb-4 p-3 rounded-xl border border-border-secondary bg-background-primary-contrast">
