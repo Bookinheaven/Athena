@@ -1,4 +1,3 @@
-import React from "react";
 import { Smartphone, MessageSquare, Users, Music } from "lucide-react";
 
 const commonDistractions = [
@@ -10,14 +9,13 @@ const commonDistractions = [
 
 export const SessionReview = ({ reviewData, onUpdate, onDistractionToggle, onNewSession }) => {
   return (
-    <div className="p-6 rounded-2xl shadow-lg bg-card-background border border-card-border max-w-md w-full animate-fade-in z-10 lg:max-w-sm">
+    <div className="min-w-md max-w-md h-170 flex flex-col p-6 rounded-2xl shadow-lg bg-card-background border border-card-border animate-fade-in z-10 lg:max-w-sm">
       <h3 className="text-2xl font-bold text-text-primary mb-6 text-center">
-        Session Complete! 🎉
+        Session Complete! <span className="pluses">🎉</span>
       </h3>
       <p className="text-center text-text-secondary mb-8">How did it go overall?</p>
 
       <div className="space-y-6">
-        {/* Mood Feedback */}
         <div>
           <label className="block text-sm font-medium text-text-secondary mb-3 text-center">
             Your Mood
@@ -45,7 +43,6 @@ export const SessionReview = ({ reviewData, onUpdate, onDistractionToggle, onNew
           </div>
         </div>
 
-        {/* Focus Feedback */}
         <div>
           <label className="block text-sm font-medium text-text-secondary mb-3 text-center">
             Your Focus
@@ -67,7 +64,6 @@ export const SessionReview = ({ reviewData, onUpdate, onDistractionToggle, onNew
           </div>
         </div>
 
-        {/* Distractions Feedback */}
         <div>
           <label className="block text-sm font-medium text-text-secondary mb-3 text-center">
             What distracted you?

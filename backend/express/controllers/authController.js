@@ -133,7 +133,7 @@ class AuthController {
   // Get current user
   static async getCurrentUser(req, res) {
     try {
-      const user = await AuthService.getUserById(req.user.userId);
+      const user = await AuthService.getUserById(req.user?._id);
       res.json({
         success: true,
         user

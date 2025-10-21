@@ -31,18 +31,25 @@ class SessionService {
     });
   }
 
-  async getSessions(sessionData) {
-    return this.request("/session/get", {
-      method: "POST",
-      body: sessionData,
+  async getSessions() {
+    let response = await this.request("/session/getAll", {
+      method: "GET",
     });
+    return response;
   }
 
-  async getInsights(userData) {
-    return this.request("/session/insights", {
-      method: "POST",
-      body: userData,
+  async getActiveSession() {
+    let response = await this.request("/session/getCurrent", {
+      method: "GET",
     });
+    return response;
+  }
+
+  async getInsights() {
+    let response = await this.request("/session/insights", {
+      method: "GET",
+    });
+    return response;
   }
 }
 
