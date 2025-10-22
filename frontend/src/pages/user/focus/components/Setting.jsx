@@ -1,32 +1,45 @@
-import React from "react";
-import { X, Trash2 } from "lucide-react";
+import React, { useState } from 'react';
+import { X, Trash2, History, Volume2, VolumeX } from 'lucide-react';
+import { InputStepper } from './InputStepper';
 
 export const Settings = ({
   show,
   onClose,
   autoStartBreaks,
   setAutoStartBreaks,
-  breakDuration,
-  setBreakDuration,
+  breakDuration,      
+  setBreakDuration,   
   totalBreaks,
   setTotalBreaks,
-  setBreaksLeft,
+  onClearHistory,      
 }) => {
+  
+  const [isSoundEnabled, setIsSoundEnabled] = useState(true);
+
   const handleClearAllData = () => {
     if (
       window.confirm(
-        "Are you sure you want to clear all data? This will reset the timer, todos, and session history."
+        "Are you sure you want to clear ALL data? This will reset settings, todos, notes, and all history."
       )
     ) {
       localStorage.removeItem("breaksNumber");
       localStorage.removeItem("breakDuration");
       localStorage.removeItem("autoStartBreaks");
-      localStorage.removeItem("focusSessionState");
       localStorage.removeItem("sessionHistory");
       localStorage.removeItem("totalFocusDuration");
-      localStorage.removeItem("focusTodos");
-      localStorage.removeItem("focusTabHiddenAt");
+
+      sessionStorage.removeItem("focusTodos");
+      sessionStorage.removeItem("notes");
+      sessionStorage.removeItem("sessionReview");
+      sessionStorage.removeItem("sessionData");
+      
       window.location.reload();
+    }
+  };
+  const handleHistoryClear = () => {
+    if (window.confirm("Are you sure you want to clear session history?")) {
+      onClearHistory();
+      onClose(); 
     }
   };
 
@@ -56,10 +69,13 @@ export const Settings = ({
           </button>
         </div>
 
-        <div className="p-6 flex flex-col gap-6 overflow-y-auto h-[calc(100%-112px)]">
+        <div className="p-6 flex flex-col gap-4 overflow-y-auto flex-1">
+          
+          <h4 className="text-sm font-semibold text-text-muted mb-2">TIMER</h4>
+          
           <div className="flex items-center justify-between p-3 rounded-lg bg-background-secondary">
             <label className="text-sm font-medium text-text-primary">
-              Auto-start breaks
+              Auto-start breaks & focus
             </label>
             <input
               type="checkbox"
@@ -69,42 +85,48 @@ export const Settings = ({
             />
           </div>
 
-          <div className="flex items-center justify-between p-3 rounded-lg bg-background-secondary">
-            <label className="text-sm font-medium text-text-primary">
-              Break duration (min)
-            </label>
-            <input
-              type="number"
-              min="0"
-              max="30"
-              value={breakDuration / 60}
-              onChange={(e) => setBreakDuration(parseInt(e.target.value, 10) * 60)}
-              className="w-20 px-3 py-2 rounded-lg text-center focus-ring-primary bg-input-background border border-input-border text-text-primary"
-            />
-          </div>
+          <InputStepper
+            label="Break duration (min)"
+            value={breakDuration / 60} 
+            onChange={(minutes) => setBreakDuration(minutes * 60)} 
+            min={0.5} 
+            max={60}
+            step={0.5} 
+          />
+
+          <InputStepper
+            label="Breaks per session"
+            value={totalBreaks}
+            onChange={setTotalBreaks}
+            min={1}
+            max={10}
+            step={1}
+          />
+
+          <h4 className="text-sm font-semibold text-text-muted mt-4 mb-2">GENERAL</h4>
 
           <div className="flex items-center justify-between p-3 rounded-lg bg-background-secondary">
             <label className="text-sm font-medium text-text-primary">
-              Maximium breaks per session
+              Sound notifications
             </label>
-            <input
-              type="number"
-              min="0"
-              max="10"
-              value={totalBreaks}
-              onChange={(e) => {
-                const val = parseInt(e.target.value, 10);
-                if (!isNaN(val) && val >= 0) {
-                  setTotalBreaks(val);
-                  // setBreaksLeft(val);
-                }
-              }}
-              className="w-20 px-3 py-2 rounded-lg text-center focus-ring-primary bg-input-background border border-input-border text-text-primary"
-            />
+            <button
+              onClick={() => setIsSoundEnabled(!isSoundEnabled)}
+              className="p-2 rounded-lg text-text-secondary hover:text-text-primary hover:bg-background-secondary transition-colors"
+            >
+              {isSoundEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+            </button>
           </div>
-        </div>
+          
+          <h4 className="text-sm font-semibold text-text-muted mt-4 mb-2">DATA</h4>
+          
+          <button
+            onClick={handleHistoryClear}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-button-secondary/50 border border-card-border text-text-primary hover:bg-button-secondary/80 transition-all duration-300 font-medium"
+          >
+            <History className="w-4 h-4" />
+            Clear Session History
+          </button>
 
-        <div className="p-4 border-t border-card-border bg-background-secondary/50">
           <button
             onClick={handleClearAllData}
             className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-button-danger/10 border border-button-danger text-button-danger hover:bg-button-danger/20 transition-all duration-300 font-medium"
@@ -112,9 +134,10 @@ export const Settings = ({
             <Trash2 className="w-4 h-4" />
             Clear All Data & Reset
           </button>
-          <p className="mt-2 text-xs text-text-muted text-center">
-            This will delete timer state, todos, and session history
+          <p className="text-xs text-text-muted text-center">
+            This will delete all settings, todos, notes, and history.
           </p>
+
         </div>
       </div>
     </div>

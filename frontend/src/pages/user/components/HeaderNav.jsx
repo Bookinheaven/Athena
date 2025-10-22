@@ -48,7 +48,7 @@ export default function HeaderNav() {
 
   return (
     <header
-      className={`fixed top-4 left-1/2 z-50 flex -translate-x-1/2 transform items-center justify-between rounded-full border border-border-primary/50 bg-card-background/70 px-4 py-2 shadow-lg shadow-shadow-primary/30 backdrop-blur-lg transition-all duration-300 ease-in-out w-[90%] md:w-[60%] lg:w-[40%] xl:w-[30%] ${isVisible ? "translate-y-0 opacity-100" : "-translate-y-16 opacity-0"}`}
+      className={`fixed top-4 left-1/2 z-50 flex -translate-x-1/2 transform items-center justify-between rounded-full border border-border-primary/50 bg-card-background/70 px-4 py-2 shadow-lg shadow-shadow-primary/30 backdrop-blur-lg transition-all duration-300 ease-in-out w-[90%] md:w-[60%] lg:w-[40%] xl:w-[30%] bg-clip-text ${isVisible ? "translate-y-0 opacity-100" : "-translate-y-16 opacity-0"}`}
     >
       <nav className="flex items-center gap-4 border-r border-border-primary/50 pr-1">
         {navItems.map(({ to, icon: Icon, label }) => (
