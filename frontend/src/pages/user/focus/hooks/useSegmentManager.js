@@ -8,10 +8,20 @@ export const useSegmentManager = ({
   autoStartBreaks,
   setSessionHistory,
 }) => {
-  const [currentSegmentIndex, setCurrentSegmentIndex] = useState(
-    sessionData?.segmentIndex || 0
-  );
-
+  
+  const [currentSegmentIndex, setCurrentSegmentIndex] = useState(() => {
+    if (sessionData?.segments) {
+      const firstIncompleteIndex = sessionData.segments.findIndex(
+        (seg) => seg.completedAt == null
+      );
+      if (firstIncompleteIndex !== -1) {
+        return firstIncompleteIndex;
+      } 
+      return sessionData.segments.length > 0 ? sessionData.segments.length - 1 : 0;
+    }
+    return 0;
+  });
+  
   const currentSegment = useMemo(
     () => sessionData?.segments?.[currentSegmentIndex],
     [sessionData, currentSegmentIndex]
@@ -97,6 +107,9 @@ export const useSegmentManager = ({
       reset();
 
       if (currentSegment.type === "break" && autoStartBreaks) {
+        start();
+      }
+      if (currentSegment.type === "focus") {
         start();
       }
 

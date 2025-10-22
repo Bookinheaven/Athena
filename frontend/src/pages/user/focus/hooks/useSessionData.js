@@ -1,13 +1,17 @@
 const createSessionData = (totalFocusDuration, breakDuration, maxBreaks) => {
-  const minFocusSegmentDuration = 5 * 60; // e.g., minimum 5 minutes focus for a break to be meaningful
+  const minFocusSegmentDuration = 25 * 60;
+  // const minFocusSegmentDuration = 10;
 
   const possibleBreaks = Math.min(
     maxBreaks,
     Math.floor(totalFocusDuration / (minFocusSegmentDuration + breakDuration))
   );
 
+  const totalBreakTime = possibleBreaks * breakDuration;
+  const totalFocusTime = totalFocusDuration - totalBreakTime; 
+  const focusSegmentDuration = Math.floor(totalFocusTime / (possibleBreaks + 1));
+
   const segments = [];
-  const focusSegmentDuration = Math.floor(totalFocusDuration / (possibleBreaks + 1));
 
   for (let i = 0; i < possibleBreaks + 1; i++) {
     segments.push({

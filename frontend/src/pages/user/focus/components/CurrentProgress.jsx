@@ -14,7 +14,7 @@ export const CurrentProgress = ({ todos, show, onClose }) => {
 
   if (inProgress.length === 0) {
     return (
-      <div className="min-w-md max-w-md p-6 bg-card-background border border-card-border rounded-2xl shadow-md text-center"
+      <div className="min-w-md max-w-md h-170 p-6 bg-card-background border border-card-border rounded-2xl shadow-md text-center"
       style={{
         display: show ? "block" : "none",
       }}>
@@ -35,7 +35,7 @@ export const CurrentProgress = ({ todos, show, onClose }) => {
   }
 
   return (
-    <div className="lg:min-w-md lg:max-w-md flex flex-col lg:h-150 p-6 bg-card-background border border-card-border rounded-2xl shadow-md"
+    <div className="min-w-md max-w-md h-170 flex flex-col p-6 bg-card-background border border-card-border rounded-2xl shadow-md"
     style={{
         display: show ? "flex" : "none",
     }}>

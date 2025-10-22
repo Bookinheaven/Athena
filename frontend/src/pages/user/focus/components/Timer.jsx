@@ -294,20 +294,22 @@ export const Timer = ({
               strokeWidth="4"
               fill="none"
             />
-            <circle
-              cx="50"
-              cy="50"
-              r="45"
-              className={
-                isBreak ? "stroke-button-success" : "stroke-button-primary"
-              }
-              strokeWidth="4"
-              fill="none"
-              strokeDasharray={CIRCUMFERENCE}
-              strokeDashoffset={progress}
-              strokeLinecap="round"
-              style={{ transition: "stroke-dashoffset 0.3s linear" }}
-            />
+            {isStarted && (
+              <circle
+                cx="50"
+                cy="50"
+                r="45"
+                className={
+                  isBreak ? "stroke-button-success" : "stroke-button-primary"
+                }
+                strokeWidth="4"
+                fill="none"
+                strokeDasharray={CIRCUMFERENCE}
+                strokeDashoffset={progress}
+                strokeLinecap="round"
+                style={{ transition: "stroke-dashoffset 0.3s linear" }}
+              />
+            )}
           </svg>
           <div className="text-center w-full">
             <div
@@ -443,6 +445,7 @@ export const Timer = ({
         <button
           onClick={() => {
             setPaused(false);
+            setNewSession(true)
             reset();
           }}
           className="flex items-center gap-2 px-6 py-3.5 rounded-xl bg-button-secondary text-button-secondary-text border border-card-border transition-all duration-300 hover:scale-105 active:scale-95"
