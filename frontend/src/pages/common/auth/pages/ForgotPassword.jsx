@@ -77,25 +77,19 @@ const ForgotPassword = () => {
   return (
     <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
-        <div className="text-center">
-          <h1 className="text-4xl font-bold mb-2" style={{ color: 'var(--color-text-primary)' }}>
-            🧠 Athena
-          </h1>
-          <p className="text-lg mb-8" style={{ color: 'var(--color-text-secondary)' }}>
-            Smart Study Tracking with Pattern Intelligence
-          </p>
-          <h2 className="text-3xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
-            Forgot your password?
-          </h2>
-          <p className="mt-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-            No worries! Enter your email and we'll send you a reset code
-          </p>
         </div>
 
         <div className="rounded-lg p-8 shadow-lg" style={{
           backgroundColor: 'var(--color-card-background)',
           border: '1px solid var(--color-card-border)'
         }}>
+          <div className="text-center pb-3">
+            <h2 className="text-3xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
+              Forgot your password?
+            </h2>
+            <p className="mt-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+              No worries! Enter your email and we'll send you a reset code
+            </p>
           <form onSubmit={handleSubmit} className="space-y-6">
             {error && (
               <div className="rounded-md p-4" style={{
