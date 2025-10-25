@@ -17,17 +17,27 @@ import {
   PolarAngleAxis,
   Radar,
   PolarRadiusAxis,
+  AreaChart,
+  Area,
+  LabelList,
+  LineChart,
+  Line,
+  ComposedChart,
 } from 'recharts';
 import {
   ArrowRight,
-  LogOut,
   Clock,
   Target,
   CheckCircle,
   Smile,
   Brain,
-  PieChart as PieChartIcon,
   Loader2,
+  TrendingUp,
+  Activity,
+  Calendar,
+  Zap,
+  Award,
+  BarChart3,
 } from 'lucide-react';
 import { useAuth } from '../../../../contexts/AuthContext';
 import sessionService from '../../../../services/sessionService';
@@ -41,7 +51,7 @@ const formatTime = (seconds) => {
 };
 
 const Dashboard = () => {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   const [kpis, setKpis] = useState(null);
@@ -51,7 +61,13 @@ const Dashboard = () => {
   const [focusMoodData, setFocusMoodData] = useState([]);
   const [topDistractions, setTopDistractions] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeBar, setActiveBar] = useState(null);
+
+  // Mock additional data - replace with actual API calls
+  const [productivityScore, setProductivityScore] = useState(85);
+  const [dailyComparison, setDailyComparison] = useState([]);
+  const [moodTrend, setMoodTrend] = useState([]);
+  const [sessionsByDay, setSessionsByDay] = useState([]);
+  const [completionRate, setCompletionRate] = useState([]);
 
   useEffect(() => {
     setIsLoading(true);
@@ -65,6 +81,37 @@ const Dashboard = () => {
         setFocusVsBreakData(dataInsights.focusVsBreakData);
         setTopDistractions(dataInsights.topDistractions);
         setRecentSessions(data.recentSessions || []);
+
+        // Generate mock data for additional charts
+        // Replace these with actual API data when available
+        setDailyComparison(
+          ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => ({
+            day,
+            thisWeek: Math.floor(Math.random() * 180) + 60,
+            lastWeek: Math.floor(Math.random() * 180) + 60,
+          }))
+        );
+
+        setMoodTrend(
+          ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => ({
+            day,
+            mood: (Math.random() * 2 + 3).toFixed(1),
+            focus: (Math.random() * 2 + 3).toFixed(1),
+          }))
+        );
+
+        setSessionsByDay(
+          ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => ({
+            day,
+            sessions: Math.floor(Math.random() * 8) + 1,
+          }))
+        );
+
+        setCompletionRate([
+          { name: 'Completed', value: 75 },
+          { name: 'Incomplete', value: 25 },
+        ]);
+
         setIsLoading(false);
       } catch (e) {
         console.error(e);
@@ -74,175 +121,209 @@ const Dashboard = () => {
     fetchData();
   }, []);
 
-  const handleLogout = async () => {
-    try {
-      await logout();
-      navigate('/login');
-    } catch (error) {
-      console.error('Logout error:', error);
-    }
-  };
-
   if (isLoading) {
     return (
-      <div className="bg-gray-900 text-white min-h-screen p-8 font-sans flex items-center justify-center">
-        <Loader2 size={48} className="animate-spin text-purple-400" />
+      <div
+        className="min-h-screen p-8 font-sans flex items-center justify-center"
+        style={{ backgroundColor: 'var(--color-background-color)', color: 'var(--color-text-primary)' }}
+      >
+        <div className="text-center">
+          <Loader2 size={48} className="animate-spin pluses mx-auto" style={{ color: 'var(--color-button-primary)' }} />
+          <p className="mt-4" style={{ color: 'var(--color-text-secondary)' }}>
+            Loading your dashboard...
+          </p>
+        </div>
       </div>
     );
   }
 
   if (!user) {
     return (
-      <div className="bg-gray-900 text-white min-h-screen p-8 font-sans flex items-center justify-center">
-        <p className="text-gray-400">Could not load user data. Please log in again.</p>
+      <div
+        className="min-h-screen p-8 font-sans flex items-center justify-center"
+        style={{ backgroundColor: 'var(--color-background-color)', color: 'var(--color-text-primary)' }}
+      >
+        <div className="text-center p-8 rounded-2xl" style={{ backgroundColor: 'var(--color-card-background)' }}>
+          <p style={{ color: 'var(--color-text-secondary)' }}>Could not load user data. Please log in again.</p>
+          <button
+            onClick={() => navigate('/login')}
+            className="mt-4 px-6 py-2 rounded-lg font-semibold transition-all"
+            style={{
+              backgroundColor: 'var(--color-button-primary)',
+              color: 'var(--color-button-primary-text)',
+            }}
+          >
+            Go to Login
+          </button>
+        </div>
       </div>
     );
   }
 
   const displayName = user.fullName;
   const username = user.username;
-  const photoURL =
-    `https://ui-avatars.com/api/?name=${user.fullName.replace(' ', '+')}` ||
-    `https://api.dicebear.com/9.x/adventurer/svg?seed=Luis`;
+  const photoURL = `https://ui-avatars.com/api/?name=${user.fullName.replace(' ', '+')}`;
 
   return (
-    <div className="bg-gray-900 text-white min-h-screen p-4 sm:p-6 lg:p-8 pt-30 lg:pt-25 md:pt-25 sm:pt-25 font-sans">
-      <div className="max-w-7xl mx-auto">
-        <header className="mb-8">
-          <h1 className="text-3xl font-bold text-white">
-            Welcome back, {displayName?.split(' ')[0] || 'User'}!
-          </h1>
-          <p className="text-gray-400">Here's your productivity and wellness dashboard.</p>
+    <div
+      className="min-h-screen p-4 sm:p-6 lg:p-8 pt-20 font-sans fade-in"
+      style={{ backgroundColor: 'var(--color-background-color)', color: 'var(--color-text-primary)' }}
+    >
+      <div className="max-w-[1800px] mx-auto">
+        {/* Header */}
+        <header className="mb-10 slide-up">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div>
+              <h1 className="text-4xl font-bold mb-2" style={{ color: 'var(--color-text-primary)' }}>
+                Welcome back, {displayName?.split(' ')[0] || 'User'}! 👋
+              </h1>
+              <p className="text-lg" style={{ color: 'var(--color-text-secondary)' }}>
+                Here's your productivity and wellness dashboard.
+              </p>
+            </div>
+            <div className="flex items-center gap-4">
+              <div
+                className="flex items-center gap-3 px-5 py-3 rounded-xl card-hover cursor-pointer"
+                style={{ backgroundColor: 'var(--color-card-background)', border: '1px solid var(--color-card-border)' }}
+              >
+                <img src={photoURL} alt="Profile" className="w-12 h-12 rounded-full" style={{ border: '2px solid var(--color-button-primary)' }} />
+                <div className="hidden sm:block">
+                  <p className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>{displayName}</p>
+                  <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>@{username}</p>
+                </div>
+              </div>
+            </div>
+          </div>
         </header>
 
-        <main className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-              {!kpis ? (
-                <>
-                  <KpiSkeleton />
-                  <KpiSkeleton />
-                  <KpiSkeleton />
-                  <KpiSkeleton />
-                </>
-              ) : (
-                <>
-                  <KpiCard icon={<Clock size={24} />} title="Total Focus Time" value={formatTime(kpis.totalFocusTime)} />
-                  <KpiCard icon={<CheckCircle size={24} />} title="Sessions Completed" value={kpis.sessionsCompleted} />
-                  <KpiCard icon={<Brain size={24} />} title="Avg. Focus" value={`${kpis.avgFocus} / 5`} />
-                  <KpiCard icon={<Smile size={24} />} title="Avg. Mood" value={`${kpis.avgMood} / 5`} />
-                </>
-              )}
-            </div>
+        <main className="space-y-6">
+          {/* KPIs Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 slide-up">
+            {!kpis ? (
+              <>
+                <KpiSkeleton />
+                <KpiSkeleton />
+                <KpiSkeleton />
+                <KpiSkeleton />
+                <KpiSkeleton />
+              </>
+            ) : (
+              <>
+                <KpiCard icon={<Clock size={24} />} title="Total Focus Time" value={formatTime(kpis.totalFocusTime)} color="#3b82f6" />
+                <KpiCard icon={<CheckCircle size={24} />} title="Sessions Completed" value={kpis.sessionsCompleted} color="#22c55e" />
+                <KpiCard icon={<Brain size={24} />} title="Avg. Focus" value={`${kpis.avgFocus} / 5`} color="#a855f7" />
+                <KpiCard icon={<Smile size={24} />} title="Avg. Mood" value={`${kpis.avgMood} / 5`} color="#f59e0b" />
+                <KpiCard icon={<Award size={24} />} title="Productivity Score" value={`${productivityScore}%`} color="#ec4899" />
+              </>
+            )}
+          </div>
 
-            <div className="bg-gray-800 rounded-2xl p-6 shadow-lg min-h-[300px]">
-              <h3 className="text-lg font-semibold mb-4 text-white">Weekly Focus Trends (hours)</h3>
-              {!focusTrends || focusTrends.length === 0 ? (
-                <div className="h-64 w-full flex items-center justify-center text-gray-500">
-                  No focus trend data yet.
-                </div>
-              ) : (
-                <div className="h-64">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={focusTrends}
-                      margin={{ top: 5, right: 20, left: -10, bottom: 5 }}
-                      onMouseMove={(state) =>
-                        setActiveBar(state.isTooltipActive ? state.activeTooltipIndex : null)
-                      }
-                    >
-                      <CartesianGrid strokeDasharray="3 3" stroke="#4A5568" />
-                      <XAxis dataKey="day" tick={{ fill: '#A0AEC0' }} />
-                      <YAxis tickFormatter={(value) => (value / 60).toFixed(1)} tick={{ fill: '#A0AEC0' }} />
-                      <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(128, 90, 213, 0.1)' }} />
-                      <Bar dataKey="focusTime" name="Focus Time" unit=" min">
-                        {focusTrends.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={activeBar === index ? '#805AD5' : '#6B46C1'} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              )}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2">
+              <WeeklyFocusAreaChart data={focusTrends} isLoading={!focusTrends || focusTrends.length === 0} />
             </div>
-
-            <h2 className="text-2xl font-bold text-white mt-4">Personalized Insights</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <FocusVsBreakChart
-                data={focusVsBreakData}
-                isLoading={!focusVsBreakData || focusVsBreakData.length === 0}
-              />
-              <FocusMoodRadarChart
-                data={focusMoodData}
-                isLoading={!focusMoodData || focusMoodData.length === 0}
-              />
+            <div>
+              <ProductivityScoreCard score={productivityScore} />
             </div>
           </div>
 
-          <div className="lg:col-span-1 space-y-6">
-            <div className="bg-gray-800 rounded-2xl p-6 shadow-lg">
-              <div className="flex items-center space-x-4 mb-4">
-                <img src={photoURL} alt="Profile" className="w-16 h-16 rounded-full bg-gray-700" />
-                <div>
-                  <h3 className="font-bold text-lg text-white">{displayName}</h3>
-                  <p className="text-sm text-gray-400">@{username}</p>
-                </div>
+          {/* Main Charts Row 2 */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <DailyComparisonChart data={dailyComparison} isLoading={false} />
+            <SessionsByDayChart data={sessionsByDay} isLoading={false} />
+          </div>
+
+          {/* Insights Section */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 mb-2">
+              <TrendingUp size={24} style={{ color: 'var(--color-button-primary)' }} />
+              <h2 className="text-2xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
+                Personalized Insights
+              </h2>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <FocusVsBreakChart data={focusVsBreakData} isLoading={!focusVsBreakData || focusVsBreakData.length === 0} />
+              <CompletionRateChart data={completionRate} isLoading={false} />
+              <FocusMoodRadarChart data={focusMoodData} isLoading={!focusMoodData || focusMoodData.length === 0} />
+            </div>
+          </div>
+
+          {/* Trends and Analysis */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2">
+              <MoodFocusTrendChart data={moodTrend} isLoading={false} />
+            </div>
+            <div>
+              <TopDistractionsChart data={topDistractions} isLoading={!topDistractions} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <StatCard
+              icon={<Calendar size={28} />}
+              title="Avg. Session Length"
+              value={formatTime(kpis?.avgSessionLength || 0)}
+              subtitle="Per session"
+              color="#3b82f6"
+            />
+            <StatCard
+              icon={<Target size={28} />}
+              title="Avg. Tasks Completed"
+              value={`${kpis?.avgTodosCompleted || 0} tasks`}
+              subtitle="Per session"
+              color="#22c55e"
+            />
+            <StatCard
+              icon={<Zap size={28} />}
+              title="Total Sessions"
+              value={kpis?.sessionsCompleted || 0}
+              subtitle="All time"
+              color="#f59e0b"
+            />
+          </div>
+
+          <div
+            className="rounded-2xl p-6 shadow-lg card-hover"
+            style={{
+              backgroundColor: 'var(--color-card-background)',
+              border: '1px solid var(--color-card-border)',
+            }}
+          >
+            <div className="flex justify-between items-center mb-6">
+              <div className="flex items-center gap-2">
+                <Activity size={22} style={{ color: 'var(--color-button-primary)' }} />
+                <h3 className="text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
+                  Recent Sessions
+                </h3>
               </div>
               <button
-                onClick={handleLogout}
-                className="w-full flex items-center justify-center bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-300"
+                onClick={() => navigate('/sessions')}
+                className="text-sm flex items-center gap-1 px-3 py-1.5 rounded-lg transition-all hover:scale-105"
+                style={{
+                  color: 'var(--color-button-primary)',
+                  backgroundColor: 'var(--color-background-secondary)',
+                }}
               >
-                <LogOut size={16} className="mr-2" />
-                <span>Logout</span>
+                View All <ArrowRight size={14} />
               </button>
             </div>
-
-            <div className="bg-gray-800 rounded-2xl p-6 shadow-lg">
-              <h3 className="text-lg font-semibold text-white mb-4">At a Glance</h3>
-              {!kpis ? (
-                <div className="space-y-4">
-                  <div className="h-8 w-3/4 rounded bg-gray-700 animate-pulse"></div>
-                  <div className="h-8 w-1/2 rounded bg-gray-700 animate-pulse"></div>
-                </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {!recentSessions ? (
+                <>
+                  <SessionItemSkeleton />
+                  <SessionItemSkeleton />
+                  <SessionItemSkeleton />
+                </>
+              ) : recentSessions.length > 0 ? (
+                recentSessions.slice(0, 6).map((session) => <SessionItem key={session.id} session={session} />)
               ) : (
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-400">Avg. Session Length</span>
-                    <span className="font-bold text-white text-lg">{formatTime(kpis.avgSessionLength)}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-400">Avg. Tasks Completed</span>
-                    <span className="font-bold text-white text-lg">{kpis.avgTodosCompleted} tasks</span>
-                  </div>
+                <div className="col-span-full text-center py-12">
+                  <Target size={48} className="mx-auto mb-3" style={{ color: 'var(--color-text-muted)' }} />
+                  <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                    You have no recent sessions. Start your first session!
+                  </p>
                 </div>
               )}
-            </div>
-
-            <TopDistractionsCard distractions={topDistractions} isLoading={!topDistractions} />
-
-            <div className="bg-gray-800 rounded-2xl p-6 shadow-lg min-h-[200px]">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold text-white">Recent Sessions</h3>
-                <button
-                  onClick={() => navigate('/sessions')}
-                  className="text-sm text-purple-400 hover:text-purple-300 flex items-center"
-                >
-                  View All <ArrowRight size={14} className="ml-1" />
-                </button>
-              </div>
-              <div className="space-y-4">
-                {!recentSessions ? (
-                  <>
-                    <SessionItemSkeleton />
-                    <SessionItemSkeleton />
-                    <SessionItemSkeleton />
-                  </>
-                ) : recentSessions.length > 0 ? (
-                  recentSessions.map((session) => <SessionItem key={session.id} session={session} />)
-                ) : (
-                  <p className="text-sm text-gray-400 text-center py-4">You have no recent sessions.</p>
-                )}
-              </div>
             </div>
           </div>
         </main>
@@ -251,11 +332,91 @@ const Dashboard = () => {
   );
 };
 
-const KpiCard = ({ icon, title, value }) => (
-  <div className="bg-gray-800 rounded-2xl p-4 shadow-md flex flex-col justify-between hover:bg-gray-700/50 transition-colors duration-300">
-    <div className="text-purple-400 mb-2">{icon}</div>
-    <p className="text-sm text-gray-400 mb-1">{title}</p>
-    <p className="text-2xl font-bold text-white">{value}</p>
+
+const KpiCard = ({ icon, title, value, color }) => (
+  <div
+    className="rounded-2xl p-5 shadow-md flex flex-col justify-between card-hover transition-all cursor-pointer"
+    style={{
+      backgroundColor: 'var(--color-card-background)',
+      border: '1px solid var(--color-card-border)',
+    }}
+  >
+    <div className="mb-3" style={{ color: color }}>
+      {icon}
+    </div>
+    <p className="text-xs font-medium mb-2" style={{ color: 'var(--color-text-muted)' }}>
+      {title}
+    </p>
+    <p className="text-2xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
+      {value}
+    </p>
+  </div>
+);
+
+const StatCard = ({ icon, title, value, subtitle, color }) => (
+  <div
+    className="rounded-2xl p-6 shadow-lg card-hover"
+    style={{
+      backgroundColor: 'var(--color-card-background)',
+      border: '1px solid var(--color-card-border)',
+    }}
+  >
+    <div className="flex items-center justify-between mb-4">
+      <div style={{ color: color }}>{icon}</div>
+      <div
+        className="px-3 py-1 rounded-full text-xs font-semibold"
+        style={{ backgroundColor: 'var(--color-background-secondary)', color: 'var(--color-text-primary)' }}
+      >
+        {subtitle}
+      </div>
+    </div>
+    <h3 className="text-sm font-medium mb-2" style={{ color: 'var(--color-text-secondary)' }}>
+      {title}
+    </h3>
+    <p className="text-3xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
+      {value}
+    </p>
+  </div>
+);
+
+const ProductivityScoreCard = ({ score }) => (
+  <div
+    className="rounded-2xl p-6 shadow-lg card-hover h-full flex flex-col justify-center"
+    style={{
+      backgroundColor: 'var(--color-card-background)',
+      border: '1px solid var(--color-card-border)',
+    }}
+  >
+    <div className="text-center">
+      <BarChart3 size={40} className="mx-auto mb-4" style={{ color: 'var(--color-button-primary)' }} />
+      <h3 className="text-lg font-bold mb-2" style={{ color: 'var(--color-text-primary)' }}>
+        Productivity Score
+      </h3>
+      <div className="relative w-40 h-40 mx-auto mb-4">
+        <svg className="transform -rotate-90 w-40 h-40">
+          <circle cx="80" cy="80" r="70" stroke="var(--color-background-secondary)" strokeWidth="12" fill="none" />
+          <circle
+            cx="80"
+            cy="80"
+            r="70"
+            stroke="var(--color-button-primary)"
+            strokeWidth="12"
+            fill="none"
+            strokeDasharray={`${2 * Math.PI * 70}`}
+            strokeDashoffset={`${2 * Math.PI * 70 * (1 - score / 100)}`}
+            strokeLinecap="round"
+          />
+        </svg>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="text-5xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
+            {score}%
+          </span>
+        </div>
+      </div>
+      <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+        {score >= 80 ? '🎉 Excellent performance!' : score >= 60 ? '👍 Good work!' : '💪 Keep pushing!'}
+      </p>
+    </div>
   </div>
 );
 
@@ -268,25 +429,41 @@ const SessionItem = ({ session }) => {
   const isCompleted = session.status === 'completed';
 
   return (
-    <div className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-700/50 transition-colors duration-300">
-      <div className="flex items-center space-x-3 overflow-hidden">
+    <div
+      className="flex flex-col p-4 rounded-xl card-hover transition-all"
+      style={{
+        backgroundColor: 'var(--color-background-secondary)',
+        border: '1px solid var(--color-border-secondary)',
+      }}
+    >
+      <div className="flex items-start justify-between mb-3">
         <div
-          className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center ${
-            isCompleted ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'
-          }`}
+          className="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center"
+          style={{
+            backgroundColor: isCompleted ? 'var(--color-button-success)' : 'var(--color-button-primary)',
+            opacity: 0.2,
+          }}
         >
-          {isCompleted ? <CheckCircle size={20} /> : <Target size={20} />}
+          <div style={{ color: isCompleted ? 'var(--color-button-success)' : 'var(--color-button-primary)' }}>
+            {isCompleted ? <CheckCircle size={20} /> : <Target size={20} />}
+          </div>
         </div>
-        <div className="overflow-hidden">
-          <p className="font-semibold text-white text-sm truncate" title={session.title}>
-            {session.title}
-          </p>
-          <p className="text-xs text-gray-400">{formatTime(session.actualFocusDuration || 0)}</p>
-        </div>
+        <span
+          className="text-xs px-2 py-1 rounded-full font-semibold"
+          style={{
+            backgroundColor: 'var(--color-card-background)',
+            color: 'var(--color-text-muted)',
+          }}
+        >
+          {formatDate(session.createdAt)}
+        </span>
       </div>
-      <div className="text-right flex-shrink-0 ml-2">
-        <p className="text-sm font-medium text-gray-300">{formatDate(session.createdAt)}</p>
-        <p className="text-xs text-gray-500">{`${session.completedSegments || 0}/${session.totalSegments || 0} Segments`}</p>
+      <p className="font-semibold text-sm mb-2 line-clamp-2" title={session.title} style={{ color: 'var(--color-text-primary)' }}>
+        {session.title}
+      </p>
+      <div className="flex items-center justify-between text-xs">
+        <span style={{ color: 'var(--color-text-muted)' }}>{formatTime(session.actualFocusDuration || 0)}</span>
+        <span style={{ color: 'var(--color-text-muted)' }}>{`${session.completedSegments || 0}/${session.totalSegments || 0} Segments`}</span>
       </div>
     </div>
   );
@@ -295,62 +472,296 @@ const SessionItem = ({ session }) => {
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-gray-700 p-2 rounded-md shadow-lg border border-gray-600">
-        <p className="font-bold text-white">{label}</p>
-        <p className="text-sm text-purple-300">{`Focus: ${payload[0].value} min`}</p>
+      <div
+        className="p-3 rounded-lg shadow-xl"
+        style={{
+          backgroundColor: 'var(--color-card-background)',
+          border: '1px solid var(--color-card-border)',
+        }}
+      >
+        <p className="font-bold text-sm mb-1" style={{ color: 'var(--color-text-primary)' }}>
+          {label}
+        </p>
+        {payload.map((entry, index) => (
+          <p key={index} className="text-sm" style={{ color: entry.color }}>
+            {`${entry.name}: ${typeof entry.value === 'number' ? entry.value.toFixed(1) : entry.value}`}
+          </p>
+        ))}
       </div>
     );
   }
   return null;
 };
 
-const FocusVsBreakChart = ({ data, isLoading }) => (
-  <div className="bg-gray-800 rounded-2xl p-6 shadow-lg min-h-[250px]">
-    <h3 className="text-lg font-semibold text-white mb-4">Focus vs. Break Ratio</h3>
+// --- Chart Components ---
+
+const WeeklyFocusAreaChart = ({ data, isLoading }) => (
+  <div
+    className="rounded-2xl p-6 shadow-lg card-hover h-full"
+    style={{
+      backgroundColor: 'var(--color-card-background)',
+      border: '1px solid var(--color-card-border)',
+    }}
+  >
+    <h3 className="text-xl font-bold mb-6" style={{ color: 'var(--color-text-primary)' }}>
+      Weekly Focus Trends
+    </h3>
     {isLoading ? (
-      <div className="h-48 w-full flex items-center justify-center text-gray-500">No data available.</div>
+      <div className="h-72 w-full flex items-center justify-center">
+        <p style={{ color: 'var(--color-text-muted)' }}>No focus trend data yet.</p>
+      </div>
     ) : (
-      <ResponsiveContainer width="100%" height={200}>
-        <PieChart>
-          <Pie
-            data={data}
-            dataKey="value"
-            nameKey="name"
-            cx="50%"
-            cy="50%"
-            outerRadius={80}
-            labelLine={false}
-            label={({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
-              const radius = innerRadius + (outerRadius - innerRadius) * 1.2;
-              const x = cx + radius * Math.cos(-midAngle * (Math.PI / 180));
-              const y = cy + radius * Math.sin(-midAngle * (Math.PI / 180));
-              return (
-                <text x={x} y={y} fill="white" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central">
-                  {`${(percent * 100).toFixed(0)}%`}
-                </text>
-              );
-            }}
-          />
-          <Legend iconType="circle" />
-          <Tooltip />
-        </PieChart>
-      </ResponsiveContainer>
+      <div className="h-72">
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={data} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+            <defs>
+              <linearGradient id="colorFocus" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="var(--color-button-primary)" stopOpacity={0.8} />
+                <stop offset="95%" stopColor="var(--color-button-primary)" stopOpacity={0.1} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-secondary)" opacity={0.3} />
+            <XAxis dataKey="day" tick={{ fill: 'var(--color-text-muted)', fontSize: 12 }} />
+            <YAxis tickFormatter={(value) => `${(value / 60).toFixed(1)}h`} tick={{ fill: 'var(--color-text-muted)', fontSize: 12 }} />
+            <Tooltip content={<CustomTooltip />} />
+            <Area type="monotone" dataKey="focusTime" name="Focus Time (min)" stroke="var(--color-button-primary)" strokeWidth={2} fillOpacity={1} fill="url(#colorFocus)" />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
     )}
   </div>
 );
 
-const FocusMoodRadarChart = ({ data, isLoading }) => (
-  <div className="bg-gray-800 rounded-2xl p-6 shadow-lg min-h-[250px]">
-    <h3 className="text-lg font-semibold text-white mb-4">Average Focus & Mood</h3>
+const DailyComparisonChart = ({ data, isLoading }) => (
+  <div
+    className="rounded-2xl p-6 shadow-lg card-hover"
+    style={{
+      backgroundColor: 'var(--color-card-background)',
+      border: '1px solid var(--color-card-border)',
+    }}
+  >
+    <h3 className="text-xl font-bold mb-6" style={{ color: 'var(--color-text-primary)' }}>
+      This Week vs Last Week
+    </h3>
     {isLoading ? (
-      <div className="h-48 w-full flex items-center justify-center text-gray-500">No data available.</div>
+      <div className="h-72 w-full flex items-center justify-center">
+        <p style={{ color: 'var(--color-text-muted)' }}>Loading comparison data...</p>
+      </div>
     ) : (
-      <ResponsiveContainer width="100%" height={200}>
-        <RadarChart cx="50%" cy="50%" outerRadius="80%" data={data}>
-          <PolarGrid stroke="#4A5568" />
-          <PolarAngleAxis dataKey="subject" tick={{ fill: '#A0AEC0' }} />
+      <div className="h-72">
+        <ResponsiveContainer width="100%" height="100%">
+          <ComposedChart data={data} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-secondary)" opacity={0.3} />
+            <XAxis dataKey="day" tick={{ fill: 'var(--color-text-muted)', fontSize: 12 }} />
+            <YAxis tick={{ fill: 'var(--color-text-muted)', fontSize: 12 }} tickFormatter={(value) => `${value}m`} />
+            <Tooltip content={<CustomTooltip />} />
+            <Legend wrapperStyle={{ color: 'var(--color-text-primary)' }} />
+            <Bar dataKey="lastWeek" fill="#94a3b8" radius={[8, 8, 0, 0]} name="Last Week" />
+            <Line type="monotone" dataKey="thisWeek" stroke="var(--color-button-primary)" strokeWidth={3} name="This Week" dot={{ fill: 'var(--color-button-primary)', r: 4 }} />
+          </ComposedChart>
+        </ResponsiveContainer>
+      </div>
+    )}
+  </div>
+);
+
+const SessionsByDayChart = ({ data, isLoading }) => (
+  <div
+    className="rounded-2xl p-6 shadow-lg card-hover"
+    style={{
+      backgroundColor: 'var(--color-card-background)',
+      border: '1px solid var(--color-card-border)',
+    }}
+  >
+    <h3 className="text-xl font-bold mb-6" style={{ color: 'var(--color-text-primary)' }}>
+      Sessions by Day
+    </h3>
+    {isLoading ? (
+      <div className="h-72 w-full flex items-center justify-center">
+        <p style={{ color: 'var(--color-text-muted)' }}>Loading session data...</p>
+      </div>
+    ) : (
+      <div className="h-72">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-secondary)" opacity={0.3} />
+            <XAxis dataKey="day" tick={{ fill: 'var(--color-text-muted)', fontSize: 12 }} />
+            <YAxis tick={{ fill: 'var(--color-text-muted)', fontSize: 12 }} />
+            <Tooltip content={<CustomTooltip />} />
+            <Bar dataKey="sessions" fill="var(--color-button-primary)" radius={[8, 8, 0, 0]} name="Sessions">
+              {data.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={`hsl(${220 + index * 10}, 70%, ${50 + index * 3}%)`} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    )}
+  </div>
+);
+
+const MoodFocusTrendChart = ({ data, isLoading }) => (
+  <div
+    className="rounded-2xl p-6 shadow-lg card-hover"
+    style={{
+      backgroundColor: 'var(--color-card-background)',
+      border: '1px solid var(--color-card-border)',
+    }}
+  >
+    <h3 className="text-xl font-bold mb-6" style={{ color: 'var(--color-text-primary)' }}>
+      Mood & Focus Trends
+    </h3>
+    {isLoading ? (
+      <div className="h-72 w-full flex items-center justify-center">
+        <p style={{ color: 'var(--color-text-muted)' }}>Loading trend data...</p>
+      </div>
+    ) : (
+      <div className="h-72">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={data} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-secondary)" opacity={0.3} />
+            <XAxis dataKey="day" tick={{ fill: 'var(--color-text-muted)', fontSize: 12 }} />
+            <YAxis domain={[0, 5]} tick={{ fill: 'var(--color-text-muted)', fontSize: 12 }} />
+            <Tooltip content={<CustomTooltip />} />
+            <Legend wrapperStyle={{ color: 'var(--color-text-primary)' }} />
+            <Line type="monotone" dataKey="mood" stroke="#f59e0b" strokeWidth={3} name="Mood" dot={{ fill: '#f59e0b', r: 5 }} />
+            <Line type="monotone" dataKey="focus" stroke="#a855f7" strokeWidth={3} name="Focus" dot={{ fill: '#a855f7', r: 5 }} />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    )}
+  </div>
+);
+
+const FocusVsBreakChart = ({ data, isLoading }) => {
+  const COLORS = ['var(--color-button-primary)', 'var(--color-text-muted)'];
+
+  return (
+    <div
+      className="rounded-2xl p-6 shadow-lg card-hover"
+      style={{
+        backgroundColor: 'var(--color-card-background)',
+        border: '1px solid var(--color-card-border)',
+      }}
+    >
+      <h3 className="text-lg font-bold mb-4" style={{ color: 'var(--color-text-primary)' }}>
+        Focus vs. Break Ratio
+      </h3>
+      {isLoading ? (
+        <div className="h-56 w-full flex items-center justify-center">
+          <p style={{ color: 'var(--color-text-muted)' }}>No data available.</p>
+        </div>
+      ) : (
+        <ResponsiveContainer width="100%" height={220}>
+          <PieChart>
+            <Pie
+              data={data}
+              dataKey="value"
+              nameKey="name"
+              cx="50%"
+              cy="50%"
+              outerRadius={85}
+              labelLine={false}
+              label={({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
+                const radius = innerRadius + (outerRadius - innerRadius) * 1.3;
+                const x = cx + radius * Math.cos(-midAngle * (Math.PI / 180));
+                const y = cy + radius * Math.sin(-midAngle * (Math.PI / 180));
+                return (
+                  <text x={x} y={y} fill="var(--color-text-primary)" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" fontWeight="600">
+                    {`${(percent * 100).toFixed(0)}%`}
+                  </text>
+                );
+              }}
+            >
+              {data.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+              ))}
+            </Pie>
+            <Legend iconType="circle" wrapperStyle={{ color: 'var(--color-text-primary)' }} />
+            <Tooltip />
+          </PieChart>
+        </ResponsiveContainer>
+      )}
+    </div>
+  );
+};
+
+const CompletionRateChart = ({ data, isLoading }) => {
+  const COLORS = ['#22c55e', '#ef4444'];
+
+  return (
+    <div
+      className="rounded-2xl p-6 shadow-lg card-hover"
+      style={{
+        backgroundColor: 'var(--color-card-background)',
+        border: '1px solid var(--color-card-border)',
+      }}
+    >
+      <h3 className="text-lg font-bold mb-4" style={{ color: 'var(--color-text-primary)' }}>
+        Task Completion Rate
+      </h3>
+      {isLoading ? (
+        <div className="h-56 w-full flex items-center justify-center">
+          <p style={{ color: 'var(--color-text-muted)' }}>No data available.</p>
+        </div>
+      ) : (
+        <ResponsiveContainer width="100%" height={220}>
+          <PieChart>
+            <Pie
+              data={data}
+              dataKey="value"
+              nameKey="name"
+              cx="50%"
+              cy="50%"
+              innerRadius={50}
+              outerRadius={85}
+              labelLine={false}
+              label={({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
+                const radius = innerRadius + (outerRadius - innerRadius) * 1.3;
+                const x = cx + radius * Math.cos(-midAngle * (Math.PI / 180));
+                const y = cy + radius * Math.sin(-midAngle * (Math.PI / 180));
+                return (
+                  <text x={x} y={y} fill="var(--color-text-primary)" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" fontWeight="600">
+                    {`${(percent * 100).toFixed(0)}%`}
+                  </text>
+                );
+              }}
+            >
+              {data.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+              ))}
+            </Pie>
+            <Legend iconType="circle" wrapperStyle={{ color: 'var(--color-text-primary)' }} />
+            <Tooltip />
+          </PieChart>
+        </ResponsiveContainer>
+      )}
+    </div>
+  );
+};
+
+const FocusMoodRadarChart = ({ data, isLoading }) => (
+  <div
+    className="rounded-2xl p-6 shadow-lg card-hover"
+    style={{
+      backgroundColor: 'var(--color-card-background)',
+      border: '1px solid var(--color-card-border)',
+    }}
+  >
+    <h3 className="text-lg font-bold mb-4" style={{ color: 'var(--color-text-primary)' }}>
+      Average Focus & Mood
+    </h3>
+    {isLoading ? (
+      <div className="h-56 w-full flex items-center justify-center">
+        <p style={{ color: 'var(--color-text-muted)' }}>No data available.</p>
+      </div>
+    ) : (
+      <ResponsiveContainer width="100%" height={220}>
+        <RadarChart cx="50%" cy="50%" outerRadius="75%" data={data}>
+          <PolarGrid stroke="var(--color-border-secondary)" />
+          <PolarAngleAxis dataKey="subject" tick={{ fill: 'var(--color-text-muted)', fontSize: 12 }} />
           <PolarRadiusAxis angle={30} domain={[0, 5]} tick={false} />
-          <Radar name="Rating" dataKey="value" stroke="#805AD5" fill="#805AD5" fillOpacity={0.6} />
+          <Radar name="Rating" dataKey="value" stroke="var(--color-button-primary)" fill="var(--color-button-primary)" fillOpacity={0.6} strokeWidth={2} />
           <Tooltip />
         </RadarChart>
       </ResponsiveContainer>
@@ -358,50 +769,91 @@ const FocusMoodRadarChart = ({ data, isLoading }) => (
   </div>
 );
 
-const TopDistractionsCard = ({ distractions, isLoading }) => (
-  <div className="bg-gray-800 rounded-2xl p-6 shadow-lg">
-    <h3 className="text-lg font-semibold text-white mb-4">Top Distractions</h3>
-    {isLoading ? (
-      <div className="space-y-3">
-        <div className="h-5 w-3/4 rounded bg-gray-700 animate-pulse"></div>
-        <div className="h-5 w-1/2 rounded bg-gray-700 animate-pulse"></div>
-        <div className="h-5 w-2/3 rounded bg-gray-700 animate-pulse"></div>
-      </div>
-    ) : distractions.length > 0 ? (
-      <ol className="list-decimal list-inside space-y-2">
-        {distractions.map(([distraction, count]) => (
-          <li key={distraction} className="text-gray-300">
-            <span className="capitalize">{distraction}</span>
-            <span className="text-xs text-gray-500 ml-2">({count} times)</span>
-          </li>
-        ))}
-      </ol>
-    ) : (
-      <p className="text-sm text-gray-400 text-center py-2">No distractions reported!</p>
-    )}
-  </div>
-);
+const TopDistractionsChart = ({ data, isLoading }) => {
+  const chartData =
+    data?.map(([name, count]) => ({
+      name: name.charAt(0).toUpperCase() + name.slice(1),
+      count: count,
+    })) || [];
 
+  const COLORS = ['#3b82f6', '#8b5cf6', '#ec4899'];
+
+  return (
+    <div
+      className="rounded-2xl p-6 shadow-lg card-hover"
+      style={{
+        backgroundColor: 'var(--color-card-background)',
+        border: '1px solid var(--color-card-border)',
+      }}
+    >
+      <h3 className="text-lg font-bold mb-5" style={{ color: 'var(--color-text-primary)' }}>
+        Top Distractions
+      </h3>
+      {isLoading ? (
+        <div className="space-y-3 pt-2">
+          <div className="h-6 w-3/4 rounded-lg animate-pulse" style={{ backgroundColor: 'var(--color-background-secondary)' }}></div>
+          <div className="h-6 w-1/2 rounded-lg animate-pulse" style={{ backgroundColor: 'var(--color-background-secondary)' }}></div>
+          <div className="h-6 w-2/3 rounded-lg animate-pulse" style={{ backgroundColor: 'var(--color-background-secondary)' }}></div>
+        </div>
+      ) : chartData.length > 0 ? (
+        <div style={{ height: `${Math.max(chartData.length * 50, 150)}px` }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={chartData} layout="vertical" margin={{ left: 0, right: 40, top: 5, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-secondary)" horizontal={false} opacity={0.3} />
+              <XAxis type="number" hide />
+              <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} tick={{ fill: 'var(--color-text-secondary)', fontSize: 13, fontWeight: 500 }} width={90} />
+              <Tooltip cursor={{ fill: 'rgba(128, 90, 213, 0.1)' }} />
+              <Bar dataKey="count" radius={[0, 8, 8, 0]}>
+                {chartData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+                <LabelList dataKey="count" position="right" fill="var(--color-text-primary)" fontSize={13} fontWeight="600" formatter={(value) => `${value}x`} />
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      ) : (
+        <div className="text-center py-8">
+          <CheckCircle size={40} className="mx-auto mb-3" style={{ color: 'var(--color-button-success)' }} />
+          <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+            No distractions reported! 🎉
+          </p>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// --- Skeleton Loading Components ---
 const KpiSkeleton = () => (
-  <div className="bg-gray-800 rounded-2xl p-4 shadow-md animate-pulse">
-    <div className="h-6 w-6 rounded bg-gray-700 mb-2"></div>
-    <div className="h-4 w-3/4 rounded bg-gray-700 mb-1"></div>
-    <div className="h-8 w-1/2 rounded bg-gray-700"></div>
+  <div
+    className="rounded-2xl p-5 shadow-md animate-pulse"
+    style={{
+      backgroundColor: 'var(--color-card-background)',
+      border: '1px solid var(--color-card-border)',
+    }}
+  >
+    <div className="h-6 w-6 rounded mb-3" style={{ backgroundColor: 'var(--color-background-secondary)' }}></div>
+    <div className="h-3 w-3/4 rounded mb-2" style={{ backgroundColor: 'var(--color-background-secondary)' }}></div>
+    <div className="h-8 w-1/2 rounded" style={{ backgroundColor: 'var(--color-background-secondary)' }}></div>
   </div>
 );
 
 const SessionItemSkeleton = () => (
-  <div className="flex items-center justify-between p-3 rounded-lg animate-pulse">
-    <div className="flex items-center space-x-3 w-full">
-      <div className="w-10 h-10 rounded-lg bg-gray-700 flex-shrink-0"></div>
-      <div className="flex-grow">
-        <div className="h-4 w-3/4 rounded bg-gray-700 mb-1"></div>
-        <div className="h-3 w-1/2 rounded bg-gray-700"></div>
-      </div>
+  <div
+    className="flex flex-col p-4 rounded-xl animate-pulse"
+    style={{
+      backgroundColor: 'var(--color-background-secondary)',
+    }}
+  >
+    <div className="flex items-start justify-between mb-3">
+      <div className="w-10 h-10 rounded-lg" style={{ backgroundColor: 'var(--color-border-secondary)' }}></div>
+      <div className="h-5 w-16 rounded-full" style={{ backgroundColor: 'var(--color-border-secondary)' }}></div>
     </div>
-    <div className="text-right w-1/4 flex-shrink-0">
-      <div className="h-4 w-full rounded bg-gray-700 mb-1"></div>
-      <div className="h-3 w-3/4 ml-auto rounded bg-gray-700"></div>
+    <div className="h-4 w-3/4 rounded mb-2" style={{ backgroundColor: 'var(--color-border-secondary)' }}></div>
+    <div className="flex items-center justify-between">
+      <div className="h-3 w-1/4 rounded" style={{ backgroundColor: 'var(--color-border-secondary)' }}></div>
+      <div className="h-3 w-1/3 rounded" style={{ backgroundColor: 'var(--color-border-secondary)' }}></div>
     </div>
   </div>
 );
