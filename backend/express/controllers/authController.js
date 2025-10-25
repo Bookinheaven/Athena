@@ -1,5 +1,6 @@
 import AuthService from '../services/authService.js';
 import { validationResult } from 'express-validator';
+import jwt from 'jsonwebtoken'
 
 class AuthController {
   // Register
@@ -81,8 +82,6 @@ class AuthController {
         sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
         maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
       });
-
-
       res.json({
         success: true,
         message: 'Login successful',
@@ -133,7 +132,14 @@ class AuthController {
   // Get current user
   static async getCurrentUser(req, res) {
     try {
-      const user = await AuthService.getUserById(req.user?._id);
+        const token = req.cookies.token;
+        if (!token) return res.status(404).json({
+        success: false,
+        message: error.message
+      });
+
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const user = (decoded) ? await AuthService.getUserById(decoded.userId): await AuthService.getUserById(req.user?._id);
       res.json({
         success: true,
         user

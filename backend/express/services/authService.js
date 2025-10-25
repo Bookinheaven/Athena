@@ -123,7 +123,8 @@ class AuthService {
         email: user.email,
         fullName: user.fullName,
         createdAt: user.createdAt,
-        lastLogin: user.lastLogin
+        lastLogin: user.lastLogin,
+        type: user.type
       }
     };
   }
