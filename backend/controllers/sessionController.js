@@ -89,7 +89,6 @@ export const getCurrentSession = async (req, res) => {
     if (!userId) {
       return res.status(401).json({ message: "User not authenticated." });
     }
-    console.log(userId);
     const session = await Session.findOne({ userId, status: "active" });
     res.status(200).json(session);
   } catch (error) {

@@ -30,7 +30,7 @@ class adminController {
       }
     }
     try {
-      let list = req.body
+      let list = req.body.data
       if (Array.isArray(list) && list.length > 0) {
         for (let element of list) {
           deleteAccount(element) 
@@ -95,11 +95,7 @@ class adminController {
 
   static async updateUser(req, res) {
     try {
-      console.log(req.body)
       const {id, user} = req.body;
-      console.log(id)
-      console.log(user)
-
       const updateUser = await User.findByIdAndUpdate(id, user, {
         new: true,
         runValidators: true,

@@ -1,4 +1,6 @@
-import "./utils/loadEnv.js"
+if (process.env.NODE_ENV !== 'production') {
+  await import('./utils/loadEnv.js');
+}
 import express from "express";
 import cookieParser from "cookie-parser";
 import rateLimit from 'express-rate-limit';
