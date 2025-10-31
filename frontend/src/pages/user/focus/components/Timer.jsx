@@ -35,6 +35,7 @@ export const Timer = ({
   totalfocusSegments,
   totalbreakSegments,
   isDone,
+  onUpdateBackend,
   foucsSegments: focusSegmentsLeft,
 }) => {
   const [customMinutes, setCustomMinutes] = useState(25);
@@ -52,8 +53,6 @@ export const Timer = ({
   useEffect(() => {
     focusEndSound.current = new Audio("/focus_ended.mp3");
     breakEndSound.current = new Audio("/break_ended.mp3");
-    setPaused(!currentSegmentData?.startTimestamp);
-
   }, []);
 
   const notify = useCallback((msg, type = "success") => {
@@ -69,7 +68,6 @@ export const Timer = ({
   ];
 
   const handleStartPause = useCallback(() => {
-
     if (isStarted) {
       pause();
       setPaused(true);
@@ -102,7 +100,7 @@ export const Timer = ({
       const elapsed = (now - lastActiveRef.current) / 1000;
 
       if (elapsed > 3) {
-        // console.warn("⏱ Timer inactivity detected. Attempting auto-resume...");
+        // console.warn(" Timer inactivity detected. Attempting auto-resume...");
         start(); 
       }
     }, 5000);
@@ -148,7 +146,9 @@ export const Timer = ({
       intervalRef.current = setInterval(action, 100);
     }, 400);
   };
-  useEffect(()=> {console.log(paused)}, [paused])
+  
+  useEffect(()=> {onUpdateBackend()}, [paused])
+
   const handleCustomTimeSet = useCallback(() => {
     const customDuration = customMinutes * 60;
     setTotalFocusDuration(customDuration);
@@ -201,7 +201,6 @@ export const Timer = ({
 
   useEffect(()=> {
     if (isDone){
-      console.log("here")
       setNewSession()
     }
   }, [isDone])
@@ -235,11 +234,12 @@ export const Timer = ({
   const completedBreakSegments = totalbreakSegments - breaksLeft;
 
   return (
-    <div className="lg:min-w-md lg:max-w-md p-8 rounded-3xl shadow-2xl w-full max-w-md bg-card-background border border-card-border card-hover relative flex flex-col">
+    <div className="lg:min-w-md lg:max-w-md p-8 rounded-3xl shadow-2xl w-full max-w-md bg-card-background border border-card-border card-hover relative flex flex-col hover:border-blue-400">
       <div className="text-center mb-6 pt-4 h-10 flex items-center justify-center">
         <EditableTitle
             title={sessionTitle}
             setTitle={setSessionTitle}
+            onUpdateBackend={onUpdateBackend}
           />
       </div>
       {totalSegments > 0 && (

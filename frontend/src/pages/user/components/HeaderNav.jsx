@@ -48,7 +48,7 @@ export default function HeaderNav() {
 
   return (
     <header
-      className={`fixed top-4 left-1/2 z-50 flex -translate-x-1/2 transform items-center justify-between rounded-full border border-border-primary/50 bg-card-background/70 px-4 py-2 shadow-lg shadow-shadow-primary/30 backdrop-blur-lg transition-all duration-300 ease-in-out w-[90%] md:w-[60%] lg:w-[40%] xl:w-[30%] bg-clip-text ${isVisible ? "translate-y-0 opacity-100" : "-translate-y-16 opacity-0"}`}
+      className={`fixed top-4 left-1/2 z-50 flex -translate-x-1/2 transform items-center justify-between rounded-full border border-border-primary/50 bg-card-background/70 px-4 py-2 shadow-lg shadow-shadow-primary/30 backdrop-blur-lg transition-all duration-300 ease-in-out w-[90%] md:w-[60%] lg:w-[40%] xl:w-[30%] bg-clip-text ${isVisible ? "translate-y-0 opacity-100" : "-translate-y-16 opacity-0"} hover:border-blue-400`}
     >
       <nav className="flex items-center gap-4 border-r border-border-primary/50 pr-1">
         {navItems.map(({ to, icon: Icon, label }) => (
@@ -56,15 +56,7 @@ export default function HeaderNav() {
             key={to}
             to={to}
             title={label}
-            className={({ isActive }) =>
-              `relative flex items-center justify-center rounded-full p-2 transition-all duration-200 ease-in-out group focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary focus-visible:ring-offset-2 focus-visible:ring-offset-card-background
-              ${
-                isActive
-                  ? "bg-accent-primary/20 text-accent-primary scale-105" 
-                  : "text-text-muted hover:text-accent-primary hover:bg-white/5" 
-              }
-            `
-            }
+            className={({ isActive }) => `relative flex items-center justify-center rounded-full p-2 transition-all duration-200 ease-in-out group focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary focus-visible:ring-offset-2 focus-visible:ring-offset-card-background${isActive ? "bg-accent-primary/20 text-accent-primary scale-105" : "text-text-muted hover:text-accent-primary hover:bg-white/5" }`}
           >
             <Icon className="h-5 w-5" />
           </NavLink>

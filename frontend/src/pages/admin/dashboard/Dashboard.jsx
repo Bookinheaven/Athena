@@ -39,6 +39,7 @@ import {
 
 const Dashboard = () => {
   const [users, setUsers] = useState([]);
+  const [lastLoginUsers, setLastLoginUsers] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -109,13 +110,25 @@ const Dashboard = () => {
       const data = await adminService.getUsers();
       if (data.success && Array.isArray(data.users)) {
         const filteredUsers = data.users.filter((u) => u._id !== user._id);
-        setUsers(filteredUsers);
-        setFilteredUsers(filteredUsers);
+        
+        const sortedUsers = filteredUsers.sort((a, b) => {
+          const dateA = a?.lastLogin ? new Date(a.lastLogin).getTime() : 0;
+          const dateB = b?.lastLogin ? new Date(b.lastLogin).getTime() : 0;
+          return dateB - dateA;
+        });
+        const lastLoginUsers = sortedUsers.filter((u) => u?.lastLogin != null);
+        setUsers(sortedUsers);
+        setFilteredUsers(sortedUsers);
+        // If you have a state for lastLoginUsers:
+        setLastLoginUsers(lastLoginUsers);
       }
+      console.log(data);
     } catch (error) {
       console.error('Error fetching users:', error);
     }
   };
+
+
 
   useEffect(() => {
     if (!user || user.type !== 'admin') navigate('/login');
@@ -204,7 +217,7 @@ const Dashboard = () => {
   const handleDeleteUser = async (id) => {
     if (!window.confirm('Are you sure you want to delete this user?')) return;
     try {
-      const data = await adminService.removeUser(id);
+      const data = await adminService.deleteUsers([id]);
       if (data.success) {
         alert('User deleted successfully');
         fetchUsers();
@@ -383,10 +396,10 @@ const Dashboard = () => {
         </header>
 
         {/* Content Area */}
-        <div className="flex-1 overflow-y-auto p-6 bg-background-color">
+        <div className="h-full flex flex-col overflow-y-auto p-6 bg-background-color">
           {/* Dashboard Tab */}
           {activeTab === 'dashboard' && (
-            <div className="space-y-6">
+            <div className="h-full space-y-6 flex flex-col">
               {/* Stats Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {[
@@ -413,13 +426,13 @@ const Dashboard = () => {
               </div>
 
               {/* Recent Activity */}
-              <div className="bg-card-background p-6 rounded-2xl border border-card-border theme-transition">
+              <div className="h-full bg-card-background p-6 rounded-2xl border border-card-border theme-transition">
                 <div className="flex items-center gap-2 mb-6">
                   <Zap size={22} className="text-text-accent" />
                   <h3 className="text-lg font-semibold text-text-primary">Recent Activity</h3>
                 </div>
-                <div className="space-y-3">
-                  {users.slice(0, 5).map((u, index) => (
+                <div className="space-y-3 overflow-y-auto">
+                  {lastLoginUsers.map((u, index) => (
                     <div
                       key={u._id}
                       className="flex items-center gap-4 p-4 rounded-xl hover:bg-background-secondary/50 transition-all duration-200 border border-transparent hover:border-card-border"
@@ -431,18 +444,31 @@ const Dashboard = () => {
                         <p className="text-sm font-semibold text-text-primary">{u.fullName}</p>
                         <p className="text-xs text-text-muted">@{u.username}</p>
                       </div>
-                      <div className="flex items-center gap-2">
-                        {u.isActive && (
-                          <>
-                            <span className="w-2 h-2 bg-button-success rounded-full animate-pulse"></span>
-                            <span className="text-xs text-text-secondary font-medium">Online</span>
-                          </>
+                      <div className="flex flex-col items-end gap-2">
+                        <div className="flex items-center gap-2">
+                          {u.isActive && (
+                            <>
+                              <span className="w-2 h-2 bg-button-success rounded-full animate-pulse"></span>
+                              <span className="text-xs text-text-secondary font-medium">Online</span>
+                            </>
+                          )}
+                        </div>
+                        {u.lastLogin && (
+                          <span className="text-xs text-text-muted">
+                            {new Date(u.lastLogin).toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </span>
                         )}
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
+
             </div>
           )}
 
