@@ -16,14 +16,16 @@ const Login = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    let newValue = value;
+    if (/\s/.test(newValue)) return;
+    setFormData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: newValue,
     }));
     if (errors[name]) {
-      setErrors(prev => ({
+      setErrors((prev) => ({
         ...prev,
-        [name]: ''
+        [name]: "",
       }));
     }
   };

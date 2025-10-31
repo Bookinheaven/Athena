@@ -1,7 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+
 import {
   List,
   ListTodo,
+  Loader2,
   NotebookPen,
   Quote,
   Settings as SettingsIcon,
@@ -23,9 +26,10 @@ import toast from "react-hot-toast";
 import { v4 as uuidv4 } from "uuid";
 
 const FocusSession = () => {
-  const [showQuotes, setShowQuotes] = useState(true);
+  const [showQuotes, setShowQuotes] = useState(false);
   const [activePanel, setActivePanel] = useState("");
   const hasLoggedStart = useRef(false);
+  const [hasStartedFocus, setHasStartedFocus] = useState(false);
 
   const [isLoading, setIsLoading] = useState(true);
 
@@ -122,6 +126,12 @@ const FocusSession = () => {
   });
 
   useEffect(() => {
+    if (isStarted && currentSegment?.type === "focus" && !hasStartedFocus) {
+      setHasStartedFocus(true);
+    }
+  }, [isStarted, currentSegment, hasStartedFocus]);
+
+  useEffect(() => {
     if (newSession) {
       const fresh = initialSession();
       setSessionData(fresh);
@@ -143,6 +153,9 @@ const FocusSession = () => {
           createdAt: new Date().toISOString(),
         },
       ]);
+      if (newSession) {
+        setHasStartedFocus(false);
+      }
       setNewSession(false);
       hasLoggedStart.current = false;
     }
@@ -158,11 +171,11 @@ const FocusSession = () => {
 
   const handleSaveToBackend = useCallback(async () => {
     if (!sessionData || !sessionData.sessionId) return;
+    if (!hasStartedFocus) return;
     const { sessionId, ...sessionDetails } = sessionData;
     const uniqueHistory = Array.from(
       new Map(sessionHistory.map((item) => [item.completedAt, item])).values()
     );
-
     const payload = {
       sessionId: sessionData.sessionId,
 
@@ -182,13 +195,13 @@ const FocusSession = () => {
       history: uniqueHistory.length ? uniqueHistory : undefined,
     };
     try {
-      console.log(payload);
       await sessionService.saveSession(payload);
-      console.log("Data Updated");
+      console.log(payload);
     } catch (error) {
       console.error("Session save error: ", error);
     }
   }, [
+    hasStartedFocus,
     user,
     sessionData,
     sessionTitle,
@@ -216,7 +229,7 @@ const FocusSession = () => {
           setAutoStartBreaks(backendSession.userSettings.autoStartBreaks);
           setBreaksNumber(backendSession.userSettings.breaksNumber);
 
-          setSessionTitle(backendSession.title);
+          setSessionTitle(backendSession.session.title);
           setTodos(backendSession.userData.todos || []);
           setNotes(
             backendSession.userData.notes || [
@@ -259,14 +272,6 @@ const FocusSession = () => {
     loadSession();
   }, []);
 
-  useEffect(() => {
-    console.log("Segment index changed to:", currentSegmentIndex);
-  }, [currentSegmentIndex]);
-
-  useEffect(() => {
-    console.log("sessionData :", sessionData);
-  }, [sessionData]);
-
   const savedCallback = useRef();
   useEffect(() => {
     savedCallback.current = handleSaveToBackend;
@@ -274,7 +279,7 @@ const FocusSession = () => {
 
   useEffect(() => {
     if (isStarted && currentSegmentIndex === 0 && !hasLoggedStart.current) {
-      handleSaveToBackend();
+      // handleSaveToBackend();
       hasLoggedStart.current = true;
     }
   }, [isStarted, currentSegmentIndex]);
@@ -368,9 +373,14 @@ const FocusSession = () => {
 
   if (isLoading) {
     return (
-      <div className="pt-23 lg:pt-2 min-h-screen flex flex-col p-4 relative theme-transition bg-background-color justify-center items-center">
-          <div className="h-8 w-3/4 rounded bg-gray-700 animate-pulse"></div>
-          <div className="h-8 w-1/2 rounded bg-gray-700 animate-pulse"></div>
+      <div className="min-h-screen p-8 font-sans flex items-center justify-center bg-background-color text-text-primary">
+        <div className="text-center">
+          <Loader2
+            size={48}
+            className="animate-spin mx-auto text-button-primary"
+          />
+          <p className="mt-4 text-text-secondary">Loading...</p>
+        </div>
       </div>
     );
   }
@@ -395,11 +405,19 @@ const FocusSession = () => {
         ].map(({ icon: Icon, key }) => (
           <button
             key={key}
-            onClick={() => handlePanelToggle(key)}
-            className={`p-3 rounded-xl shadow-md transition-all duration-300 border border-card-border ${
+            onClick={() => {
+              if (isStarted || key === "settings") {
+                handlePanelToggle(key);
+              }
+            }}
+            className={`p-3 rounded-xl shadow-md transition-all duration-300 border border-card-border hover:border-blue-400 ${
               activePanel === key
                 ? "bg-button-primary text-button-primary-text"
                 : "bg-card-background text-text-primary"
+            } ${
+              !isStarted && key !== "settings"
+                ? "opacity-50 cursor-not-allowed"
+                : ""
             }`}
             aria-label={`Toggle ${key}`}
           >
@@ -421,7 +439,7 @@ const FocusSession = () => {
           onClose={() => setActivePanel(null)}
         />
 
-        <div className="flex flex-col items-center gap-10 lg:flex-row mt-2 lg:mt-10">
+        <div className="flex flex-col items-center gap-10 lg:flex-row mt-2 lg:mt-10 transition-all duration-500 ease-in-out">
           {sessionData?.isDone ? (
             <SessionReview
               reviewData={sessionReview}
@@ -468,6 +486,7 @@ const FocusSession = () => {
                   null
                 )
               }
+              onUpdateBackend={handleSaveToBackend}
             />
           )}
 
@@ -497,12 +516,22 @@ const FocusSession = () => {
         />
       </div>
 
-      <div className="flex flex-row justify-around transition-all duration-300">
-        <MotivationalQuotes
-          show={showQuotes}
-          onClose={() => setShowQuotes(false)}
-        />
-      </div>
+      <AnimatePresence>
+        {showQuotes && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            transition={{ duration: 0.3 }}
+            className="flex flex-row justify-around transition-all duration-300"
+          >
+            <MotivationalQuotes
+              show={showQuotes}
+              onClose={() => setShowQuotes(false)}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

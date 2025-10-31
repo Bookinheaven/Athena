@@ -13,12 +13,20 @@ const OTPVerification = () => {
   const [success, setSuccess] = useState('');
   const fullName = location.state?.fullName;
   const email = location.state?.email;
+  const [resentCode, setResentCode] = useState(false)
 
   useEffect(() => {
     if (!email) {
       navigate('/register');
     }
   }, [email, navigate]);
+
+  useEffect(()=> {
+    if (resentCode) {
+      setTimeout(()=> setResentCode(false), 10000)
+      console.log(resentCode)
+    }
+  }, [resentCode])
 
   const handleChange = (element, index) => {
     const value = element.value;
@@ -84,6 +92,13 @@ const OTPVerification = () => {
           backgroundColor: 'var(--color-card-background)',
           border: '1px solid var(--color-card-border)'
         }}>
+          {resentCode && (
+            <div className="flex flex-col items-center justify-center gap-2 p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-300 dark:border-green-700 transition-all duration-300 ease-in-out mb-4">
+              <p className="text-xl md:text-2xl font-medium text-green-700 dark:text-green-400 text-center">
+                We’ve resent the code!
+              </p>
+            </div>
+          )}
            {error && (
             <div className="mb-4 rounded-md p-4" style={{
               backgroundColor: 'var(--color-error-bg)',
@@ -120,7 +135,7 @@ const OTPVerification = () => {
               <label className="block text-sm font-medium mb-4 text-center select-none" style={{ color: 'var(--color-text-primary)' }}>
                 Enter verification code
               </label>
-              <div className="flex justify-center space-x-3">
+              <div className="flex flex-wrap justify-center gap-2">
                 {otp.map((digit, index) => (
                   <input
                     key={index}
@@ -161,12 +176,15 @@ const OTPVerification = () => {
               Didn't receive the code?{' '}
               <button
                 type="button"
-                className="font-medium hover:underline hover:shadow-none"
-                style={{ color: 'var(--color-link)' }}
+                className="font-medium hover:underline hover:shadow-none text-color-link cursor-pointer"
                 onClick={() => {
-                  resendOTPCode({email:email, fullName: fullName});
-                  setOtp(['', '', '', '', '', ''])
-                  
+                  try {
+                    setResentCode(true)
+                    resendOTPCode({ email, fullName });
+                    setOtp(['', '', '', '', '', '']);
+                  } catch (err) {
+                    console.error("Error in resend:", err);
+                  }
                 }}
               >
                 Resend code

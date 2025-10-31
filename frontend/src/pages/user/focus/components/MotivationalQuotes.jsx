@@ -140,12 +140,12 @@ const MotivationalQuotes = ({ show, onClose }) => {
 
   return (
     <div
-      className="w-full max-w-2xl mt-4 relative z-10 overflow-hidden transition-all duration-300 ease-in-out"
+      className="w-full max-w-2xl mt-4 relative z-10 overflow-hidden transition-all duration-300 ease-in-out hover:border-blue-400"
       style={{
         display: show ? "block" : "none",
       }}
     >
-      <div className="p-6 rounded-2xl shadow-lg bg-card-background border border-card-border">
+      <div className="p-6 rounded-2xl shadow-lg bg-card-background border border-card-border hover:border-blue-400">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-xl font-semibold text-text-primary flex items-center gap-2 select-none">
             <Quote className="w-6 h-6 text-text-accent" />

@@ -98,7 +98,7 @@ export const SessionReview = ({ reviewData, onUpdate, onDistractionToggle, onNew
         onClick={onNewSession}
         className="w-full mt-8 py-3 px-4 rounded-lg bg-button-primary text-button-primary-text font-semibold hover:bg-button-primary-hover transition-colors shadow-lg"
       >
-        Start New Session
+        Submit
       </button>
     </div>
   );

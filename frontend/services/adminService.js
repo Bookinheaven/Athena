@@ -40,7 +40,7 @@ class AdminService {
   async deleteUsers(data) {
     let response = await this.request("/admin/delete", {
       method: "POST",
-      body: data
+      body: { data }
     });
     return response;
   }
