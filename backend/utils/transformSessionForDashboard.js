@@ -1,5 +1,5 @@
 const transformSessionForDashboard = (session) => {
-  const s = session.toObject();
+  const s = session.toObject ? session.toObject() : session;
 
   const actualFocusDuration = s.history
     .filter((h) => h.type === "focus")
@@ -9,8 +9,8 @@ const transformSessionForDashboard = (session) => {
     .filter((h) => h.type === "break")
     .reduce((acc, h) => acc + h.totalDuration, 0);
 
-  const completedSegments = s.history.filter((h) => h.type === "focus").length;
-
+  const completedSegments = s.history.filter((h) => h.type === "focus" && s.isDone === true).length;
+  const totalSegments = s.history.filter((h) => h.type === "focus").length;
   return {
     id: s._id,
     title: s.title,
@@ -20,15 +20,17 @@ const transformSessionForDashboard = (session) => {
 
     plannedFocusDuration: s.userSettings?.totalFocusDuration || 0,
     plannedBreakDuration: s.userSettings?.breakDuration || 0,
-    actualFocusDuration: actualFocusDuration,
-    actualBreakDuration: actualBreakDuration,
-    completedSegments: completedSegments,
-    totalSegments: (s.userSettings?.breaksNumber || 0) + 1,
+    actualFocusDuration,
+    actualBreakDuration,
+    completedSegments,
+    totalSegments: totalSegments || 0,
+
     todosCompleted:
       s.userData?.todos?.filter((t) => t.status === "completed").length || 0,
     todosTotal: s.userData?.todos?.length || 0,
-    feedbackMood: s.sessionFeedback?.mood || null,
-    feedbackFocus: s.sessionFeedback?.focus || null,
+
+    feedbackMood: s.sessionFeedback?.mood ?? null,
+    feedbackFocus: s.sessionFeedback?.focus ?? null,
     feedbackDistractions: s.sessionFeedback?.distractions || "",
   };
 };
