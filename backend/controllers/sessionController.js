@@ -31,7 +31,7 @@ export const logSession = async (req, res) => {
       isDone: session.isDone || false,
       status: session.isDone ? "completed" : "active",
       segmentIndex: session.segmentIndex,
-      segments: session.segments,
+      sessionSegments: session.segments,
       totalDuration: session.totalDuration,
       breakDuration: session.breakDuration,
       maxBreaks: session.maxBreaks,
@@ -39,6 +39,7 @@ export const logSession = async (req, res) => {
       userData,
       sessionFeedback,
       history,
+      endedAt: session.isDone == true ? new Date() : null,
     };
     const existingSession = await Session.findOne({
       sessionId: sessionId,
@@ -60,6 +61,7 @@ export const logSession = async (req, res) => {
           },
         }
       );
+      // if(updateResult) console.log(updateResult)
     }
     // console.log("Session Payload to Save/Update:", JSON.stringify(sessionPayload, null, 2));
     const savedSession = await Session.findOneAndUpdate(
@@ -124,7 +126,6 @@ export const getInsights = async (req, res) => {
     const allSessions = await Session.find({ userId }).sort({ timestamp: -1 });
     const insights = await generateInsights(userId, allSessions);
     const recentSessions = allSessions
-      .slice(0, 4)
       .map(transformSessionForDashboard);
     res.status(200).json({ insights, recentSessions });
   } catch (error) {

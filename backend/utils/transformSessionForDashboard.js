@@ -17,7 +17,7 @@ const transformSessionForDashboard = (session) => {
     createdAt: s.timestamp,
     endedAt: s.endedAt,
     status: s.status,
-
+    isDone: s.isDone,
     plannedFocusDuration: s.userSettings?.totalFocusDuration || 0,
     plannedBreakDuration: s.userSettings?.breakDuration || 0,
     actualFocusDuration,

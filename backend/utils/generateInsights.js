@@ -1,6 +1,5 @@
 import transformSessionForDashboard from "./transformSessionForDashboard.js";
 
-// Helper to calculate productivity score
 const calculateProductivityScore = (kpis) => {
   if (!kpis) return 0;
 
@@ -126,6 +125,8 @@ const generateInsights = async (userId, sessions) => {
       kpis: {
         totalFocusTime: 0,
         sessionsCompleted: 0,
+        avgSessions: 0,
+        sessionsStarted: 0,
         avgMood: 0,
         avgFocus: 0,
         avgSessionLength: 0,
@@ -159,8 +160,13 @@ const generateInsights = async (userId, sessions) => {
     0
   );
   const sessionsCompleted = summarizedSessions.filter(
-    (s) => s.status === "completed"
+    (s) => s.endedAt != null && s.isDone == true
   ).length;
+  const sessionsStarted = summarizedSessions.filter(
+    (s) => s.endedAt != null || s.isDone == true || s.status === "completed"
+  ).length;
+  const avgSessions = (sessionsStarted/sessionsCompleted) || 0
+
   const validMoods = summarizedSessions
     .map((s) => s.feedbackMood)
     .filter((m) => m != null);
@@ -185,13 +191,14 @@ const generateInsights = async (userId, sessions) => {
 
   const kpis = {
     totalFocusTime,
+    sessionsStarted,
     sessionsCompleted,
+    avgSessions: avgSessions.toFixed(1),
     avgMood: avgMood.toFixed(1),
     avgFocus: avgFocus.toFixed(1),
     avgSessionLength,
     avgTodosCompleted: avgTodosCompleted.toFixed(1),
   };
-
   // Productivity Score
   const productivityScore = calculateProductivityScore(kpis);
 

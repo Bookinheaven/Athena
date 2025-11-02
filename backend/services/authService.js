@@ -46,7 +46,7 @@ class AuthService {
     try {
       await EmailService.sendVerificationOTP(email, otp, fullName);
     } catch (error) {
-      console.log(error)
+      console.warn(error)
     }
 
     return { message: 'Registration successful. Please check your email for verification code.' };
@@ -68,7 +68,7 @@ class AuthService {
     try {
       await EmailService.sendVerificationOTP(email, otp, fullName);
     } catch (error) {
-      console.log(error)
+      console.warn(error)
     }
     return { message: 'Please check your email for verification code.' };
   

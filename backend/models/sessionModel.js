@@ -10,6 +10,17 @@ const segmentHistorySchema = new mongoose.Schema(
   { _id: false }
 );
 
+const segmentsSchema = new mongoose.Schema(
+  {
+    type: { type: String, enum: ["focus", "break"], required: true },
+    duration: { type: Number, required: true },
+    totalDuration: { type: Number, required: true },
+    completedAt: { type: Date },
+    startedAt: { type: Date, required: true },
+  },
+  { _id: false }
+);
+
 const sessionSchema = new mongoose.Schema({
   sessionId: {
     type: String, 
@@ -57,7 +68,10 @@ const sessionSchema = new mongoose.Schema({
     focus: { type: Number, min: 1, max: 5 },
     distractions: String,
   },
-
+  sessionSegments: {
+    type: [segmentsSchema],
+    default: [],
+  },
   history: {
     type: [segmentHistorySchema],
     default: [],
