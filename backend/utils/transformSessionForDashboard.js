@@ -1,16 +1,16 @@
 const transformSessionForDashboard = (session) => {
   const s = session.toObject ? session.toObject() : session;
 
-  const actualFocusDuration = s.history
+  const actualFocusDuration = s.sessionSegments
     .filter((h) => h.type === "focus")
     .reduce((acc, h) => acc + h.totalDuration, 0);
 
-  const actualBreakDuration = s.history
+  const actualBreakDuration = s.sessionSegments
     .filter((h) => h.type === "break")
     .reduce((acc, h) => acc + h.totalDuration, 0);
 
-  const completedSegments = s.history.filter((h) => h.type === "focus" && s.isDone === true).length;
-  const totalSegments = s.history.filter((h) => h.type === "focus").length;
+  const completedSegments = s.sessionSegments.filter((h) => h.type === "focus" && h.completedAt != null && s.isDone === true).length;
+  const totalSegments = s.sessionSegments.filter((h) => h.type === "focus").length;
   return {
     id: s._id,
     title: s.title,

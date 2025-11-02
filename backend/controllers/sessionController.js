@@ -45,7 +45,7 @@ export const logSession = async (req, res) => {
       sessionId: sessionId,
       userId: userId,
     });
-    if (!existingSession && sessionPayload.status === "active") {
+    if (!existingSession) {
       // console.log(`New active session (${sessionId}). Cleaning up old active sessions for user ${userId}...`);
       const updateResult = await Session.updateMany(
         {
