@@ -53,6 +53,9 @@ export const Timer = ({
   useEffect(() => {
     focusEndSound.current = new Audio("/focus_ended.mp3");
     breakEndSound.current = new Audio("/break_ended.mp3");
+    if(currentSegmentData && currentSegmentData.duration > 0) {
+      setPaused(true)
+    }
   }, []);
 
   const notify = useCallback((msg, type = "success") => {
@@ -88,6 +91,7 @@ export const Timer = ({
         ...currentSegmentData,
         startTimestamp: new Date().toISOString(),
       });
+      if(currentSegmentData?.startedAt == null) onSegmentUpdate({...currentSegmentData, startedAt: Date.now()}) // here
       lastActiveRef.current = Date.now();
     }
   }, [isStarted, pause, start, onSegmentUpdate, currentSegmentData]);
@@ -127,7 +131,7 @@ export const Timer = ({
   }, [timeLeft, totalFocusDuration, currentSegmentData?.totalDuration]);
 
   const handleDecrement = useCallback(
-    () => setCustomMinutes((p) => Math.max(1, p - 1)),
+    () => setCustomMinutes((p) => Math.max(10, p - 1)),
     []
   );
   const handleIncrement = useCallback(
@@ -185,7 +189,7 @@ export const Timer = ({
 
   const segmentTotalDuration =
     currentSegmentData?.totalDuration ?? totalFocusDuration;
-  const activeTime = isStarted ? timeLeft : segmentTotalDuration;
+  const activeTime = timeLeft;
 
   useEffect(() => {
     if (timeLeft === 0 && isStarted) {
@@ -201,6 +205,7 @@ export const Timer = ({
 
   useEffect(()=> {
     if (isDone){
+      onUpdateBackend()
       setNewSession()
     }
   }, [isDone])
@@ -234,7 +239,7 @@ export const Timer = ({
   const completedBreakSegments = totalbreakSegments - breaksLeft;
 
   return (
-    <div className="lg:min-w-md lg:max-w-md p-8 rounded-3xl shadow-2xl w-full max-w-md bg-card-background border border-card-border card-hover relative flex flex-col hover:border-blue-400">
+    <div className="lg:min-w-lg lg:max-w-md p-8 rounded-3xl shadow-2xl w-full max-w-md bg-card-background border border-card-border card-hover relative flex flex-col hover:border-blue-400">
       <div className="text-center mb-6 pt-4 h-10 flex items-center justify-center">
         <EditableTitle
             title={sessionTitle}
@@ -294,7 +299,6 @@ export const Timer = ({
               strokeWidth="4"
               fill="none"
             />
-            {isStarted && (
               <circle
                 cx="50"
                 cy="50"
@@ -309,7 +313,6 @@ export const Timer = ({
                 strokeLinecap="round"
                 style={{ transition: "stroke-dashoffset 0.3s linear" }}
               />
-            )}
           </svg>
           <div className="text-center w-full">
             <div
@@ -334,15 +337,17 @@ export const Timer = ({
               {completedFocusSegments} / {totalfocusSegments}
             </span>
           </div>
-          <div className="flex flex-col items-center">
-            <div className="flex items-center gap-2 text-text-secondary">
-              <Coffee className="w-4 h-4" />
-              <span className="text-sm font-medium">Breaks</span>
+          { totalbreakSegments > 0 && (
+            <div className="flex flex-col items-center">
+              <div className="flex items-center gap-2 text-text-secondary">
+                <Coffee className="w-4 h-4" />
+                <span className="text-sm font-medium">Breaks</span>
+              </div>
+              <span className="text-lg font-bold text-text-primary">
+                {completedBreakSegments} / {totalbreakSegments}
+              </span>
             </div>
-            <span className="text-lg font-bold text-text-primary">
-              {completedBreakSegments} / {totalbreakSegments}
-            </span>
-          </div>
+          )} 
         </div>
       </div>
 
@@ -395,13 +400,13 @@ export const Timer = ({
                 </button>
                 <input
                   type="number"
-                  min="1"
+                  min="10"
                   max="999"
                   value={customMinutes}
                   onChange={(e) => {
                     const val = Math.min(
                       999,
-                      Math.max(1, +e.target.value || 1)
+                      Math.max(10, +e.target.value || 1)
                     );
                     setCustomMinutes(val);
                   }}

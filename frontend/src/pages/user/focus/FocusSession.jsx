@@ -30,7 +30,6 @@ const FocusSession = () => {
   const [activePanel, setActivePanel] = useState("");
   const hasLoggedStart = useRef(false);
   const [hasStartedFocus, setHasStartedFocus] = useState(false);
-
   const [isLoading, setIsLoading] = useState(true);
 
   const { user } = useAuth();
@@ -134,9 +133,9 @@ const FocusSession = () => {
   useEffect(() => {
     if (newSession) {
       const fresh = initialSession();
+      setSessionTitle("Untittled Work");
       setSessionData(fresh);
       reset();
-      setSessionTitle("Untittled Work");
       setSessionHistory([]);
       setTodos([]);
       setNotes([
@@ -196,7 +195,6 @@ const FocusSession = () => {
     };
     try {
       await sessionService.saveSession(payload);
-      console.log(payload);
     } catch (error) {
       console.error("Session save error: ", error);
     }
@@ -222,14 +220,16 @@ const FocusSession = () => {
         // console.log("Checking backend for active session...");
         const backendSession = await sessionService.getActiveSession();
 
-        if (backendSession && !backendSession.isDone) {
-          console.log(backendSession);
+        if (
+          backendSession &&
+          !backendSession.isDone &&
+          backendSession.status == "active"
+        ) {
           setTotalFocusDuration(backendSession.userSettings.totalFocusDuration);
           setBreakDuration(backendSession.userSettings.breakDuration);
           setAutoStartBreaks(backendSession.userSettings.autoStartBreaks);
           setBreaksNumber(backendSession.userSettings.breaksNumber);
-
-          setSessionTitle(backendSession.session.title);
+          setSessionTitle(backendSession.title);
           setTodos(backendSession.userData.todos || []);
           setNotes(
             backendSession.userData.notes || [
@@ -249,10 +249,27 @@ const FocusSession = () => {
               distractions: "",
             }
           );
-
+          let index = backendSession.sessionSegments.findIndex(
+            (x) => x.completedAt === null
+          );
+          if (index < 0) index = 0;
           setSessionData({
-            ...backendSession,
-            segments: backendSession.history,
+            sessionId: backendSession.sessionId,
+            title: backendSession.title,
+            segmentIndex: index,
+            totalBreaks: backendSession.sessionSegments.filter(
+              (s) => s.type === "break"
+            ).length,
+            breakDuration: backendSession.userSettings.breakDuration,
+            maxBreaks: backendSession.userSettings.breaksNumber,
+            segments: backendSession.sessionSegments,
+            currentDuration: backendSession.sessionSegments.reduce(
+              (sum, segment) => sum + segment.duration,
+              0
+            ),
+            totalDuration: backendSession.userSettings.totalFocusDuration,
+            isDone: backendSession.isDone,
+            timestamp: backendSession.timestamp,
           });
         } else {
           // console.log("No active session in backend. Creating new one.");
