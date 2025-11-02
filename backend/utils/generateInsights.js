@@ -165,7 +165,8 @@ const generateInsights = async (userId, sessions) => {
   const sessionsStarted = summarizedSessions.filter(
     (s) => s.endedAt != null || s.isDone == true || s.status === "completed"
   ).length;
-  const avgSessions = (sessionsStarted/sessionsCompleted) || 0
+  const avgSessions = sessionsCompleted > 0 ? ((sessionsCompleted / sessionsStarted) * 100 ): 0;
+
 
   const validMoods = summarizedSessions
     .map((s) => s.feedbackMood)
