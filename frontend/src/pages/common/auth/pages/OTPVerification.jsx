@@ -24,7 +24,6 @@ const OTPVerification = () => {
   useEffect(()=> {
     if (resentCode) {
       setTimeout(()=> setResentCode(false), 10000)
-      console.log(resentCode)
     }
   }, [resentCode])
 

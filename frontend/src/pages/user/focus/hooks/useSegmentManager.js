@@ -74,6 +74,7 @@ export const useSegmentManager = ({
             completedAt: completedTimestamp,
             duration: newSegments[currentSegmentIndex].totalDuration,
             startTimestamp: null,
+            
           };
           return { ...prev, segments: newSegments, isDone: true };
         });

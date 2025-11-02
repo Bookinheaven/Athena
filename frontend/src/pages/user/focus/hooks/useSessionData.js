@@ -19,7 +19,7 @@ const createSessionData = (totalFocusDuration, breakDuration, maxBreaks) => {
       duration: 0,
       totalDuration: focusSegmentDuration,
       completedAt: null,
-      startTimestamp: null,
+      startedAt: null,
     });
 
     if (i < possibleBreaks) {
@@ -28,7 +28,7 @@ const createSessionData = (totalFocusDuration, breakDuration, maxBreaks) => {
         duration: 0,
         totalDuration: breakDuration,
         completedAt: null,
-        startTimestamp: null,
+        startedAt: null,
       });
     }
   }

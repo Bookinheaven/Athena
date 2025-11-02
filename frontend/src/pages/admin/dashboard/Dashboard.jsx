@@ -119,10 +119,8 @@ const Dashboard = () => {
         const lastLoginUsers = sortedUsers.filter((u) => u?.lastLogin != null);
         setUsers(sortedUsers);
         setFilteredUsers(sortedUsers);
-        // If you have a state for lastLoginUsers:
         setLastLoginUsers(lastLoginUsers);
       }
-      console.log(data);
     } catch (error) {
       console.error('Error fetching users:', error);
     }
