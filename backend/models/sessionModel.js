@@ -16,7 +16,7 @@ const segmentsSchema = new mongoose.Schema(
     duration: { type: Number, required: true },
     totalDuration: { type: Number, required: true },
     completedAt: { type: Date },
-    startedAt: { type: Date, required: true },
+    startedAt: { type: Date, default: null },
   },
   { _id: false }
 );
