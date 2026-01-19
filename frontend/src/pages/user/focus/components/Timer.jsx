@@ -91,9 +91,9 @@ export const Timer = ({
         ...currentSegmentData,
         startTimestamp: new Date().toISOString(),
       });
-      if(currentSegmentData?.startedAt == null) onSegmentUpdate({...currentSegmentData, startedAt: Date.now()}) // here
       lastActiveRef.current = Date.now();
     }
+    if(currentSegmentData?.startedAt == null) onSegmentUpdate({...currentSegmentData, startedAt: Date.now()}) // here
   }, [isStarted, pause, start, onSegmentUpdate, currentSegmentData]);
 
   useEffect(() => {

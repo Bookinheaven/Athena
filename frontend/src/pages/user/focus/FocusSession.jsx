@@ -1,14 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
-import {
-  List,
-  ListTodo,
-  Loader2,
-  NotebookPen,
-  Quote,
-  Settings as SettingsIcon,
-} from "lucide-react";
+import { List, ListTodo, Loader2, NotebookPen, Quote, Settings as SettingsIcon } from "lucide-react";
 import createSessionData from "./hooks/useSessionData";
 import { useLocalStorage } from "./hooks/useLocalStorage";
 import { useSessionStorage } from "./hooks/useSessionStorage";
@@ -181,8 +174,7 @@ const FocusSession = () => {
       session: {
         ...sessionDetails,
         title: sessionTitle,
-      },
-
+      },      
       userSettings: {
         totalFocusDuration,
         breakDuration,

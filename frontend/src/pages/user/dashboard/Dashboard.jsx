@@ -186,10 +186,10 @@ const Dashboard = () => {
               <h2 className="text-xl sm:text-2xl font-bold">Session Summary</h2>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3 pt-4">
-              <StatCard icon={<Calendar size={18} />} title="Session Length" value={formatTime(kpis?.avgSessionLength || 0)} subtitle="Per session" color="#3b82f6" />
               <StatCard icon={<Target size={18} />} title="Total Sessions" value={`${kpis?.sessionsStarted || 0}`} subtitle="All time" color="#22c55e" />
               <StatCard icon={<Zap size={18} />} title="Completed Sessions" value={kpis?.sessionsCompleted || 0} subtitle="All time" color="#f59e0b" />
-              <StatCard icon={<Target size={18} />} title="Tasks Completed" value={`${kpis?.avgTodosCompleted || 0} tasks`} subtitle="Per session" color="#22c55e" />
+              <StatCard icon={<Calendar size={18} />} title="Avg. Session Length" value={formatTime(kpis?.avgSessionLength || 0)} subtitle="Per session" color="#3b82f6" />
+              <StatCard icon={<Target size={18} />} title="Avg. Tasks Completed" value={`${kpis?.avgTodosCompleted || 0} tasks`} subtitle="Per session" color="#22c55e" />
             </div>
           </motion.section>
 
