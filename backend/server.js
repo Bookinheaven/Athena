@@ -11,6 +11,8 @@ import authRoutes from "./routes/authRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import sessionRoutes from "./routes/sessionRoutes.js"
 import generalRoutes from "./routes/generalRoutes.js"
+import streakRoutes from "./routes/streakRoutes.js"
+
 // Database instance setup
 import { connectDB } from "./configs/db.js"
 
@@ -53,6 +55,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/session', sessionRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/general', generalRoutes)
+app.use('/api/streak', streakRoutes)
 
 // Error handling middleware
 app.use((err, req, res, next) => {
