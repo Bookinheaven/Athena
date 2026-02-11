@@ -10,7 +10,7 @@ export default function StreakRing({ streakRate, state }) {
     red: "stroke-red-400",
   };
 
-  const ringColor = colorMap[state] || "stroke-neutral-400";
+  const ringColor = colorMap[state] || "stroke-stroke-circle/20";
 
   return (
     <svg
@@ -23,7 +23,7 @@ export default function StreakRing({ streakRate, state }) {
           cy="50"
           r={radius}
           strokeWidth="8"
-          className="stroke-neutral-700/60"
+          className="stroke-stroke-circle/60"
           fill="none"
         />
 
@@ -45,7 +45,7 @@ export default function StreakRing({ streakRate, state }) {
         y="50"
         textAnchor="middle"
         dominantBaseline="middle"
-        className="fill-white text-base font-semibold"
+        className="fill-text-primary text-base font-semibold"
       >
         {Math.round(clampedRate * 100)}%
       </text>

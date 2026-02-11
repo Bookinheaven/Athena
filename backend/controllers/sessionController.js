@@ -1,6 +1,7 @@
 import Session from "../models/sessionModel.js";
 import generateInsights from "../utils/generateInsights.js"
 import transformSessionForDashboard from "../utils/transformSessionForDashboard.js";
+import { processDailyStreak } from "../services/streakService.js"; 
 
 export const logSession = async (req, res) => {
   try {
@@ -45,9 +46,10 @@ export const logSession = async (req, res) => {
       sessionId: sessionId,
       userId: userId,
     });
+
+    // if there is no session like payload, then we clean all active sessions and change status to completed
     if (!existingSession) {
-      // console.log(`New active session (${sessionId}). Cleaning up old active sessions for user ${userId}...`);
-      const updateResult = await Session.updateMany(
+      await Session.updateMany(
         {
           userId: userId,
           status: "active",
@@ -61,9 +63,15 @@ export const logSession = async (req, res) => {
           },
         }
       );
-      // if(updateResult) console.log(updateResult)
     }
     // console.log("Session Payload to Save/Update:", JSON.stringify(sessionPayload, null, 2));
+    
+    // duration calculation 
+    sessionPayload.duration = 0;
+    for (const segment of sessionPayload.sessionSegments){
+      sessionPayload.duration += segment.duration;
+    }
+    
     const savedSession = await Session.findOneAndUpdate(
       { sessionId: sessionId, userId: userId },
       { $set: sessionPayload },
@@ -74,6 +82,19 @@ export const logSession = async (req, res) => {
         setDefaultsOnInsert: true,
       }
     );
+
+    if(sessionPayload.isDone){
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      let streakData = await processDailyStreak(
+          userId,
+          today,
+          sessionPayload.duration
+      );
+      // console.log(streakData)
+    }
+
     const statusCode = existingSession ? 200 : 201;
     return res.status(statusCode).json(savedSession);
   } catch (error) {
