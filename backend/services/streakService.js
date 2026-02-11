@@ -6,19 +6,36 @@ export async function processDailyStreak(userId, date, focusMinutes) {
   if (!user) {
     throw new Error("User not found");
   }
-  // sec to min
-  focusMinutes = Number(focusMinutes / 60)
+  // Convert seconds to minutes
+  focusMinutes = Math.floor(Number(focusMinutes / 60));
 
-  // Normalize date
+  // Normalize today's date
   const today = new Date(date);
   today.setHours(0, 0, 0, 0);
 
-  let existingRecord = await streakModel.findOne({ userId, date: today })
-  
-  if (existingRecord) {
-    focusMinutes += existingRecord.focusMinutes;
+  // Get last processed date
+  const lastProcessedDate = user.streak.lastProcessedDate ? new Date(user.streak.lastProcessedDate) : null;
+  if (lastProcessedDate) {
+    lastProcessedDate.setHours(0, 0, 0, 0);
   }
 
+  // Check if record already exists for today
+  let currentRecord = await streakModel.findOne({ userId, date: today });
+
+  if (currentRecord) {
+    if (currentRecord.state == "green") {
+      return {
+        dailyTargetMinutes: currentRecord.dailyTargetMinutes,
+        focusMinutes: currentRecord.focusMinutes,
+        state: currentRecord.state,
+        streakRate: currentRecord.streakRate,
+        usedFreeze: currentRecord.usedFreeze,
+      };
+    }
+    // Add previous minutes (updating same day)
+    focusMinutes += currentRecord.focusMinutes;
+  }
+  
   const target = Math.max(user.streak.dailyTargetMinutes, 1);
   const streakRate = focusMinutes / target;
 
@@ -27,33 +44,48 @@ export async function processDailyStreak(userId, date, focusMinutes) {
   else if (streakRate >= 0.7) state = "yellow";
 
   let freezeUsed = 0;
+  let diffDays = 0;
 
-  if (state === "green") {
-    user.streak.dailyStreak += 1;
-    // Earn freeze every 7 days
-    if (
-      user.streak.dailyStreak % 7 === 0 &&
-      user.streak.freezeBalance < user.streak.maxFreezeBalance
-    ) {
-      user.streak.freezeBalance += 1;
-    }
-  }
+  if (!lastProcessedDate) {
+    // First ever streak entry
+    user.streak.dailyStreak = state === "green" ? 1 : 0;
+  } else {
+    const diffTime = today - lastProcessedDate;
+    diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
-  else if (state === "yellow") {
-    // streak preserved, no increment, no freeze usage
-  }
+    if(diffDays === 0) {
+      // same day -> No Streak need
+    } else if(diffDays === 1){
+      if (state === "green"){
+        user.streak.dailyStreak += 1;
 
-  else {
-    // red day
-    if (user.streak.freezeBalance > 0) {
-      user.streak.freezeBalance -= 1;
-      freezeUsed = 1;
+        // Earns streak freeze every 7 days
+        if (user.streak.dailyStreak % 7 === 0 && user.streak.freezeBalance < user.streak.maxFreezeBalance){
+          user.streak.freezeBalance += 1;
+        } 
+      } else if (state === "yellow"){
+        // streak preserved, no increment, no freeze usage
+        // 0.5 streak. two days: 1 streak (Later)
+      } else {
+        // red day
+        if (user.streak.freezeBalance > 0) {
+          user.streak.freezeBalance -= 1;
+          freezeUsed = 1;
+        } else {
+          user.streak.dailyStreak = 0;
+        }
+      }
     } else {
-      user.streak.dailyStreak = 0;
+      // Missed more than 1 day -> streak broken
+      if (state === "green") {
+        user.streak.dailyStreak = 1;
+      } else {
+        user.streak.dailyStreak = 0;
+      }
     }
   }
+  user.streak.lastProcessedDate = new Date();
 
-  user.streak.lastProcessedDate = today;
   await user.save();
 
   const dailyRecord = await streakModel.findOneAndUpdate(
@@ -61,13 +93,19 @@ export async function processDailyStreak(userId, date, focusMinutes) {
     {
       userId,
       date: today,
-      focusMinutes: focusMinutes,
+      focusMinutes,
       dailyTargetMinutes: target,
       streakRate,
       state,
       freezeUsed,
     },
-    { upsert: true, new: true }
+    { upsert: true, new: true },
   );
-  return { dailyTargetMinutes: dailyRecord.dailyTargetMinutes, focusMinutes: focusMinutes, state: dailyRecord.state, streakRate: dailyRecord.streakRate, usedFreeze: dailyRecord.usedFreeze};
+  return {
+    dailyTargetMinutes: dailyRecord.dailyTargetMinutes,
+    focusMinutes: dailyRecord.focusMinutes,
+    state: dailyRecord.state,
+    streakRate: dailyRecord.streakRate,
+    usedFreeze: dailyRecord.usedFreeze,
+  };
 }
