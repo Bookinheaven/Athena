@@ -11,15 +11,58 @@ export default function StreakCard({
 }) {
   const hasStreak = dailyStreak > 0;
 
-  const titleText = hasStreak
-    ? `${dailyStreak}-Day Streak`
-    : "Start your streak today";
-
-  const subtitleText = hasStreak
-    ? "Keep the chain alive"
-    : "Complete your first focus session";
-
   const timeLeft = Math.max(dailyTargetMinutes - todayFocusMinutes, 0);
+  const extraMinutes = Math.max(todayFocusMinutes - dailyTargetMinutes, 0);
+
+  const stateColor =
+    state === "green"
+      ? "text-text-primary"
+      : state === "yellow"
+        ? "text-text-accent"
+        : state === "red"
+          ? "text-button-danger"
+          : "text-text-primary";
+
+  const subtitleText =
+    state === "green"
+      ? "Momentum secured"
+      : state === "yellow"
+        ? "Almost there — stay focused"
+        : hasStreak
+          ? "Stay consistent today"
+          : "Complete your first focus session";
+
+  const progressText =
+    state === "green" ? (
+      <>
+        🎯 Target Completed: {todayFocusMinutes} min
+        {extraMinutes > 0 && (
+          <span className="ml-1 text-text-athena">(+{extraMinutes} extra)</span>
+        )}
+      </>
+    ) : state === "yellow" ? (
+      <>
+        ⚡ {todayFocusMinutes} / {dailyTargetMinutes} min - secure your streak
+      </>
+    ) : (
+      <>
+        ⏳ {todayFocusMinutes} / {dailyTargetMinutes} min
+      </>
+    );
+
+  const nextAction =
+    state === "green"
+      ? "Build deeper focus or recharge"
+      : state === "yellow"
+        ? `Focus ${timeLeft} more min`
+        : `Start a ${dailyTargetMinutes}-min focus`;
+
+  const nextSupport =
+    state === "green"
+      ? "Momentum is on your side"
+      : hasStreak
+        ? "Protect your streak"
+        : "Build your first streak";
 
   return (
     <div
@@ -27,7 +70,7 @@ export default function StreakCard({
         rounded-xl p-6
         bg-card-background
         border border-card-border
-        hover:border-orange-400/60
+        hover:border-border-primary
         shadow-sm
         transition-colors
       "
@@ -39,64 +82,61 @@ export default function StreakCard({
           lg:grid-cols-[1.4fr_1fr_1fr]
         "
       >
-        <div className="h-full flex flex-col gap-3 justify-start">
-          <h2 className="text-3xl font-bold text-white flex items-center gap-2">
-            🔥 <span>{titleText}</span>
+        <div className="flex flex-col gap-3">
+          <h2 className="text-3xl font-bold text-text-primary flex items-center gap-2">
+            🔥 {hasStreak ? `${dailyStreak}-Day Streak` : "Start your streak"}
           </h2>
 
           <p className="text-sm text-text-secondary">{subtitleText}</p>
 
           <div className="h-px w-full bg-border-secondary/60 my-2" />
 
-          <p className="text-sm font-semibold text-text-primary">
-            Today: {todayFocusMinutes} / {dailyTargetMinutes} min
-          </p>
+          <p className={`text-sm font-medium ${stateColor}`}>{progressText}</p>
 
           <TodayStatusBadge state={state} timeLeft={timeLeft} />
 
-          <div className="text-sm text-neutral-400 flex items-center gap-1">
-            🥶 Freeze credits:
-            <span className="text-white font-medium">
+          {/* Freeze */}
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-text-accent">🧊</span>
+            <span className="text-text-muted">Freeze</span>
+            <span className="text-text-primary font-semibold">
               {freezeCredits}
             </span>
           </div>
         </div>
 
+        {/* MIDDLE */}
         <div
           className="
-            h-full hidden lg:flex flex-col justify-center gap-3
-            px-6 border-l border-white/5
+            hidden lg:flex flex-col justify-center gap-3
+            px-6 border-l border-border-secondary/50
           "
         >
-          <p className="text-xs uppercase tracking-wide text-text-secondary">
-            Next step
+          <p className="text-xs uppercase tracking-wide text-text-muted">
+            Next Step
           </p>
 
-          <div className="flex flex-col gap-2 text-sm text-neutral-300">
+          <div className="flex flex-col gap-2 text-sm text-text-secondary">
             <div className="flex items-center gap-2">
-              ⏱ <span>Start a {dailyTargetMinutes}-min focus</span>
+              ⏱ <span>{nextAction}</span>
             </div>
             <div className="flex items-center gap-2">
-              🔥 <span>
-                {hasStreak ? "Protect your streak" : "Build your first streak"}
-              </span>
+              🔥 <span>{nextSupport}</span>
             </div>
           </div>
         </div>
 
         <div
           className="
-            h-full flex flex-col items-center justify-center
-            lg:pl-6 lg:border-l lg:border-white/5
+            flex flex-col items-center justify-center
+            lg:pl-6 lg:border-l lg:border-border-secondary/50
           "
         >
           <StreakRing
             streakRate={hasStreak ? streakRate : 0}
             state={hasStreak ? state : "neutral"}
           />
-          <p className="mt-2 text-xs text-text-secondary">
-            Daily progress
-          </p>
+          <p className="mt-2 text-xs text-text-muted">Daily progress</p>
         </div>
       </div>
     </div>

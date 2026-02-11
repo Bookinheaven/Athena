@@ -5,7 +5,7 @@ export default function StreakRing({ streakRate, state }) {
   const progress = clampedRate * circumference;
 
   const colorMap = {
-    green: "stroke-green-500",
+    green: "stroke-stroke-circle",
     yellow: "stroke-yellow-400",
     red: "stroke-red-400",
   };
@@ -23,7 +23,7 @@ export default function StreakRing({ streakRate, state }) {
           cy="50"
           r={radius}
           strokeWidth="8"
-          className="stroke-stroke-circle/60"
+          className="stroke-stroke-circle" // later gradient for prem look 
           fill="none"
         />
 
