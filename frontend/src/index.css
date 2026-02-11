@@ -21,6 +21,8 @@
   --color-text-accent: #2f5dff;
   --color-text-athena: #c61f48;
 
+  --color-stroke-circle: #ff6f91;
+
   --color-input-background: #ffffff;
   --color-input-border: #d1d5db;
   --color-input-focus: #2f5dff;
@@ -71,6 +73,8 @@
   --color-text-muted: #94a3b8;
   --color-text-accent: #82aaff;
   --color-text-athena: #ff6f91;
+
+  --color-stroke-circle: #404040;
 
   --color-input-background: #334155;
   --color-input-border: #475569;

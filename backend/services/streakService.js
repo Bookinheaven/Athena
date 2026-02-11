@@ -1,20 +1,22 @@
 import streakModel from "../models/streakModel.js";
 import User from "../models/userModel.js";
 
-export async function processDailyStreak(userId, date, focusMinutes = 0) {
+export async function processDailyStreak(userId, date, focusMinutes) {
   const user = await User.findById(userId);
   if (!user) {
     throw new Error("User not found");
   }
+  // sec to min
+  focusMinutes = Number(focusMinutes / 60)
 
   // Normalize date
   const today = new Date(date);
   today.setHours(0, 0, 0, 0);
 
-  const existingDaily = await streakModel.findOne({ userId, date: today });
+  let existingRecord = await streakModel.findOne({ userId, date: today })
   
-  if (existingDaily) {
-    return { dailyTargetMinutes: existingDaily.dailyTargetMinutes, focusMinutes: existingDaily.focusMinutes, state: existingDaily.state, streakRate: existingDaily.streakRate, usedFreeze: existingDaily.usedFreeze};
+  if (existingRecord) {
+    focusMinutes += existingRecord.focusMinutes;
   }
 
   const target = Math.max(user.streak.dailyTargetMinutes, 1);
@@ -59,7 +61,7 @@ export async function processDailyStreak(userId, date, focusMinutes = 0) {
     {
       userId,
       date: today,
-      focusMinutes,
+      focusMinutes: focusMinutes,
       dailyTargetMinutes: target,
       streakRate,
       state,
@@ -67,5 +69,5 @@ export async function processDailyStreak(userId, date, focusMinutes = 0) {
     },
     { upsert: true, new: true }
   );
-  return { dailyTargetMinutes: dailyRecord.dailyTargetMinutes, focusMinutes: dailyRecord.focusMinutes, state: dailyRecord.state, streakRate: dailyRecord.streakRate, usedFreeze: dailyRecord.usedFreeze};
+  return { dailyTargetMinutes: dailyRecord.dailyTargetMinutes, focusMinutes: focusMinutes, state: dailyRecord.state, streakRate: dailyRecord.streakRate, usedFreeze: dailyRecord.usedFreeze};
 }
