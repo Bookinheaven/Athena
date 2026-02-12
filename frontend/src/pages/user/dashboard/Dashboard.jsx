@@ -95,8 +95,11 @@ const Dashboard = () => {
     const loadDashboard = async () => {
       try {
         const data = await sessionService.getInsights();
+        const todaysData = await sessionService.getTodaysInsights();
         const streakDataO = await StreakService.fetchStreak();
-        console.log(streakDataO) 
+        // console.log(streakDataO) 
+        // console.log(todaysData?.insights) 
+        const todaysInsights = todaysData?.insights || {};
         const insights = data?.insights || {};
 
         setDashboard({
@@ -117,7 +120,11 @@ const Dashboard = () => {
           maxFreezeBalance: streakDataO.maxFreezeBalance || 0,
           streakRate: streakDataO.streakRate || 0,
           state: streakDataO.state || 0,
-          focusMinutes: streakDataO.focusMinutes || 0,
+          focusMinutes: streakDataO.focusMinutes || 0, 
+          t_distractions: todaysInsights.distractions,
+          t_sessions: todaysInsights.sessions || 0,
+          t_longest_focus: todaysInsights.longest_focus || 0,
+          t_focus_blocks: todaysInsights.focus_blocks || 0,
         });
       } catch (err) {
         console.error("Dashboard load failed:", err);
@@ -201,7 +208,7 @@ const Dashboard = () => {
                 state={dashboard?.state || "green"}
                 freezeCredits={dashboard?.freezeBalance || 0}
               />
-              <TodaysInsights />
+              <TodaysInsights sessions={dashboard.t_sessions} focusBlocks={dashboard.t_focus_blocks} longestFocus={dashboard.t_longest_focus} distractions={dashboard.t_distractions} />
             </div>
           </motion.section>
 

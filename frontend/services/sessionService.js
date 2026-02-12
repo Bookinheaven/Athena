@@ -19,6 +19,10 @@ class SessionService extends RequestService {
   async getInsights() {
     return this.request("/session/insights", { method: "GET" });
   }
+ 
+  async getTodaysInsights() {
+    return this.request("/session/todays-insights", { method: "GET" });
+  }
 }
 
 export default new SessionService();
