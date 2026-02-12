@@ -11,6 +11,7 @@ export default function TodaysInsights({
   longestFocus = "—",
   distractions = "—",
 }) {
+  // distractions freq and low hight should be set 
   return (
     <div
       className="
@@ -53,7 +54,7 @@ export default function TodaysInsights({
         <InsightRow
           icon={AlertTriangle}
           label="Distractions"
-          value={distractions}
+          value={distractions != null ? distractions : "-"}
           valueClass={
             distractions === "Low"
               ? "text-green-400"

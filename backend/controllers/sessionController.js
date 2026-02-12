@@ -141,6 +141,47 @@ export const getSessions = async (req, res) => {
   }
 };
 
+export const getTodaysInsights = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
+    const endOfToday = new Date(startOfToday);
+    endOfToday.setDate(endOfToday.getDate() + 1);
+
+    if (!userId) return res.status(404).json({message: "user not found"})
+    const todaysSessions = await Session.find({userId, timestamp: {
+      $gte: startOfToday,
+      $lt: endOfToday,
+    }})
+    let output = {
+      sessions: todaysSessions.length,
+      focus_blocks: 0,
+      longest_focus: 0,
+      distractions: []
+    }
+    let maxDuration = 0 ;
+    for (let session of todaysSessions){
+      let focusSessions = session.sessionSegments.filter(s=> s.type == "focus")
+      output.focus_blocks += focusSessions.length;
+      let duration = focusSessions.reduce((accumulator, currentValue)=> accumulator+currentValue.duration, 0);
+      if(maxDuration < duration) maxDuration = duration
+      output.distractions.push(...session.sessionFeedback?.distractions)
+    }
+    output.longest_focus = maxDuration;
+    res.status(200).json({ insights: output });
+    
+  } catch (error) {
+    console.error(error)
+    res.status(500).json({
+      message: "Server error while generating Todays Insights.",
+      error: error.message,
+    })
+  }
+}
+
 export const getInsights = async (req, res) => {
   try {
     const userId = req.user._id;
