@@ -10,36 +10,34 @@ import { Timer } from "./components/Timer";
 import { TodoList } from "./components/TodoList";
 import MotivationalQuotes from "./components/MotivationalQuotes";
 import CurrentProgress from "./components/CurrentProgress";
-import Notes from "./components/Notes";
+import Notes from "./components/Notes.jsx";
 import { SessionReview } from "./components/SessionReview";
 import { useSegmentManager } from "./hooks/useSegmentManager";
 import sessionService from "../../../../services/sessionService";
 import { useAuth } from "../../../../contexts/AuthContext";
 import toast from "react-hot-toast";
 import { v4 as uuidv4 } from "uuid";
+import { useAutoSaveSession } from "./hooks/useAutoSaveSession.js";
 
 const FocusSession = () => {
+  const { user } = useAuth();
+
+  // Navigation states
   const [showQuotes, setShowQuotes] = useState(false);
   const [activePanel, setActivePanel] = useState("");
+  
+  // Control states
   const hasLoggedStart = useRef(false);
   const [hasStartedFocus, setHasStartedFocus] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  const { user } = useAuth();
-
-  const [breakDuration, setBreakDuration] = useLocalStorage(
-    "breakDuration",
-    5 * 60
-  );
-  const [autoStartBreaks, setAutoStartBreaks] = useLocalStorage(
-    "autoStartBreaks",
-    true
-  );
+  // Settings state
+  const [breakDuration, setBreakDuration] = useLocalStorage("breakDuration", 5 * 60);
+  const [autoStartBreaks, setAutoStartBreaks] = useLocalStorage("autoStartBreaks", true,);
   const [breaksNumber, setBreaksNumber] = useLocalStorage("breaksNumber", 4);
-  const [totalFocusDuration, setTotalFocusDuration] = useLocalStorage(
-    "totalFocusDuration",
-    25 * 60
-  );
+  const [totalFocusDuration, setTotalFocusDuration] = useLocalStorage("totalFocusDuration", 25 * 60);
+  
+  // Data states
   const [todos, setTodos] = useSessionStorage("focusTodos", []);
   const [notes, setNotes] = useSessionStorage("notes", [
     {
@@ -55,19 +53,17 @@ const FocusSession = () => {
       createdAt: new Date().toISOString(),
     },
   ]);
-  const [sessionHistory, setSessionHistory] = useLocalStorage(
-    "sessionHistory",
-    []
-  );
-
+  const [sessionHistory, setSessionHistory] = useLocalStorage("sessionHistory", []);
   const [newTodo, setNewTodo] = useState("");
-  const [sessionTitle, setSessionTitle] = useState("Untitled Work");
+  const [sessionTitle, setSessionTitle] = useState("Untitled Work"); // later we can check if same name is there if so add (no.) [only for all Untitled Work and custom which are created in a same day.]
   const [newSession, setNewSession] = useState(false);
   const [sessionReview, setSessionReview] = useSessionStorage("sessionReview", {
     mood: null,
     focus: null,
     distractions: "",
   });
+  
+  // Initial Session
   const initialSession = useCallback(() => {
     const safeTotalFocus = totalFocusDuration ?? 25 * 60;
     const safeBreak = breakDuration ?? 5 * 60;
@@ -75,7 +71,7 @@ const FocusSession = () => {
     const segments = createSessionData(
       safeTotalFocus,
       safeBreak,
-      safeBreaksNum
+      safeBreaksNum,
     );
 
     setSessionReview({ mood: null, focus: null, distractions: "" });
@@ -95,11 +91,13 @@ const FocusSession = () => {
     };
   }, [totalFocusDuration, breakDuration, breaksNumber, setSessionReview]);
 
+  // Session storage (local)
   const [sessionData, setSessionData] = useSessionStorage(
     "sessionData",
-    initialSession
+    initialSession,
   );
 
+  //Segment management
   const {
     currentSegmentIndex,
     currentSegment,
@@ -117,12 +115,14 @@ const FocusSession = () => {
     setSessionHistory,
   });
 
+  // Auto start each focus sessions
   useEffect(() => {
     if (isStarted && currentSegment?.type === "focus" && !hasStartedFocus) {
       setHasStartedFocus(true);
     }
   }, [isStarted, currentSegment, hasStartedFocus]);
 
+  // New Session
   useEffect(() => {
     if (newSession) {
       const fresh = initialSession();
@@ -161,20 +161,21 @@ const FocusSession = () => {
     setNotes,
   ]);
 
-  const handleSaveToBackend = useCallback(async () => {
+  //Auto save system
+  const buildPayload = useCallback(() => {
     if (!sessionData || !sessionData.sessionId) return;
     if (!hasStartedFocus) return;
     const { sessionId, ...sessionDetails } = sessionData;
     const uniqueHistory = Array.from(
-      new Map(sessionHistory.map((item) => [item.completedAt, item])).values()
+      new Map(sessionHistory.map((item) => [item.completedAt, item])).values(),
     );
-    const payload = {
+    return {
       sessionId: sessionData.sessionId,
 
       session: {
         ...sessionDetails,
         title: sessionTitle,
-      },      
+      },
       userSettings: {
         totalFocusDuration,
         breakDuration,
@@ -185,14 +186,7 @@ const FocusSession = () => {
       sessionFeedback: sessionReview,
       history: uniqueHistory.length ? uniqueHistory : undefined,
     };
-    try {
-      await sessionService.saveSession(payload);
-    } catch (error) {
-      console.error("Session save error: ", error);
-    }
   }, [
-    hasStartedFocus,
-    user,
     sessionData,
     sessionTitle,
     totalFocusDuration,
@@ -201,9 +195,25 @@ const FocusSession = () => {
     breaksNumber,
     todos,
     notes,
-    sessionHistory,
     sessionReview,
+    sessionHistory,
   ]);
+  
+  const sendBackend = useCallback(async (payload) => {
+    try {
+      await sessionService.saveSession(payload);
+      // console.log("Saved")
+    } catch (error) {
+      console.error("Session save error: ", error);
+    }
+  })
+  
+  const { markDirty, saveStatus, forceSave } = useAutoSaveSession({
+    buildPayload,
+    saveFunction: sendBackend,
+    enabled: hasStartedFocus,
+  });
+
 
   useEffect(() => {
     if (newSession) return;
@@ -231,7 +241,7 @@ const FocusSession = () => {
                 group: "General",
                 createdAt: new Date().toISOString(),
               },
-            ]
+            ],
           );
           setSessionHistory(backendSession.history || []);
           setSessionReview(
@@ -239,10 +249,10 @@ const FocusSession = () => {
               mood: null,
               focus: null,
               distractions: "",
-            }
+            },
           );
           let index = backendSession.sessionSegments.findIndex(
-            (x) => x.completedAt === null
+            (x) => x.completedAt === null,
           );
           if (index < 0) index = 0;
           setSessionData({
@@ -250,14 +260,14 @@ const FocusSession = () => {
             title: backendSession.title,
             segmentIndex: index,
             totalBreaks: backendSession.sessionSegments.filter(
-              (s) => s.type === "break"
+              (s) => s.type === "break",
             ).length,
             breakDuration: backendSession.userSettings.breakDuration,
             maxBreaks: backendSession.userSettings.breaksNumber,
             segments: backendSession.sessionSegments,
             currentDuration: backendSession.sessionSegments.reduce(
               (sum, segment) => sum + segment.duration,
-              0
+              0,
             ),
             totalDuration: backendSession.userSettings.totalFocusDuration,
             isDone: backendSession.isDone,
@@ -281,47 +291,17 @@ const FocusSession = () => {
     loadSession();
   }, []);
 
-  const savedCallback = useRef();
-  useEffect(() => {
-    savedCallback.current = handleSaveToBackend;
-  }, [handleSaveToBackend]);
-
-  useEffect(() => {
-    if (isStarted && currentSegmentIndex === 0 && !hasLoggedStart.current) {
-      // handleSaveToBackend();
-      hasLoggedStart.current = true;
-    }
-  }, [isStarted, currentSegmentIndex]);
-
-  useEffect(() => {
-    if (sessionData?.isDone || currentSegmentIndex > 0) {
-      if (savedCallback.current) savedCallback.current();
-    }
-  }, [currentSegmentIndex, sessionData?.isDone]);
-
-  useEffect(() => {
-    let intervalId = null;
-    if (isStarted) {
-      const fiveMinutes = 5 * 60 * 1000;
-      intervalId = setInterval(() => {
-        if (savedCallback.current) savedCallback.current();
-      }, fiveMinutes);
-    }
-    return () => clearInterval(intervalId);
-  }, [isStarted]);
-
   const handleFinalSaveAndStartNew = useCallback(async () => {
-    if (savedCallback.current) {
-      await savedCallback.current();
-    }
+    await forceSave();
     setNewSession(true);
   }, []);
 
   const handleReviewUpdate = useCallback(
     (field, value) => {
       setSessionReview((prev) => ({ ...prev, [field]: value }));
+      markDirty();
     },
-    [setSessionReview]
+    [setSessionReview],
   );
   const handleDistractionToggle = useCallback(
     (distraction) => {
@@ -340,10 +320,11 @@ const FocusSession = () => {
         } else {
           newDistractions = [...currentDistractions, distraction].join(", ");
         }
+        markDirty();
         return { ...prev, distractions: newDistractions };
       });
     },
-    [setSessionReview]
+    [setSessionReview],
   );
 
   const handleAddTodo = useCallback(() => {
@@ -358,26 +339,32 @@ const FocusSession = () => {
       },
     ]);
     setNewTodo("");
+    markDirty();
   }, [newTodo, setTodos]);
 
   const handleUpdateTodoStatus = useCallback(
-    (id, status) =>
-      setTodos((t) => t.map((x) => (x.id === id ? { ...x, status } : x))),
-    [setTodos]
+    (id, status) =>{
+      setTodos((t) => t.map((x) => (x.id === id ? { ...x, status } : x)));
+      markDirty();
+    }, [setTodos],
   );
 
   const handleDeleteTodo = useCallback(
-    (id) => setTodos((t) => t.filter((x) => x.id !== id)),
-    [setTodos]
+    (id) => {
+      setTodos((t) => t.filter((x) => x.id !== id));
+      markDirty();
+    }, [setTodos],
   );
 
   const handlePanelToggle = (panelName) => {
     setActivePanel((current) => (current === panelName ? null : panelName));
+    markDirty();
   };
 
   const handleClearHistory = useCallback(() => {
     setSessionHistory([]);
     toast.success("Session history has been cleared.");
+    markDirty();
   }, [setSessionHistory]);
 
   if (isLoading) {
@@ -396,6 +383,11 @@ const FocusSession = () => {
 
   return (
     <div className="pt-23 lg:pt-2 min-h-screen flex flex-col p-4 relative theme-transition bg-background-color">
+      <div className="text-xs text-text-secondary mb-2">
+        {saveStatus === "saving" && "Saving..."}
+        {saveStatus === "saved" && "All changes saved"}
+        {saveStatus === "error" && "Offline. Retrying..."}
+      </div>
       <div className="w-full mb-6 relative z-10 fade-in flex justify-end gap-2">
         <button
           onClick={() => setShowQuotes((s) => !s)}
@@ -470,7 +462,7 @@ const FocusSession = () => {
               totalFocusDuration={totalFocusDuration}
               breaksLeft={
                 sessionData.segments.filter(
-                  (s) => s.type === "break" && !s.completedAt
+                  (s) => s.type === "break" && !s.completedAt,
                 ).length
               }
               currentSegmentData={currentSegment}
@@ -484,7 +476,7 @@ const FocusSession = () => {
               }
               foucsSegments={
                 sessionData.segments.filter(
-                  (s) => s.type === "focus" && !s.completedAt
+                  (s) => s.type === "focus" && !s.completedAt,
                 ).length
               }
               onSegmentUpdate={(x) => updateSegment(currentSegmentIndex, x)}
@@ -495,7 +487,7 @@ const FocusSession = () => {
                   null
                 )
               }
-              onUpdateBackend={handleSaveToBackend}
+              onUpdateBackend={forceSave}
             />
           )}
 

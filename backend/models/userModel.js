@@ -40,6 +40,23 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  streak: {
+    dailyTargetMinutes: { type: Number, default: 25 },
+    
+    freezeBalance: { type: Number, default: 1 },
+    maxFreezeBalance: { type: Number, default: 3 },
+    
+    minTargetMinutes: { type: Number, default: 20 },
+    maxTargetMinutes: { type: Number, default: 90 },
+    lastTargetReason: { 
+        type: String,
+        enum: ["increase_consistency", "decrease_burnout", "no_change"],
+        default: "no_change"
+    },
+  
+    dailyStreak: { type: Number, default: 0 },
+    lastProcessedDate: Date
+  },
   emailVerificationOTP: String,
   emailVerificationExpires: Date,
   passwordResetOTP: String,

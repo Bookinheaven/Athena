@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { RefreshCw, Quote, X } from "lucide-react";
+import generalService from "../../../../../services/generalService";
 
 const FALLBACK_QUOTES = [
   {
@@ -81,31 +82,30 @@ const MotivationalQuotes = ({ show, onClose }) => {
 
     setLoading(true);
     setError(null);
+    try {
+      const response = await generalService.getQuote()
 
-    for (const api of QUOTE_APIS) {
-      try {
-        const response = await fetch(api.url);
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-        const data = await response.json();
-        const transformedQuote = api.transform(data);
-
-        if (transformedQuote.text && transformedQuote.author) {
-          setQuote(transformedQuote);
-          setLoading(false);
-          return;
-        }
-      } catch (err) {
-        console.warn(`API ${api.url} failed:`, err.message);
-        continue;
+      if (response?.data == {} || response?.data == null){
+        throw new Error(`HTTP ${response.status}`);
       }
-    }
 
+      const data = await response.data;
+
+      if (data.text && data.author) {
+        setQuote(data);
+        setLoading(false);
+        return;
+      }
+    } catch (err) {
+      console.warn(`Quote API failed:`, err.message);
+    }
+    
     const randomQuote =
       FALLBACK_QUOTES[Math.floor(Math.random() * FALLBACK_QUOTES.length)];
     setQuote(randomQuote);
     setLoading(false);
-    setError("Failed to fetch online quotes. Showing fallback.");
+    console.warn("Failed to fetch online quotes. Showing fallback")
+    // setError("Failed to fetch online quotes. Showing fallback.");
   }, []);
 
   useEffect(() => {
