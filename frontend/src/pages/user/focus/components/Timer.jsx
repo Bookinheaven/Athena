@@ -239,7 +239,7 @@ export const Timer = ({
   const completedBreakSegments = totalbreakSegments - breaksLeft;
 
   return (
-    <div className="lg:min-w-lg lg:max-w-md p-8 rounded-3xl shadow-2xl w-full max-w-md bg-card-background border border-card-border card-hover relative flex flex-col hover:border-blue-400">
+    <div className="lg:min-w-lg lg:max-w-md md:min-w-lg min-w-full p-8 rounded-3xl shadow-2xl w-full bg-card-background border border-card-border card-hover relative flex flex-col hover:border-blue-400">
       <div className="text-center mb-6 pt-4 h-10 flex items-center justify-center">
         <EditableTitle
             title={sessionTitle}

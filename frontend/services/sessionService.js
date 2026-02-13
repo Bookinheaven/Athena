@@ -1,29 +1,6 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL;
+import RequestService from "./requestService";
 
-class SessionService {
-  async request(endpoint, options = {}) {
-    const url = `${API_BASE_URL}${endpoint}`;
-    const config = {
-      headers: {
-        "Content-Type": "application/json",
-      },
-      credentials: "include",
-      ...options,
-    };
-
-    if (config.body && typeof config.body === "object") {
-      config.body = JSON.stringify(config.body);
-    }
-    const response = await fetch(url, config);
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.message || "Something went wrong");
-    }
-
-    return data;
-  }
-
+class SessionService extends RequestService {
   async saveSession(sessionData) {
     return this.request("/session/save", {
       method: "POST",
@@ -32,24 +9,19 @@ class SessionService {
   }
 
   async getSessions() {
-    let response = await this.request("/session/getAll", {
-      method: "GET",
-    });
-    return response;
+      return this.request("/session/getAll", { method: "GET" });
   }
 
   async getActiveSession() {
-    let response = await this.request("/session/getCurrent", {
-      method: "GET",
-    });
-    return response;
+      return this.request("/session/getCurrent", { method: "GET" });
   }
 
   async getInsights() {
-    let response = await this.request("/session/insights", {
-      method: "GET",
-    });
-    return response;
+    return this.request("/session/insights", { method: "GET" });
+  }
+ 
+  async getTodaysInsights() {
+    return this.request("/session/todays-insights", { method: "GET" });
   }
 }
 

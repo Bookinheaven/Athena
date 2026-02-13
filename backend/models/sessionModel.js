@@ -51,6 +51,8 @@ const sessionSchema = new mongoose.Schema({
     default: "active",
   },
 
+  duration: { type: Number, default: 0 },
+
   userSettings: {
     totalFocusDuration: Number,
     breakDuration: Number,
