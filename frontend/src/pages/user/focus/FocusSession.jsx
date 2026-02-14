@@ -1,7 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
-import { List, ListTodo, Loader2, NotebookPen, Quote, Settings as SettingsIcon } from "lucide-react";
+import {
+  List,
+  ListTodo,
+  Loader2,
+  NotebookPen,
+  Quote,
+  Settings as SettingsIcon,
+} from "lucide-react";
 import createSessionData from "./hooks/useSessionData";
 import { useLocalStorage } from "./hooks/useLocalStorage";
 import { useSessionStorage } from "./hooks/useSessionStorage";
@@ -12,12 +19,14 @@ import MotivationalQuotes from "./components/MotivationalQuotes";
 import CurrentProgress from "./components/CurrentProgress";
 import Notes from "./components/Notes.jsx";
 import { SessionReview } from "./components/SessionReview";
-import { useSegmentManager } from "./hooks/useSegmentManager";
 import sessionService from "../../../../services/sessionService";
 import { useAuth } from "../../../../contexts/AuthContext";
 import toast from "react-hot-toast";
 import { v4 as uuidv4 } from "uuid";
+
 import { useAutoSaveSession } from "./hooks/useAutoSaveSession.js";
+import { useSessionMachine } from "./hooks/useSessionMachine.js";
+import { useTimeEngine } from "./hooks/useTimeEngine.js";
 
 const FocusSession = () => {
   const { user } = useAuth();
@@ -25,18 +34,26 @@ const FocusSession = () => {
   // Navigation states
   const [showQuotes, setShowQuotes] = useState(false);
   const [activePanel, setActivePanel] = useState("");
-  
+
   // Control states
   const hasLoggedStart = useRef(false);
-  const [hasStartedFocus, setHasStartedFocus] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   // Settings state
-  const [breakDuration, setBreakDuration] = useLocalStorage("breakDuration", 5 * 60);
-  const [autoStartBreaks, setAutoStartBreaks] = useLocalStorage("autoStartBreaks", true,);
+  const [breakDuration, setBreakDuration] = useLocalStorage(
+    "breakDuration",
+    5 * 60,
+  );
+  const [autoStartBreaks, setAutoStartBreaks] = useLocalStorage(
+    "autoStartBreaks",
+    true,
+  );
   const [breaksNumber, setBreaksNumber] = useLocalStorage("breaksNumber", 4);
-  const [totalFocusDuration, setTotalFocusDuration] = useLocalStorage("totalFocusDuration", 25 * 60);
-  
+  const [totalFocusDuration, setTotalFocusDuration] = useLocalStorage(
+    "totalFocusDuration",
+    25 * 60,
+  );
+
   // Data states
   const [todos, setTodos] = useSessionStorage("focusTodos", []);
   const [notes, setNotes] = useSessionStorage("notes", [
@@ -53,7 +70,10 @@ const FocusSession = () => {
       createdAt: new Date().toISOString(),
     },
   ]);
-  const [sessionHistory, setSessionHistory] = useLocalStorage("sessionHistory", []);
+  const [sessionHistory, setSessionHistory] = useLocalStorage(
+    "sessionHistory",
+    [],
+  );
   const [newTodo, setNewTodo] = useState("");
   const [sessionTitle, setSessionTitle] = useState("Untitled Work"); // later we can check if same name is there if so add (no.) [only for all Untitled Work and custom which are created in a same day.]
   const [newSession, setNewSession] = useState(false);
@@ -62,7 +82,7 @@ const FocusSession = () => {
     focus: null,
     distractions: "",
   });
-  
+
   // Initial Session
   const initialSession = useCallback(() => {
     const safeTotalFocus = totalFocusDuration ?? 25 * 60;
@@ -86,7 +106,6 @@ const FocusSession = () => {
       currentDuration: 0,
       totalDuration: safeTotalFocus,
       segments,
-      isDone: false,
       timestamp: new Date().toISOString(),
     };
   }, [totalFocusDuration, breakDuration, breaksNumber, setSessionReview]);
@@ -97,74 +116,118 @@ const FocusSession = () => {
     initialSession,
   );
 
-  //Segment management
+  const [machineState, dispatch] = useSessionMachine(sessionData);
+  const currentSegment = sessionData.segments[machineState.segmentIndex];
+
+  // Time Engine
   const {
-    currentSegmentIndex,
-    currentSegment,
-    updateSegment,
     timeLeft,
-    isStarted,
-    start,
-    pause,
-    reset,
-  } = useSegmentManager({
-    sessionData,
-    setSessionData,
-    totalFocusDuration,
-    autoStartBreaks,
-    setSessionHistory,
+    start: startTimer,
+    pause: pauseTimer,
+    isRunning,
+  } = useTimeEngine({
+    segment: currentSegment,
+    status: machineState.status,
+    updateSegment: (updates) => {
+      setSessionData((prev) => {
+        const newSegments = [...prev.segments];
+        newSegments[machineState.segmentIndex] = {
+          ...newSegments[machineState.segmentIndex],
+          ...updates,
+        };
+        return { ...prev, segments: newSegments };
+      });
+    },
+    onTimeUp: () => {
+      setSessionData((prev) => {
+        const newSegments = [...prev.segments];
+        const index = machineState.segmentIndex;
+
+        newSegments[index] = {
+          ...newSegments[index],
+          duration: newSegments[index].totalDuration,
+          completedAt: new Date().toISOString(),
+          startTimestamp: null,
+        };
+
+        return { ...prev, segments: newSegments };
+      });
+
+      dispatch({ type: "TIME_UP" });
+    },
   });
+
+  const resetSegment = () => {
+    const index = machineState.segmentIndex;
+
+    setSessionData((prev) => {
+      const newSegments = [...prev.segments];
+
+      newSegments[index] = {
+        ...newSegments[index],
+        duration: 0,
+        startTimestamp: null,
+        completedAt: null,
+      };
+
+      return { ...prev, segments: newSegments };
+    });
+
+    dispatch({ type: "RESET_SEGMENT" });
+  };
+
+  const resetSession = () => {
+    const fresh = initialSession();
+    setSessionData(fresh);
+    dispatch({ type: "RESET_SESSION" });
+  };
 
   // Auto start each focus sessions
   useEffect(() => {
-    if (isStarted && currentSegment?.type === "focus" && !hasStartedFocus) {
-      setHasStartedFocus(true);
+    if (machineState.status === "segment_transition") {
+      dispatch({ type: "NEXT_SEGMENT" });
+      const nextSegment = sessionData.segments[machineState.segmentIndex + 1];
+
+      if (nextSegment?.type === "break" && autoStartBreaks) {
+        console.log("starteasd")
+        dispatch({ type: "START" });
+        startTimer();
+      }
+      console.log("dasdasd")
     }
-  }, [isStarted, currentSegment, hasStartedFocus]);
+  }, [machineState.status]);
 
   // New Session
   useEffect(() => {
-    if (newSession) {
-      const fresh = initialSession();
-      setSessionTitle("Untittled Work");
-      setSessionData(fresh);
-      reset();
-      setSessionHistory([]);
-      setTodos([]);
-      setNotes([
-        {
-          id: 1,
-          text: "Welcome to your notes!",
-          taskId: "",
-          createdAt: new Date().toISOString(),
-        },
-        {
-          id: 2,
-          text: "Try editing this note.",
-          taskId: "",
-          createdAt: new Date().toISOString(),
-        },
-      ]);
-      if (newSession) {
-        setHasStartedFocus(false);
-      }
-      setNewSession(false);
-      hasLoggedStart.current = false;
-    }
-  }, [
-    newSession,
-    initialSession,
-    setSessionData,
-    reset,
-    setSessionHistory,
-    setTodos,
-    setNotes,
-  ]);
+    if (!newSession) return;
+
+    resetSession();
+
+    setSessionTitle("Untitled Work");
+    setSessionHistory([]);
+    setTodos([]);
+    setNotes([
+      {
+        id: 1,
+        text: "Welcome to your notes!",
+        taskId: "",
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: 2,
+        text: "Try editing this note.",
+        taskId: "",
+        createdAt: new Date().toISOString(),
+      },
+    ]);
+
+    setNewSession(false);
+  }, [newSession]);
 
   //Auto save system
   const buildPayload = useCallback(() => {
     if (!sessionData || !sessionData.sessionId) return;
-    if (!hasStartedFocus) return;
+    // if (!hasStartedFocus) return;
     const { sessionId, ...sessionDetails } = sessionData;
     const uniqueHistory = Array.from(
       new Map(sessionHistory.map((item) => [item.completedAt, item])).values(),
@@ -198,7 +261,7 @@ const FocusSession = () => {
     sessionReview,
     sessionHistory,
   ]);
-  
+
   const sendBackend = useCallback(async (payload) => {
     try {
       await sessionService.saveSession(payload);
@@ -206,14 +269,21 @@ const FocusSession = () => {
     } catch (error) {
       console.error("Session save error: ", error);
     }
-  })
-  
+  });
+
   const { markDirty, saveStatus, forceSave } = useAutoSaveSession({
     buildPayload,
     saveFunction: sendBackend,
-    enabled: hasStartedFocus,
+    enabled: machineState.status === "running" || machineState.status === "paused",
   });
 
+  useEffect(() => {
+    if (machineState.status !== "idle") return;
+    const run = async () => {
+      await forceSave();
+    };
+    run();
+  }, [machineState.status]);
 
   useEffect(() => {
     if (newSession) return;
@@ -222,11 +292,7 @@ const FocusSession = () => {
         // console.log("Checking backend for active session...");
         const backendSession = await sessionService.getActiveSession();
 
-        if (
-          backendSession &&
-          !backendSession.isDone &&
-          backendSession.status == "active"
-        ) {
+        if (backendSession?.status === "active") {
           setTotalFocusDuration(backendSession.userSettings.totalFocusDuration);
           setBreakDuration(backendSession.userSettings.breakDuration);
           setAutoStartBreaks(backendSession.userSettings.autoStartBreaks);
@@ -270,8 +336,16 @@ const FocusSession = () => {
               0,
             ),
             totalDuration: backendSession.userSettings.totalFocusDuration,
-            isDone: backendSession.isDone,
             timestamp: backendSession.timestamp,
+          });
+          dispatch({
+            type: "LOAD",
+            payload: {
+              segments: backendSession.sessionSegments,
+              segmentIndex: index,
+              status: "idle",
+              isDone: false,
+            },
           });
         } else {
           // console.log("No active session in backend. Creating new one.");
@@ -343,23 +417,28 @@ const FocusSession = () => {
   }, [newTodo, setTodos]);
 
   const handleUpdateTodoStatus = useCallback(
-    (id, status) =>{
+    (id, status) => {
       setTodos((t) => t.map((x) => (x.id === id ? { ...x, status } : x)));
       markDirty();
-    }, [setTodos],
+    },
+    [setTodos],
   );
 
   const handleDeleteTodo = useCallback(
     (id) => {
       setTodos((t) => t.filter((x) => x.id !== id));
       markDirty();
-    }, [setTodos],
+    },
+    [setTodos],
   );
 
   const handlePanelToggle = (panelName) => {
     setActivePanel((current) => (current === panelName ? null : panelName));
     markDirty();
   };
+  useEffect(() => {
+    console.log("Machine status changed:", machineState.status);
+  }, [machineState.status]);
 
   const handleClearHistory = useCallback(() => {
     setSessionHistory([]);
@@ -407,7 +486,7 @@ const FocusSession = () => {
           <button
             key={key}
             onClick={() => {
-              if (isStarted || key === "settings") {
+              if (isRunning || key === "settings") {
                 handlePanelToggle(key);
               }
             }}
@@ -416,7 +495,7 @@ const FocusSession = () => {
                 ? "bg-button-primary text-button-primary-text"
                 : "bg-card-background text-text-primary"
             } ${
-              !isStarted && key !== "settings"
+              !isRunning && key !== "settings"
                 ? "opacity-50 cursor-not-allowed"
                 : ""
             }`}
@@ -441,7 +520,7 @@ const FocusSession = () => {
         />
 
         <div className="flex flex-col items-center gap-10 lg:flex-row mt-2 lg:mt-10 transition-all duration-500 ease-in-out">
-          {sessionData?.isDone ? (
+          {machineState.status === "finished" ? (
             <SessionReview
               reviewData={sessionReview}
               onUpdate={handleReviewUpdate}
@@ -451,10 +530,17 @@ const FocusSession = () => {
           ) : (
             <Timer
               timeLeft={timeLeft}
-              isStarted={isStarted}
-              start={start}
-              pause={pause}
-              reset={reset}
+              isStarted={isRunning}
+              start={() => {
+                dispatch({ type: "START" });
+                startTimer();
+              }}
+              pause={async () => {
+                dispatch({ type: "PAUSE" });
+                pauseTimer();
+                await forceSave();
+              }}
+              reset={resetSession}
               isBreak={currentSegment?.type === "break"}
               sessionTitle={sessionTitle}
               setSessionTitle={setSessionTitle}
@@ -466,7 +552,7 @@ const FocusSession = () => {
                 ).length
               }
               currentSegmentData={currentSegment}
-              currentSegmentIndex={currentSegmentIndex}
+              currentSegmentIndex={machineState.segmentIndex}
               totalSegments={sessionData.segments.length}
               totalfocusSegments={
                 sessionData.segments.filter((s) => s.type === "focus").length
@@ -479,14 +565,7 @@ const FocusSession = () => {
                   (s) => s.type === "focus" && !s.completedAt,
                 ).length
               }
-              onSegmentUpdate={(x) => updateSegment(currentSegmentIndex, x)}
               setNewSession={() => setNewSession(true)}
-              isDone={
-                !(
-                  sessionData?.segments[currentSegmentIndex]?.completedAt ===
-                  null
-                )
-              }
               onUpdateBackend={forceSave}
             />
           )}
