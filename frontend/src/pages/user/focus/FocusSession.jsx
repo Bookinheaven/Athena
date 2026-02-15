@@ -245,7 +245,7 @@ const FocusSession = () => {
     const segment = sessionData.segments[machineState.segmentIndex];
     if (!segment) return;
 
-    if (segment.type === "break" && autoStartBreaks) {
+    if (autoStartBreaks) {
       dispatch({ type: "START" });
     }
 
