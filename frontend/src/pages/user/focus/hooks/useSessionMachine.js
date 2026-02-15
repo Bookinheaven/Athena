@@ -25,9 +25,20 @@ const sessionReducer = (state, action) => {
       return { ...state, status: "segment_transition" };
 
     case "NEXT_SEGMENT": {
+      const nextIndex = state.segmentIndex + 1;
+      const isLast = nextIndex >= (state.segments?.length || 0);
+
+      if (isLast) {
+        return {
+          ...state,
+          status: "finished",
+          isDone: true,
+        };
+      }
+
       return {
         ...state,
-        segmentIndex: state.segmentIndex + 1,
+        segmentIndex: nextIndex,
         status: "idle",
       };
     }

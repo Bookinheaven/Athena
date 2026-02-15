@@ -5,6 +5,8 @@ import {
   List,
   ListTodo,
   Loader2,
+  AlertCircle,
+  CheckCircle,
   NotebookPen,
   Quote,
   Settings as SettingsIcon,
@@ -93,9 +95,6 @@ const FocusSession = () => {
       safeBreak,
       safeBreaksNum,
     );
-
-    setSessionReview({ mood: null, focus: null, distractions: "" });
-
     return {
       sessionId: uuidv4(),
       title: "Untitled Work",
@@ -117,112 +116,10 @@ const FocusSession = () => {
   );
 
   const [machineState, dispatch] = useSessionMachine(sessionData);
-  const currentSegment = sessionData.segments[machineState.segmentIndex];
-
-  // Time Engine
-  const {
-    timeLeft,
-    start: startTimer,
-    pause: pauseTimer,
-    isRunning,
-  } = useTimeEngine({
-    segment: currentSegment,
-    status: machineState.status,
-    updateSegment: (updates) => {
-      setSessionData((prev) => {
-        const newSegments = [...prev.segments];
-        newSegments[machineState.segmentIndex] = {
-          ...newSegments[machineState.segmentIndex],
-          ...updates,
-        };
-        return { ...prev, segments: newSegments };
-      });
-    },
-    onTimeUp: () => {
-      setSessionData((prev) => {
-        const newSegments = [...prev.segments];
-        const index = machineState.segmentIndex;
-
-        newSegments[index] = {
-          ...newSegments[index],
-          duration: newSegments[index].totalDuration,
-          completedAt: new Date().toISOString(),
-          startTimestamp: null,
-        };
-
-        return { ...prev, segments: newSegments };
-      });
-
-      dispatch({ type: "TIME_UP" });
-    },
-  });
-
-  const resetSegment = () => {
-    const index = machineState.segmentIndex;
-
-    setSessionData((prev) => {
-      const newSegments = [...prev.segments];
-
-      newSegments[index] = {
-        ...newSegments[index],
-        duration: 0,
-        startTimestamp: null,
-        completedAt: null,
-      };
-
-      return { ...prev, segments: newSegments };
-    });
-
-    dispatch({ type: "RESET_SEGMENT" });
-  };
-
-  const resetSession = () => {
-    const fresh = initialSession();
-    setSessionData(fresh);
-    dispatch({ type: "RESET_SESSION" });
-  };
-
-  // Auto start each focus sessions
-  useEffect(() => {
-    if (machineState.status === "segment_transition") {
-      dispatch({ type: "NEXT_SEGMENT" });
-      const nextSegment = sessionData.segments[machineState.segmentIndex + 1];
-
-      if (nextSegment?.type === "break" && autoStartBreaks) {
-        console.log("starteasd")
-        dispatch({ type: "START" });
-        startTimer();
-      }
-      console.log("dasdasd")
-    }
-  }, [machineState.status]);
-
-  // New Session
-  useEffect(() => {
-    if (!newSession) return;
-
-    resetSession();
-
-    setSessionTitle("Untitled Work");
-    setSessionHistory([]);
-    setTodos([]);
-    setNotes([
-      {
-        id: 1,
-        text: "Welcome to your notes!",
-        taskId: "",
-        createdAt: new Date().toISOString(),
-      },
-      {
-        id: 2,
-        text: "Try editing this note.",
-        taskId: "",
-        createdAt: new Date().toISOString(),
-      },
-    ]);
-
-    setNewSession(false);
-  }, [newSession]);
+  // console.log(machineState)
+  // console.log(machineState.segmentIndex)
+  const currentSegment =
+    sessionData?.segments?.[machineState.segmentIndex] || null;
 
   //Auto save system
   const buildPayload = useCallback(() => {
@@ -265,7 +162,7 @@ const FocusSession = () => {
   const sendBackend = useCallback(async (payload) => {
     try {
       await sessionService.saveSession(payload);
-      // console.log("Saved")
+      console.log("sendBackend: Saved");
     } catch (error) {
       console.error("Session save error: ", error);
     }
@@ -274,16 +171,117 @@ const FocusSession = () => {
   const { markDirty, saveStatus, forceSave } = useAutoSaveSession({
     buildPayload,
     saveFunction: sendBackend,
-    enabled: machineState.status === "running" || machineState.status === "paused",
+    enabled:
+      machineState.status === "running" || machineState.status === "paused",
   });
+  useEffect(() => {
+    console.log("Save: ", saveStatus);
+  }, [saveStatus]);
+  useEffect(() => {
+    console.log("autoStartBreaks: ", autoStartBreaks);
+  }, [autoStartBreaks]);
+
+  // Time Engine
+  const {
+    timeLeft,
+    start: startTimer,
+    pause: pauseTimer,
+    isRunning,
+    isPaused,
+  } = useTimeEngine({
+    segment: currentSegment,
+    status: machineState.status,
+    updateSegment: (updates) => {
+      setSessionData((prev) => {
+        const newSegments = [...prev.segments];
+        newSegments[machineState.segmentIndex] = {
+          ...newSegments[machineState.segmentIndex],
+          ...updates,
+        };
+        return { ...prev, segments: newSegments };
+      });
+      markDirty();
+    },
+    onTimeUp: () => {
+      setSessionData((prev) => {
+        const newSegments = [...prev.segments];
+        const index = machineState.segmentIndex;
+
+        newSegments[index] = {
+          ...newSegments[index],
+          duration: newSegments[index].totalDuration,
+          completedAt: new Date().toISOString(),
+          startTimestamp: null,
+        };
+
+        return { ...prev, segments: newSegments };
+      });
+      markDirty();
+      dispatch({ type: "TIME_UP" });
+    },
+  });
+
+  const resetSession = () => {
+    const fresh = initialSession();
+    setSessionData(fresh);
+    setSessionReview({ mood: null, focus: null, distractions: "" });
+    dispatch({ type: "RESET_SESSION" });
+  };
+
+  useEffect(() => {
+    console.log("STATUS:", machineState.status);
+    console.log("INDEX:", machineState.segmentIndex);
+  }, [machineState]);
+
+  // Auto start each focus sessions
+  useEffect(() => {
+    if (machineState.status !== "segment_transition") return;
+    dispatch({ type: "NEXT_SEGMENT" });
+  }, [machineState.status, dispatch]);
 
   useEffect(() => {
     if (machineState.status !== "idle") return;
-    const run = async () => {
-      await forceSave();
-    };
-    run();
+
+    const segment = sessionData.segments[machineState.segmentIndex];
+    if (!segment) return;
+
+    if (segment.type === "break" && autoStartBreaks) {
+      dispatch({ type: "START" });
+    }
+
+  }, [machineState.segmentIndex, machineState.status]);
+
+  useEffect(() => {
+    if (machineState.status !== "running") return;
+    startTimer();
   }, [machineState.status]);
+
+  // New Session
+  useEffect(() => {
+    if (!newSession) return;
+
+    resetSession();
+
+    setSessionTitle("Untitled Work");
+    setSessionHistory([]);
+    setTodos([]);
+    setNotes([
+      {
+        id: 1,
+        text: "Welcome to your notes!",
+        taskId: "",
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: 2,
+        text: "Try editing this note.",
+        taskId: "",
+        createdAt: new Date().toISOString(),
+      },
+    ]);
+
+    setNewSession(false);
+  }, [newSession]);
 
   useEffect(() => {
     if (newSession) return;
@@ -459,14 +457,44 @@ const FocusSession = () => {
       </div>
     );
   }
-
   return (
     <div className="pt-23 lg:pt-2 min-h-screen flex flex-col p-4 relative theme-transition bg-background-color">
-      <div className="text-xs text-text-secondary mb-2">
-        {saveStatus === "saving" && "Saving..."}
-        {saveStatus === "saved" && "All changes saved"}
-        {saveStatus === "error" && "Offline. Retrying..."}
-      </div>
+      <AnimatePresence>
+        {saveStatus !== "idle" && (
+          <motion.div
+            key={saveStatus}
+            initial={{ x: 100, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: 100, opacity: 0 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+            className="fixed bottom-6 right-6 z-50"
+          >
+            <div
+              className={`flex items-center gap-3 px-5 py-3 rounded-xl shadow-xl border backdrop-blur-md
+        ${
+          saveStatus === "saving"
+            ? "bg-blue-500/10 border-blue-400 text-blue-400"
+            : saveStatus === "error"
+              ? "bg-red-500/10 border-red-400 text-red-400"
+              : "bg-green-500/10 border-green-400 text-green-400"
+        }`}
+            >
+              {saveStatus === "saving" && (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              )}
+              {saveStatus === "error" && <AlertCircle className="w-4 h-4" />}
+              {saveStatus === "saved" && <CheckCircle className="w-4 h-4" />}
+
+              <span className="text-sm font-medium">
+                {saveStatus === "saving" && "Saving changes..."}
+                {saveStatus === "error" && "Offline. Retrying..."}
+                {saveStatus === "saved" && "All changes saved"}
+              </span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="w-full mb-6 relative z-10 fade-in flex justify-end gap-2">
         <button
           onClick={() => setShowQuotes((s) => !s)}
@@ -519,70 +547,104 @@ const FocusSession = () => {
           onClose={() => setActivePanel(null)}
         />
 
-        <div className="flex flex-col items-center gap-10 lg:flex-row mt-2 lg:mt-10 transition-all duration-500 ease-in-out">
-          {machineState.status === "finished" ? (
-            <SessionReview
-              reviewData={sessionReview}
-              onUpdate={handleReviewUpdate}
-              onDistractionToggle={handleDistractionToggle}
-              onNewSession={handleFinalSaveAndStartNew}
-            />
-          ) : (
-            <Timer
-              timeLeft={timeLeft}
-              isStarted={isRunning}
-              start={() => {
-                dispatch({ type: "START" });
-                startTimer();
-              }}
-              pause={async () => {
-                dispatch({ type: "PAUSE" });
-                pauseTimer();
-                await forceSave();
-              }}
-              reset={resetSession}
-              isBreak={currentSegment?.type === "break"}
-              sessionTitle={sessionTitle}
-              setSessionTitle={setSessionTitle}
-              setTotalFocusDuration={setTotalFocusDuration}
-              totalFocusDuration={totalFocusDuration}
-              breaksLeft={
-                sessionData.segments.filter(
-                  (s) => s.type === "break" && !s.completedAt,
-                ).length
-              }
-              currentSegmentData={currentSegment}
-              currentSegmentIndex={machineState.segmentIndex}
-              totalSegments={sessionData.segments.length}
-              totalfocusSegments={
-                sessionData.segments.filter((s) => s.type === "focus").length
-              }
-              totalbreakSegments={
-                sessionData.segments.filter((s) => s.type === "break").length
-              }
-              foucsSegments={
-                sessionData.segments.filter(
-                  (s) => s.type === "focus" && !s.completedAt,
-                ).length
-              }
-              setNewSession={() => setNewSession(true)}
-              onUpdateBackend={forceSave}
-            />
-          )}
+        <motion.div
+          layout
+          transition={{ duration: 0.4, ease: "easeInOut" }}
+          className="flex flex-col items-center gap-10 lg:flex-row mt-2 lg:mt-10 relative"
+        >
+          {/* TIMER / REVIEW SWITCH */}
+          <AnimatePresence mode="wait">
+            {machineState.status === "finished" ? (
+              <motion.div
+                key="review"
+                layout
+                initial={{ opacity: 0, y: 40, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -40, scale: 0.95 }}
+                transition={{ duration: 0.35, ease: "easeOut" }}
+                className="w-full flex justify-center"
+              >
+                <SessionReview
+                  reviewData={sessionReview}
+                  onUpdate={handleReviewUpdate}
+                  onDistractionToggle={handleDistractionToggle}
+                  onNewSession={handleFinalSaveAndStartNew}
+                />
+              </motion.div>
+            ) : (
+              <motion.div
+                key="timer"
+                layout
+                initial={{ opacity: 0, y: 40, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -40, scale: 0.95 }}
+                transition={{ duration: 0.35, ease: "easeOut" }}
+                className="w-full flex justify-center"
+              >
+                <Timer
+                  timeLeft={timeLeft}
+                  isStarted={isRunning}
+                  start={() => {
+                    dispatch({ type: "START" });
+                    startTimer();
+                  }}
+                  pause={async () => {
+                    dispatch({ type: "PAUSE" });
+                    pauseTimer();
+                    await forceSave();
+                  }}
+                  reset={resetSession}
+                  isBreak={currentSegment?.type === "break"}
+                  sessionTitle={sessionTitle}
+                  setSessionTitle={setSessionTitle}
+                  setTotalFocusDuration={setTotalFocusDuration}
+                  totalFocusDuration={totalFocusDuration}
+                  breaksLeft={
+                    sessionData.segments.filter(
+                      (s) => s.type === "break" && !s.completedAt,
+                    ).length
+                  }
+                  currentSegmentData={currentSegment}
+                  currentSegmentIndex={machineState.segmentIndex}
+                  totalSegments={sessionData.segments.length}
+                  totalfocusSegments={
+                    sessionData.segments.filter((s) => s.type === "focus")
+                      .length
+                  }
+                  totalbreakSegments={
+                    sessionData.segments.filter((s) => s.type === "break")
+                      .length
+                  }
+                  foucsSegments={
+                    sessionData.segments.filter(
+                      (s) => s.type === "focus" && !s.completedAt,
+                    ).length
+                  }
+                  setNewSession={() => setNewSession(true)}
+                  onUpdateBackend={forceSave}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-          <CurrentProgress
-            todos={todos}
-            show={activePanel === "progress"}
-            onClose={() => setActivePanel(null)}
-          />
-          <Notes
-            notes={notes}
-            todos={todos}
-            setNotes={setNotes}
-            show={activePanel === "notes"}
-            onClose={() => setActivePanel(null)}
-          />
-        </div>
+          <motion.div layout>
+            <CurrentProgress
+              todos={todos}
+              show={activePanel === "progress"}
+              onClose={() => setActivePanel(null)}
+            />
+          </motion.div>
+
+          <motion.div layout>
+            <Notes
+              notes={notes}
+              todos={todos}
+              setNotes={setNotes}
+              show={activePanel === "notes"}
+              onClose={() => setActivePanel(null)}
+            />
+          </motion.div>
+        </motion.div>
 
         <TodoList
           todos={todos}

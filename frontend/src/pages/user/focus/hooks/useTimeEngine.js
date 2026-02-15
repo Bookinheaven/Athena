@@ -40,17 +40,15 @@ export const useTimeEngine = ({ segment, status, onTimeUp, updateSegment }) => {
 
   const start = () => {
     if (!segment?.startTimestamp) {
-      const now = new Date().toISOString();
+      const nowC = new Date().toISOString();
       updateSegment({
-        startTimestamp: now,
-        startedAt: segment.startedAt || now,
+        startTimestamp: nowC,
+        startedAt: segment.startedAt || nowC,
       });
-      console.log("started");
     }
   };
 
   const pause = () => {
-    console.log("paused 1 ");
     if (!segment?.startTimestamp) return;
 
     const elapsed = Math.floor(
@@ -61,7 +59,6 @@ export const useTimeEngine = ({ segment, status, onTimeUp, updateSegment }) => {
       duration: (segment.duration || 0) + elapsed,
       startTimestamp: null,
     });
-    console.log("paused 2");
   };
 
   return {
@@ -69,5 +66,6 @@ export const useTimeEngine = ({ segment, status, onTimeUp, updateSegment }) => {
     start,
     pause,
     isRunning: status === "running",
+    isPaused: status === "paused"
   };
 };
