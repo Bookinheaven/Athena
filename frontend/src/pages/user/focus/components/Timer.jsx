@@ -134,12 +134,12 @@ export const Timer = ({
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [handleStartPause, reset]);
 
-  const activeTime = timeLeft;
-
-  useEffect(()=> {
-    console.log(isStarted)
-    console.log(isBreak)
-  }, [isStarted, isBreak])
+  let activeTime = timeLeft;
+  
+  // useEffect(()=> {
+  //   console.log(isStarted)
+  //   console.log(isBreak)
+  // }, [isStarted, isBreak])
   useEffect(() => {
     if (timeLeft === 0 && isStarted) {
       if (isBreak) {
@@ -276,7 +276,7 @@ export const Timer = ({
         </div>
       </div>
 
-      {!isStarted && !isBreak && !currentSegmentData?.duration > 0 && (
+      {!isStarted && !isBreak && !currentSegmentData?.duration > 0 && completedFocusSegments == 0 && (
         <div className="mt-6 space-y-4">
           <div className="flex gap-2 justify-center flex-wrap">
             {durations.map((opt) => (
