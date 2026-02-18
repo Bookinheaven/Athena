@@ -1,8 +1,8 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import sessionService from "../../../../services/sessionService";
-import { useAuth } from "../../../../contexts/AuthContext";
+import sessionService from "../../../../services/sessionService.js";
+import { useAuth } from "../../../../contexts/AuthContext.jsx";
 import Header from "./components/Header.jsx";
 
 import {
