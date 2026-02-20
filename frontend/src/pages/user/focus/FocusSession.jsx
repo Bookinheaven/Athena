@@ -162,7 +162,7 @@ const FocusSession = () => {
   const sendBackend = useCallback(async (payload) => {
     try {
       await sessionService.saveSession(payload);
-      console.log("sendBackend: Saved");
+      // console.log("sendBackend: Saved");
     } catch (error) {
       console.error("Session save error: ", error);
     }
@@ -172,14 +172,16 @@ const FocusSession = () => {
     buildPayload,
     saveFunction: sendBackend,
     enabled:
-      machineState.status === "running" || machineState.status === "paused",
+      machineState.status === "running" ||
+      machineState.status === "paused" ||
+      machineState.status === "finished",
   });
-  useEffect(() => {
-    console.log("Save: ", saveStatus);
-  }, [saveStatus]);
-  useEffect(() => {
-    console.log("autoStartBreaks: ", autoStartBreaks);
-  }, [autoStartBreaks]);
+  // useEffect(() => {
+  //   console.log("Save: ", saveStatus);
+  // }, [saveStatus]);
+  // useEffect(() => {
+  //   console.log("autoStartBreaks: ", autoStartBreaks);
+  // }, [autoStartBreaks]);
 
   // Time Engine
   const {
@@ -228,28 +230,25 @@ const FocusSession = () => {
     dispatch({ type: "RESET_SESSION" });
   };
 
-  useEffect(() => {
-    console.log("STATUS:", machineState.status);
-    console.log("INDEX:", machineState.segmentIndex);
-  }, [machineState]);
+  // useEffect(() => {
+  //   console.log("STATUS:", machineState.status);
+  //   console.log("INDEX:", machineState.segmentIndex);
+  // }, [machineState]);
 
   // Auto start each focus sessions
   useEffect(() => {
     if (machineState.status !== "segment_transition") return;
+
     dispatch({ type: "NEXT_SEGMENT" });
-  }, [machineState.status, dispatch]);
+  }, [machineState.status]);
 
   useEffect(() => {
     if (machineState.status !== "idle") return;
-
-    const segment = sessionData.segments[machineState.segmentIndex];
-    if (!segment) return;
-
-    if (autoStartBreaks) {
-      dispatch({ type: "START" });
-    }
-
-  }, [machineState.segmentIndex, machineState.status]);
+    if (!autoStartBreaks) return;
+    if (machineState.isDone) return;
+    if (machineState.segmentIndex === 0) return;
+    dispatch({ type: "START" });
+  }, [machineState.status]);
 
   useEffect(() => {
     if (machineState.status !== "running") return;
@@ -434,9 +433,9 @@ const FocusSession = () => {
     setActivePanel((current) => (current === panelName ? null : panelName));
     markDirty();
   };
-  useEffect(() => {
-    console.log("Machine status changed:", machineState.status);
-  }, [machineState.status]);
+  // useEffect(() => {
+  //   console.log("Machine status changed:", machineState.status);
+  // }, [machineState.status]);
 
   const handleClearHistory = useCallback(() => {
     setSessionHistory([]);
