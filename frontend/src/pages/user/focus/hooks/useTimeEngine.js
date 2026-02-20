@@ -33,17 +33,22 @@ export const useTimeEngine = ({ segment, status, onTimeUp, updateSegment }) => {
 
   // Detect completion
   useEffect(() => {
+    if (!segment) return;
+
     if (timeLeft === 0 && status === "running") {
       onTimeUp?.();
     }
   }, [timeLeft, status]);
 
   const start = () => {
-    if (!segment?.startTimestamp) {
+    if (!segment) return;
+
+    if (!segment.startTimestamp) {
       const nowC = new Date().toISOString();
+
       updateSegment({
         startTimestamp: nowC,
-        startedAt: segment.startedAt || nowC,
+        startedAt: segment.startedAt ?? nowC,
       });
     }
   };
@@ -66,6 +71,6 @@ export const useTimeEngine = ({ segment, status, onTimeUp, updateSegment }) => {
     start,
     pause,
     isRunning: status === "running",
-    isPaused: status === "paused"
+    isPaused: status === "paused",
   };
 };

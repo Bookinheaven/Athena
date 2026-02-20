@@ -41,12 +41,12 @@ const Sidebar = ({ expanded, setExpanded }) => {
             {({ isActive }) => (
               <div
                 className={`
-            relative flex items-center gap-3 py-3 rounded-xl
-            transition-colors duration-200
+            relative flex items-center gap-3 py-3 pl-4 rounded-full
+            transition-all duration-200 hover:bg-blue-900
             ${
               isActive
-                ? "text-text-primary px-[0.65rem]"
-                : "text-text-muted hover:text-text-primary px-3"
+                ? "text-text-primary px-[0.65rem] pl-[0.845rem]"
+                : "text-text-muted hover:text-text-primary px-3 pl-4"
             }
           `}
               >
@@ -56,7 +56,7 @@ const Sidebar = ({ expanded, setExpanded }) => {
 
                 <Icon
                   className={`flex-shrink-0 transition-all ${
-                    isActive ? "text-accent-primary w-7 h-7 bg-background-primary-contrast" : "w-5 h-5 bg-transparent"
+                    isActive ? "text-accent-primary w-7 h-7" : "w-5 h-5"
                   }`}
                 />
 
