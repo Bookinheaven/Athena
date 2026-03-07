@@ -29,7 +29,7 @@ import { v4 as uuidv4 } from "uuid";
 import { useAutoSaveSession } from "./hooks/useAutoSaveSession.js";
 import { useSessionMachine } from "./hooks/useSessionMachine.js";
 import { useTimeEngine } from "./hooks/useTimeEngine.js";
-
+import HeaderNav from "../components/FocusHeader.jsx"
 const FocusSession = () => {
   const { user } = useAuth();
 
@@ -458,6 +458,7 @@ const FocusSession = () => {
   }
   return (
     <div className="pt-23 lg:pt-2 min-h-screen flex flex-col p-4 relative theme-transition bg-background-color">
+      <HeaderNav></HeaderNav>
       <AnimatePresence>
         {saveStatus !== "idle" && (
           <motion.div
