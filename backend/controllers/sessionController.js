@@ -1,7 +1,8 @@
 import Session from "../models/sessionModel.js";
 import generateInsights from "../utils/generateInsights.js"
 import transformSessionForDashboard from "../utils/transformSessionForDashboard.js";
-import { processDailyStreak } from "../services/streakService.js"; 
+import { dialyStreakUpdate, processDailyStreak } from "../services/streakService.js"; 
+import { getStartOfDay } from "../utils/streakHelpers.js";
 
 export const logSession = async (req, res) => {
   try {
@@ -23,14 +24,17 @@ export const logSession = async (req, res) => {
         .status(400)
         .json({ message: "Session ID and session data are required." });
     }
-
+    const allCompleted = session.segments.every(
+      seg => seg.completedAt !== null
+    );
     const sessionPayload = {
       userId,
       sessionId,
       title: session.title,
       timestamp: session.timestamp || new Date(),
-      isDone: session.isDone || false,
-      status: session.isDone ? "completed" : "active",
+      isDone: allCompleted,
+      status: allCompleted ? "completed" : "active",
+      endedAt: allCompleted ? new Date() : null,
       segmentIndex: session.segmentIndex,
       sessionSegments: session.segments,
       totalDuration: session.totalDuration,
@@ -40,7 +44,6 @@ export const logSession = async (req, res) => {
       userData,
       sessionFeedback,
       history,
-      endedAt: session.isDone == true ? new Date() : null,
     };
     const existingSession = await Session.findOne({
       sessionId: sessionId,
@@ -82,20 +85,15 @@ export const logSession = async (req, res) => {
         setDefaultsOnInsert: true,
       }
     );
-
+    console.log(sessionPayload)
     if(sessionPayload.isDone){
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      
-      let streakData = await processDailyStreak(
-          userId,
-          today,
-          sessionPayload.duration
-      );
-      // console.log(streakData)
+      dialyStreakUpdate(userId, sessionPayload.duration/60);
+      let streakData = await processDailyStreak(userId);
+      console.log(streakData)
     }
 
     const statusCode = existingSession ? 200 : 201;
+  
     return res.status(statusCode).json(savedSession);
   } catch (error) {
     console.error("Error in logSession:", error);

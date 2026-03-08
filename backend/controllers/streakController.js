@@ -1,36 +1,28 @@
 import Session from "../models/sessionModel.js";
-import { updateDailyStreak } from "../services/streakService.js";
-
-function getTodayFocusMinutes(userId) {
-  return Session.aggregate([
-    { $match: { userId, isDone: true, date: today } },
-    { $unwind: "$segments" },
-    { $match: { "segments.type": "focus" } },
-    { $group: { _id: null, total: { $sum: "$segments.duration" } } }
-  ]);
-}
-
+import { processDailyStreak } from "../services/streakService.js";
+import { getStartOfDay } from "../utils/streakHelpers.js";
 
 export async function completeSession(req, res) {
-  const session = await Session.findById(req.params.id);
+  try {
+    const session = await Session.findById(req.params.id);
+    if (!session) {
+      return res.status(404).json({ message: "Session not found" });
+    }
+    if (session.isDone) {
+      return res.json({ success: true });
+    }
+    session.isDone = true;
+    session.status = "completed";
+    session.endedAt = new Date();
+    await session.save();
 
-  session.isDone = true;
-  await session.save();
-
-  const todayFocusMinutes = await getTodayFocusMinutes(
-    session.userId
-  );
-
-  let streak = await UserStreak.findOne({ userId: session.userId });
-  if (!streak) {
-    streak = await UserStreak.create({ userId: session.userId });
+    const today = getStartOfDay(new Date());
+    
+    await processDailyStreak(session.userId, today);
+    res.json({ success: true });
+  } catch (error) {
+    console.error("completeSession error:", error);
+    res.status(500).json({ message: "Server error" });
   }
-
-  await updateDailyStreak({
-    user: streak,
-    todayFocusMinutes,
-    todayDate: new Date()
-  });
-
   res.json({ success: true });
 }
