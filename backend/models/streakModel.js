@@ -1,44 +1,38 @@
 import mongoose from "mongoose";
 
-const StreakDaySchema = new mongoose.Schema({
-  userId: {
-    type: mongoose.Schema.Types.ObjectId,
-    required: true,
-    index: true
-  },
+const streakSchema = new mongoose.Schema({
+    userId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        unique: true,
+        required: true
+    },
 
-  date: {
-    type: Date,
-    required: true
-  },
+    currentStreak: { type: Number, default: 0 },
 
-  focusMinutes: {
-    type: Number,
-    default: 0
-  },
+    longestStreak: { type: Number, default: 0 },
 
-  dailyTargetMinutes: {
-    type: Number,
-    required: true
-  },
+    lastActiveDate: { type: Date },
 
-  streakRate: {
-    type: Number, 
-    required: true
-  },
+    freezeBalance: { type: Number, default: 1 },
 
-  state: {
-    type: String,
-    enum: ["green", "yellow", "red"],
-    required: true
-  },
+    totalFreezesUsed: { type: Number, default: 0 },
+    
+    maxFreezeBalance: { type: Number, default: 3 },
+    
+    dailyTargetMinutes: { type: Number, default: 25 },
+    
+    minTargetMinutes: { type: Number, default: 20 },
+    maxTargetMinutes: { type: Number, default: 90 },
+    lastTargetReason: { 
+        type: String,
+        enum: ["increase_consistency", "decrease_burnout", "no_change"],
+        default: "no_change"
+    },
+  
+    dailyStreak: { type: Number, default: 0 },
+    lastProcessedDate: Date
 
-  usedFreeze: {
-    type: Number,
-    default: 0
-  }
 }, { timestamps: true });
 
-StreakDaySchema.index({ userId: 1, date: 1 }, { unique: true });
-
-export default mongoose.model("StreakDay", StreakDaySchema);
+export default mongoose.model("Streak", streakSchema);
