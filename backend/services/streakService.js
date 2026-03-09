@@ -1,111 +1,88 @@
-import streakModel from "../models/streakModel.js";
-import User from "../models/userModel.js";
+import Streak from "../models/streakModel.js";
+import DailyStats from "../models/dailyStatsModel.js";
+import { getStartOfDay } from "../utils/streakHelpers.js";
+import dailyStatsModel from "../models/dailyStatsModel.js";
 
-export async function processDailyStreak(userId, date, focusMinutes) {
-  const user = await User.findById(userId);
-  if (!user) {
-    throw new Error("User not found");
-  }
-  // Convert seconds to minutes
-  focusMinutes = Math.floor(Number(focusMinutes / 60));
+export async function processDailyStreak(userId) {
+  const today = getStartOfDay();
 
-  // Normalize today's date
-  const today = new Date(date);
-  today.setHours(0, 0, 0, 0);
+  const streak = await Streak.findOne({ userId });
 
-  // Get last processed date
-  const lastProcessedDate = user.streak.lastProcessedDate ? new Date(user.streak.lastProcessedDate) : null;
-  if (lastProcessedDate) {
-    lastProcessedDate.setHours(0, 0, 0, 0);
-  }
+  if (!streak) throw new Error("Streak not found");
 
-  // Check if record already exists for today
-  let currentRecord = await streakModel.findOne({ userId, date: today });
+  const stats = await DailyStats.findOne({ userId, date: today });
 
-  if (currentRecord) {
-    if (currentRecord.state == "green") {
-      return {
-        dailyTargetMinutes: currentRecord.dailyTargetMinutes,
-        focusMinutes: currentRecord.focusMinutes,
-        state: currentRecord.state,
-        streakRate: currentRecord.streakRate,
-        usedFreeze: currentRecord.usedFreeze,
-      };
-    }
-    // Add previous minutes (updating same day)
-    focusMinutes += currentRecord.focusMinutes;
-  }
-  
-  const target = Math.max(user.streak.dailyTargetMinutes, 1);
+  const focusMinutes = stats?.focusMinutes || 0;
+
+  const target = Math.max(streak.dailyTargetMinutes, 1);
+
   const streakRate = focusMinutes / target;
 
   let state = "red";
+
   if (streakRate >= 1) state = "green";
   else if (streakRate >= 0.7) state = "yellow";
 
+  const lastDate = streak.lastProcessedDate
+    ? getStartOfDay(streak.lastProcessedDate)
+    : null;
+
+  const previousStreak = streak.dailyStreak;
+
   let freezeUsed = 0;
-  let diffDays = 0;
 
-  if (!lastProcessedDate) {
-    // First ever streak entry
-    user.streak.dailyStreak = state === "green" ? 1 : 0;
+  if (!lastDate) {
+    streak.dailyStreak = state === "green" ? 1 : 0;
   } else {
-    const diffTime = today - lastProcessedDate;
-    diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    const diffDays = Math.floor((today - lastDate) / (1000 * 60 * 60 * 24));
 
-    if(diffDays === 0) {
-      // same day -> No Streak need
-    } else if(diffDays === 1){
-      if (state === "green"){
-        user.streak.dailyStreak += 1;
+    if (diffDays === 1) {
+      if (state === "green") {
+        streak.dailyStreak = previousStreak + 1;
 
-        // Earns streak freeze every 7 days
-        if (user.streak.dailyStreak % 7 === 0 && user.streak.freezeBalance < user.streak.maxFreezeBalance){
-          user.streak.freezeBalance += 1;
-        } 
-      } else if (state === "yellow"){
-        // streak preserved, no increment, no freeze usage
-        // 0.5 streak. two days: 1 streak (Later)
+        if (
+          streak.dailyStreak % 7 === 0 &&
+          streak.freezeBalance < streak.maxFreezeBalance
+        ) {
+          streak.freezeBalance += 1;
+        }
+      } else if (state === "yellow") {
+        streak.dailyStreak = previousStreak;
       } else {
-        // red day
-        if (user.streak.freezeBalance > 0) {
-          user.streak.freezeBalance -= 1;
+        if (streak.freezeBalance > 0 && previousStreak > 0) {
+          streak.freezeBalance -= 1;
           freezeUsed = 1;
+          streak.dailyStreak = previousStreak;
         } else {
-          user.streak.dailyStreak = 0;
+          streak.dailyStreak = 0;
         }
       }
-    } else {
-      // Missed more than 1 day -> streak broken
-      if (state === "green") {
-        user.streak.dailyStreak = 1;
-      } else {
-        user.streak.dailyStreak = 0;
-      }
+    } else if (diffDays > 1) {
+      streak.dailyStreak = state === "green" ? 1 : 0;
+      streak.freezeBalance = 0;
     }
   }
-  user.streak.lastProcessedDate = new Date();
+  streak.lastProcessedDate = today;
+  await streak.save();
 
-  await user.save();
+  return {
+    state,
+    focusMinutes,
+    streakCount: streak.dailyStreak,
+    freezeUsed,
+  };
+}
 
-  const dailyRecord = await streakModel.findOneAndUpdate(
+export async function dialyStreakUpdate(userId, sessionMinutes) {
+  const today = getStartOfDay();
+  await dailyStatsModel.findOneAndUpdate(
     { userId, date: today },
     {
-      userId,
-      date: today,
-      focusMinutes,
-      dailyTargetMinutes: target,
-      streakRate,
-      state,
-      freezeUsed,
+      $inc: {
+        focusMinutes: sessionMinutes,
+        sessions: 1
+      }
     },
-    { upsert: true, new: true },
+    { upsert: true, new: true }
   );
-  return {
-    dailyTargetMinutes: dailyRecord.dailyTargetMinutes,
-    focusMinutes: dailyRecord.focusMinutes,
-    state: dailyRecord.state,
-    streakRate: dailyRecord.streakRate,
-    usedFreeze: dailyRecord.usedFreeze,
-  };
 }

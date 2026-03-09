@@ -1,4 +1,5 @@
 import User from '../models/userModel.js';
+import Streak from '../models/streakModel.js'
 import jwt from 'jsonwebtoken';
 import EmailService from './emailService.js';
 
@@ -42,6 +43,9 @@ class AuthService {
     });
 
     await user.save();
+    await Streak.create({
+      userId: user._id
+    });
 
     try {
       await EmailService.sendVerificationOTP(email, otp, fullName);

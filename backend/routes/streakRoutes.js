@@ -2,18 +2,17 @@ import express from "express";
 import auth from '../middlewares/authMiddleware.js';
 import { processDailyStreak } from "../services/streakService.js"; 
 import User from "../models/userModel.js";
-import streakModel from "../models/streakModel.js";
+import streakModel from "../models/dailyStatsModel.js";
 
 const router = express.Router();
 
-router.post("/process-today", auth, async (req, res) => {
-  const { focusMinutes } = req.body;
+router.get("/process-today", auth, async (req, res) => {
   const userId = req.user.id;
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  await processDailyStreak(userId, today, focusMinutes);
+  await processDailyStreak(userId, today);
 
   res.json({ success: true });
 });
@@ -22,7 +21,7 @@ router.get("/summary", auth, async (req, res) => {
   try {
     const userId = req.user.id;
 
-    let streakData = streakModel.findOne({ userId }).selectedInclusively("dailyTargetMinutes focusMinutes state freezeUsed streakRate")
+    let streakData = streakModel.findOne({ userId }).selectedInclusively("dailyTargetMinutes focusMinutes state freezeUsed streakRate resultType streakCount")
 
     if (!streakData) {
       const today = new Date();
