@@ -6,10 +6,12 @@ import {
   ListTodo, 
   Volume2, 
   Settings, 
-  Quote 
+  Quote, 
+  NotebookPen,
+  List
 } from "lucide-react";
 
-export default function HeaderNav({ isDeepFocus, toggleDeepFocus, getMotivation }) {
+export default function HeaderNav({ isDeepFocus, toggleDeepFocus, toggleMotivation, handlePanelToggle, isRunning}) {
   const [isVisible, setIsVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
   const [time, setTime] = useState(new Date());
@@ -38,7 +40,7 @@ export default function HeaderNav({ isDeepFocus, toggleDeepFocus, getMotivation 
   return (
     <header
       className={`
-        fixed top-6 left-1/2 z-50 flex -translate-x-1/2 items-center justify-between 
+        flex mt-4 items-center justify-between 
         rounded-full border border-border-primary/40 bg-card-background/80 
         px-2 py-1.5 shadow-lg shadow-black/20 backdrop-blur-xl 
         transition-all duration-300 ease-in-out w-[95%] sm:w-fit min-w-[320px]
@@ -66,7 +68,7 @@ export default function HeaderNav({ isDeepFocus, toggleDeepFocus, getMotivation 
         </div>
       </div>
 
-      <div className="px-6 text-lg font-semibold text-text-primary tabular-nums tracking-wide">
+      <div className="px-6 text-xl font-bold text-text-primary tabular-nums tracking-widest">
         {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
       </div>
 
@@ -74,21 +76,35 @@ export default function HeaderNav({ isDeepFocus, toggleDeepFocus, getMotivation 
         <button 
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-text-secondary hover:text-text-primary hover:bg-background-secondary transition-colors"
           title="Get a motivational quote"
-          onClick={getMotivation}
+          onClick={toggleMotivation}
         >
           <Quote size={14} />
           <span className="hidden sm:inline">Inspire Me</span>
         </button>
-
-        <button className="p-2 rounded-full text-text-muted hover:text-text-primary hover:bg-background-secondary transition-colors" title="Tasks">
+      </div>
+      <div className="flex items-center gap-1 border-l border-border-primary/40 pl-3 pr-1">
+        <button className={`p-2 rounded-full text-text-muted transition-colors ${!isRunning? "opacity-50 cursor-not-allowed" : "hover:bg-background-secondary hover:text-text-primary"}`} title="Tasks"
+          onClick={() => handlePanelToggle("todos")}>
           <ListTodo size={18} />
         </button>
 
-        <button className="p-2 rounded-full text-text-muted hover:text-text-primary hover:bg-background-secondary transition-colors" title="Ambient Sounds">
-          <Volume2 size={18} />
+        <button className={`p-2 rounded-full text-text-muted transition-colors ${!isRunning? "opacity-50 cursor-not-allowed" : "hover:bg-background-secondary hover:text-text-primary"}`} title="Notes"
+          onClick={() => handlePanelToggle("notes")}>
+          <NotebookPen size={18} />
         </button>
 
-        <button className="p-2 rounded-full text-text-muted hover:text-text-primary hover:bg-background-secondary transition-colors" title="Focus Settings">
+        <button className={`p-2 rounded-full text-text-muted transition-colors ${!isRunning? "opacity-50 cursor-not-allowed" : "hover:bg-background-secondary hover:text-text-primary"}`} title="Notes"
+          onClick={() => handlePanelToggle("progress")}>
+          <List size={18} />
+        </button>
+
+        {/* Later : after addign the music */}
+        {/* <button className="p-2 rounded-full text-text-muted hover:text-text-primary hover:bg-background-secondary transition-colors" title="Ambient Sounds">
+          <Volume2 size={18} />
+        </button> */}
+
+        <button className="p-2 rounded-full text-text-muted hover:text-text-primary hover:bg-background-secondary transition-colors" title="Focus Settings"
+            onClick={() => handlePanelToggle("settings")}>
           <Settings size={18} />
         </button>
       </div>
