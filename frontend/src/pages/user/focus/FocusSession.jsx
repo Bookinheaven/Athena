@@ -11,6 +11,7 @@ import {
   Quote,
   Settings as SettingsIcon,
 } from "lucide-react";
+import { FullScreen, useFullScreenHandle } from "react-full-screen";
 import createSessionData from "./hooks/useSessionData";
 import { useLocalStorage } from "./hooks/useLocalStorage";
 import { useSessionStorage } from "./hooks/useSessionStorage";
@@ -22,24 +23,27 @@ import CurrentProgress from "./components/CurrentProgress";
 import Notes from "./components/Notes.jsx";
 import { SessionReview } from "./components/SessionReview";
 import sessionService from "../../../../services/sessionService";
-import { useAuth } from "../../../../contexts/AuthContext";
+// import { useAuth } from "../../../../contexts/AuthContext";
 import toast from "react-hot-toast";
 import { v4 as uuidv4 } from "uuid";
 
 import { useAutoSaveSession } from "./hooks/useAutoSaveSession.js";
 import { useSessionMachine } from "./hooks/useSessionMachine.js";
 import { useTimeEngine } from "./hooks/useTimeEngine.js";
-import HeaderNav from "../components/FocusHeader.jsx"
+import HeaderNav from "../components/FocusHeader.jsx";
+
 const FocusSession = () => {
-  const { user } = useAuth();
+  // const { user } = useAuth();
 
   // Navigation states
   const [showQuotes, setShowQuotes] = useState(false);
   const [activePanel, setActivePanel] = useState("");
 
   // Control states
-  const hasLoggedStart = useRef(false);
+  // const hasLoggedStart = useRef(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isDeepFocus, setIsDeepFocus] = useState(false);
+  const containerRef = useRef(null);
 
   // Settings state
   const [breakDuration, setBreakDuration] = useLocalStorage(
@@ -234,6 +238,39 @@ const FocusSession = () => {
   //   console.log("STATUS:", machineState.status);
   //   console.log("INDEX:", machineState.segmentIndex);
   // }, [machineState]);
+
+  //Full screen mode
+  const toggleDeepFocus = () => {
+    if (!document.fullscreenElement) {
+      containerRef.current?.requestFullscreen().catch((err) => {
+        console.error("Fullscreen error:", err);
+      });
+    } else {
+      document.exitFullscreen().catch((err) => {
+        console.error("Exit fullscreen error:", err);
+      });
+    }
+  };
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsDeepFocus(!!document.fullscreenElement);
+    };
+
+    const handleKeyDown = (e) => {
+      if (e.key === "F11") {
+        e.preventDefault();
+        toggleDeepFocus();
+      }
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
 
   // Auto start each focus sessions
   useEffect(() => {
@@ -457,8 +494,11 @@ const FocusSession = () => {
     );
   }
   return (
-    <div className="pt-23 lg:pt-2 min-h-screen flex flex-col p-4 relative theme-transition bg-background-color">
-      <HeaderNav></HeaderNav>
+    <div
+      ref={containerRef}
+      className=" lg:pt-2 min-h-screen flex flex-col lg:p-4 relative theme-transition bg-background-color"
+    >
+      
       <AnimatePresence>
         {saveStatus !== "idle" && (
           <motion.div
@@ -471,13 +511,13 @@ const FocusSession = () => {
           >
             <div
               className={`flex items-center gap-3 px-5 py-3 rounded-xl shadow-xl border backdrop-blur-md
-        ${
-          saveStatus === "saving"
-            ? "bg-blue-500/10 border-blue-400 text-blue-400"
-            : saveStatus === "error"
-              ? "bg-red-500/10 border-red-400 text-red-400"
-              : "bg-green-500/10 border-green-400 text-green-400"
-        }`}
+      ${
+        saveStatus === "saving"
+          ? "bg-blue-500/10 border-blue-400 text-blue-400"
+          : saveStatus === "error"
+            ? "bg-red-500/10 border-red-400 text-red-400"
+            : "bg-green-500/10 border-green-400 text-green-400"
+      }`}
             >
               {saveStatus === "saving" && (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -495,43 +535,14 @@ const FocusSession = () => {
         )}
       </AnimatePresence>
 
-      <div className="w-full mb-6 relative z-10 fade-in flex justify-end gap-2">
-        <button
-          onClick={() => setShowQuotes((s) => !s)}
-          className="flex items-center gap-2 px-3 py-1 rounded-lg bg-button-secondary text-button-secondary-text hover:bg-button-secondary-hover transition-colors"
-          title="Get motivated"
-        >
-          <Quote className="w-5 h-5" />
-          <span className="text-sm">Inspire Me</span>
-        </button>
-
-        {[
-          { icon: List, key: "progress" },
-          { icon: NotebookPen, key: "notes" },
-          { icon: ListTodo, key: "todos" },
-          { icon: SettingsIcon, key: "settings" },
-        ].map(({ icon: Icon, key }) => (
-          <button
-            key={key}
-            onClick={() => {
-              if (isRunning || key === "settings") {
-                handlePanelToggle(key);
-              }
-            }}
-            className={`p-3 rounded-xl shadow-md transition-all duration-300 border border-card-border hover:border-blue-400 ${
-              activePanel === key
-                ? "bg-button-primary text-button-primary-text"
-                : "bg-card-background text-text-primary"
-            } ${
-              !isRunning && key !== "settings"
-                ? "opacity-50 cursor-not-allowed"
-                : ""
-            }`}
-            aria-label={`Toggle ${key}`}
-          >
-            <Icon className="w-5 h-5" />
-          </button>
-        ))}
+      <div className="w-full mb-3 fade-in flex justify-center">
+        <HeaderNav
+          isDeepFocus={isDeepFocus}
+          toggleDeepFocus={toggleDeepFocus}
+          toggleMotivation={() => setShowQuotes((s) => !s)}
+          isRunning={isRunning}
+          handlePanelToggle={handlePanelToggle}
+        ></HeaderNav>
       </div>
 
       <div className="flex justify-center items-center flex-grow">
@@ -550,9 +561,8 @@ const FocusSession = () => {
         <motion.div
           layout
           transition={{ duration: 0.4, ease: "easeInOut" }}
-          className="flex flex-col items-center gap-10 lg:flex-row mt-2 lg:mt-10 relative"
+          className="flex flex-col items-center w-full lg:w-0 h-full lg:flex-row md:mt-2 lg:mt-10 relative"
         >
-          {/* TIMER / REVIEW SWITCH */}
           <AnimatePresence mode="wait">
             {machineState.status === "finished" ? (
               <motion.div
