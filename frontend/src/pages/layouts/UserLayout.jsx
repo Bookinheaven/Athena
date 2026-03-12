@@ -3,8 +3,6 @@ import Sidebar from "../user/components/Sidebar";
 import { useState } from "react";
 
 const UserLayout = () => {
-  const location = useLocation();
-  const isFocusPage = location.pathname.includes("focus");
   const [expanded, setExpanded] = useState(false);
 
   return (
