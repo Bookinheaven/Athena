@@ -164,7 +164,6 @@ const Dashboard = () => {
       <div className="px-4 sm:px-6 lg:px-9 w-full">
         <Header displayName={user.fullName} username={user.username} />
         
-        {/* TAB NAVIGATION */}
         <div className="flex flex-wrap gap-2 mb-8 mt-4 bg-card-background/50 p-1.5 rounded-xl border border-border-primary/30 w-fit">
           {tabs.map((tab) => {
             const Icon = tab.icon;
