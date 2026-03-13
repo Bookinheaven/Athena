@@ -1,83 +1,136 @@
 import mongoose from "mongoose";
 
-const segmentHistorySchema = new mongoose.Schema(
-  {
-    type: { type: String, enum: ["focus", "break"], required: true },
-    totalDuration: { type: Number, required: true },
-    completedAt: { type: Date, required: true },
-    startedAt: { type: Date },
+const eventSchema = new mongoose.Schema(
+{
+  type: {
+    type: String,
+    enum: [
+      "focus_start",
+      "focus_complete",
+      "break_start",
+      "break_complete",
+      "pause",
+      "resume",
+      "session_end"
+    ],
+    required: true
   },
-  { _id: false }
+
+  timestamp: {
+    type: Date,
+    default: Date.now
+  },
+
+  segmentIndex: {
+    type: Number
+  }
+
+},
+{ _id: false }
 );
 
+
 const segmentsSchema = new mongoose.Schema(
-  {
-    type: { type: String, enum: ["focus", "break"], required: true },
-    duration: { type: Number, required: true },
-    totalDuration: { type: Number, required: true },
-    completedAt: { type: Date },
-    startedAt: { type: Date, default: null },
+{
+  type: {
+    type: String,
+    enum: ["focus", "break"],
+    required: true
   },
-  { _id: false }
+
+  duration: { type: Number, default: 0 },
+  totalDuration: { type: Number, required: true },
+
+  startedAt: { type: Date, default: null },
+
+  startTimestamp: { type: Date },
+
+  completedAt: { type: Date },
+
+},
+{ _id: false }
 );
 
 const sessionSchema = new mongoose.Schema({
+
   sessionId: {
-    type: String, 
+    type: String,
     required: true,
-    index: true,
+    index: true
   },
+
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
-    required: true,
+    required: true
   },
+
+  taskId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Task",
+    default: null
+  },
+
   title: {
     type: String,
     required: true,
-    trim: true,
+    trim: true
   },
-  timestamp: {
-    type: Date,
-    default: Date.now,
-  },
-  startedAt: { type: Date },
-  endedAt: { type: Date },
 
-  isDone: { type: Boolean, default: false },
+  sessionType: {
+    type: String,
+    enum: ["task", "quick"],
+    default: "quick"
+  },
+
+  startedAt: Date,
+  endedAt: Date,
+
   status: {
     type: String,
     enum: ["active", "completed"],
-    default: "active",
+    default: "active"
+  },
+
+  completionType: {
+    type: String,
+    enum: ["completed", "skipped", "abandoned"],
+    default: null
   },
 
   duration: { type: Number, default: 0 },
 
-  userSettings: {
-    totalFocusDuration: Number,
-    breakDuration: Number,
-    autoStartBreaks: Boolean,
-    breaksNumber: Number,
+  totalFocusMinutes: { type: Number, default: 0 },
+  totalBreakMinutes: { type: Number, default: 0 },
+
+  sessionStats: {
+    pauseCount: { type: Number, default: 0 },
+    totalPauseDuration: { type: Number, default: 0 },
+    focusSegmentsCompleted: { type: Number, default: 0 },
+    breakSegmentsCompleted: { type: Number, default: 0 },
+    interruptions: { type: Number, default: 0 }
   },
 
-  userData: {
-    todos: [{ id: String, text: String, status: String, createdAt: Date }],
-    notes: [{ id: String , taskId: String, text: String, createdAt: Date }],
-  },
+  // events: {
+  //   type: [eventSchema],
+  //   default: []
+  // },
 
   sessionFeedback: {
     mood: { type: Number, min: 1, max: 5 },
     focus: { type: Number, min: 1, max: 5 },
     distractions: String,
+    submittedAt: Date
   },
+
   sessionSegments: {
     type: [segmentsSchema],
-    default: [],
-  },
-  history: {
-    type: [segmentHistorySchema],
-    default: [],
-  },
-});
+    default: []
+  }
+
+},
+{ timestamps: true });
+
+sessionSchema.index({ userId: 1, createdAt: -1 });
 
 export default mongoose.model("Session", sessionSchema);
