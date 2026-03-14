@@ -2,7 +2,7 @@ import express from "express";
 import auth from '../middlewares/authMiddleware.js';
 import { processDailyStreak } from "../services/streakService.js"; 
 import User from "../models/userModel.js";
-import streakModel from "../models/dailyStatsModel.js";
+import dailyStatsModel from "../models/dailyStatsModel.js";
 
 const router = express.Router();
 
@@ -21,7 +21,7 @@ router.get("/summary", auth, async (req, res) => {
   try {
     const userId = req.user.id;
 
-    let streakData = streakModel.findOne({ userId }).selectedInclusively("dailyTargetMinutes focusMinutes state freezeUsed streakRate resultType streakCount")
+    let streakData = dailyStatsModel.findOne({ userId }).selectedInclusively("dailyTargetMinutes focusMinutes state freezeUsed streakRate resultType streakCount")
 
     if (!streakData) {
       const today = new Date();

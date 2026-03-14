@@ -14,7 +14,7 @@ const streakSchema = new mongoose.Schema({
 
   lastActiveDate:Date,
 
-  freezeBalance:{ type:Number, default:1 },
+  freezeBalance:{ type:Number, default:3 },
 
   totalFreezesUsed:{ type:Number, default:0 },
 

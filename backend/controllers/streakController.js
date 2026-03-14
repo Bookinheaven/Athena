@@ -24,5 +24,4 @@ export async function completeSession(req, res) {
     console.error("completeSession error:", error);
     res.status(500).json({ message: "Server error" });
   }
-  res.json({ success: true });
 }
