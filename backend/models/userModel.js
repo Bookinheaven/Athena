@@ -10,6 +10,15 @@ const userSchema = new mongoose.Schema({
     minlength: 3,
     maxlength: 20,
   },
+  
+  usernameLower: {
+    type: String,
+    required: true,
+    unique: true,
+    trim: true,
+    minlength: 3,
+    maxlength: 20,
+  },
 
   email: {
     type: String,
@@ -57,10 +66,9 @@ const userSchema = new mongoose.Schema({
     default: true,
   },
   settings: {
-    totalFocusDuration: Number,
-    breakDuration: Number,
-    autoStartBreaks: Boolean,
-    breaksNumber: Number,
+    breakDuration: { type: Number, default: 300 },
+    autoStartBreaks: { type: Boolean, default: true },
+    breaksNumber: { type: Number, default: 4 },
   },
 },
 {

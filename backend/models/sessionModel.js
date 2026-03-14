@@ -116,6 +116,11 @@ const sessionSchema = new mongoose.Schema({
   //   default: []
   // },
 
+  plannedDuration: {
+    type: Number,
+    default: 0
+  },
+ 
   sessionFeedback: {
     mood: { type: Number, min: 1, max: 5 },
     focus: { type: Number, min: 1, max: 5 },
@@ -131,6 +136,7 @@ const sessionSchema = new mongoose.Schema({
 },
 { timestamps: true });
 
+sessionSchema.index({ sessionId: 1, userId: 1 }, { unique: true });
 sessionSchema.index({ userId: 1, createdAt: -1 });
 
 export default mongoose.model("Session", sessionSchema);

@@ -1,17 +1,18 @@
 import express from "express";
-import { logSession, getSessions, getInsights, getCurrentSession, getTodaysInsights } from "../controllers/sessionController.js";
+import { startSession, updateSession, submitFeedback, getSessions, getInsights, getActiveSession, getTodaysInsights } from "../controllers/sessionController.js";
 import auth from '../middlewares/authMiddleware.js';
 
 const router = express.Router();
 
-router.post("/save", auth, logSession);
+router.post("/", auth, startSession);
+router.patch("/:id", auth, updateSession);
+router.post("/:id/feedback", auth, submitFeedback);
 
-router.get("/getAll", auth, getSessions);
+router.get("/active", auth, getActiveSession);
 
-router.get("/getCurrent", auth, getCurrentSession);
+router.get("/all", auth, getSessions);
 
 router.get("/insights", auth, getInsights);
-
-router.get("/todays-insights", auth, getTodaysInsights);
+router.get("/today", auth, getTodaysInsights);
 
 export default router;

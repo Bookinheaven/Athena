@@ -33,7 +33,7 @@ const limiter = rateLimit({
 
 // SETUP for express instance and adding required in-built middleware (express.json() => JSON parser)
 const app = express();
-app.use(limiter);
+// app.use(limiter);
 app.use(
   cors({
     origin: ["http://localhost:5173", "http://localhost:3000"],
