@@ -9,6 +9,7 @@ import http from "http";
 
 // Routers
 import authRoutes from "./routes/authRoutes.js";
+import userRoutes from "./routes/userRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import sessionRoutes from "./routes/sessionRoutes.js";
 import generalRoutes from "./routes/generalRoutes.js";
@@ -60,6 +61,7 @@ app.get("/health", (req, res) => {
 app.use("/api/auth", authRoutes);
 
 app.use("/api/session", sessionRoutes);
+app.use("/api/user", userRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/general", generalRoutes);
 app.use("/api/streak", streakRoutes);
