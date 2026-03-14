@@ -33,7 +33,7 @@ class adminController {
       let list = req.body.data
       if (Array.isArray(list) && list.length > 0) {
         for (let element of list) {
-          deleteAccount(element) 
+          await deleteAccount(element) 
         }
       }
       if (errors.length > 0) {
