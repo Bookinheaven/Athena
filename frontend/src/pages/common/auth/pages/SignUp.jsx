@@ -37,6 +37,8 @@ const Register = () => {
     let newValue = value;
     if (name === "fullName") {
       newValue = newValue.replace(/\s+/g, " ").trimStart();
+    } else if (name === "email") {
+      newValue = newValue.toLowerCase();
     } else {
       if (/\s/.test(newValue)) return;
     }

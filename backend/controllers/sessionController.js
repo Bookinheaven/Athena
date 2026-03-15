@@ -27,10 +27,16 @@ export const startSession = async (req, res) => {
 
 export const updateSession = async (req, res) => {
   try {
-    const session = await update(req.user._id, {
+    let userId = req.user._id;
+    const session = await update(userId, {
       id: req.params.id,
       updates: req.body,
     });
+    if (session.status === "completed"){
+      dialyStreakUpdate(userId, session.duration/60);
+      let streakData = await processDailyStreak(userId);
+      console.log(streakData)
+    }
     return res.json(session);
   } catch (err) {
     console.error(err);
@@ -40,7 +46,9 @@ export const updateSession = async (req, res) => {
     });
   }
 };
-export const submitFeedback = async (req, res) => {};
+export const submitFeedback = async (req, res) => {
+  // need to work here
+};
 
 export const getActiveSession = async (req, res) => {
   try {
