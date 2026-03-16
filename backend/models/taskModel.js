@@ -1,40 +1,61 @@
 import mongoose from "mongoose";
 
-const taskSchema = new mongoose.Schema({
-    userId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
-        required: true,
-        index: true,
+const taskSchema = new mongoose.Schema(
+  {
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      index: true,
+    },
+
+    goal: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Goal",
+      default: null,
+      index: true,
     },
 
     title: {
-        type: String,
-        enum: ["temporary", "parmanent"],
-        default: "temporary",
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: 200,
+    },
+
+    description: {
+      type: String,
+      default: "",
     },
 
     status: {
-        type: String,
-        enum: ["pending", "completed"],
-        default: "pending",
+      type: String,
+      enum: ["todo", "in-progress", "completed"],
+      default: "todo",
+      index: true,
     },
 
-    estimatedSessions: {
-        type: Number,
-        default: 0,
-    }, 
-
-    completedSessions: {
-        type: Number,
-        default: 0,
+    priority: {
+      type: String,
+      enum: ["low", "medium", "high"],
+      default: "medium",
     },
 
-    plannedDate: Date,
-    firstSessionAt:Date,
-    lastSessionAt: Date,
-}, {timestamps: true});
+    order: {
+      type: Number,
+      default: 0,
+    },
 
-taskSchema.index({ userId:1,status:1 });
+    dueDate: {
+      type: Date,
+    },
 
-export default mongoose.model("Tasks", taskSchema);
+    tags: {
+      type: [String],
+      default: [],
+    },
+  },
+  { timestamps: true }
+);
+
+export default mongoose.model("Task", taskSchema);

@@ -1,62 +1,115 @@
 import Session from "../models/sessionModel.js";
 
-export const start = async (userId, data) => {
-  const { sessionId, title, sessionSegments, taskId, sessionType, plannedDuration } = data;
+class SessionService {
+  async start(userId, payload) {
+    const {
+      sessionId,
+      title,
+      sessionSegments,
+      taskId,
+      sessionType,
+      plannedDuration,
+    } = payload;
 
-  if (!sessionId || !sessionSegments?.length) {
-    throw new Error("Invalid session payload");
-  }
-
-  await Session.updateMany(
-    { userId, status: "active" },
-    {
-      $set: {
-        status: "completed",
-        endedAt: new Date(),
-      },
+    if (!sessionId || !sessionSegments?.length) {
+      throw new Error("Invalid session payload");
     }
-  );
 
-  const session = await Session.findOneAndUpdate(
-    { sessionId, userId },
-    {
-      $setOnInsert: {
-        userId,
-        sessionId,
-        title: title || "Untitled Work",
-        taskId: taskId || null,
-        sessionType: sessionType || "quick",
-        status: "active",
-        startedAt: new Date(),
-        sessionSegments,
-        plannedDuration,
+    // Close any active sessions
+    await Session.updateMany(
+      { userId, status: "active" },
+      {
+        $set: {
+          status: "completed",
+          endedAt: new Date(),
+        },
       },
-    },
-    { upsert: true, new: true }
-  );
+    );
 
-  return session;
-};
+    const session = await Session.findOneAndUpdate(
+      { sessionId, userId },
+      {
+        $setOnInsert: {
+          userId,
+          sessionId,
+          title: title || "Untitled Work",
+          taskId: taskId || null,
+          sessionType: sessionType || "quick",
+          status: "active",
+          startedAt: new Date(),
+          sessionSegments,
+          plannedDuration,
+        },
+      },
+      { upsert: true, new: true },
+    );
 
-export const update = async (userId, data) => {
-  const { id, updates } = data;
-
-  if (!id) {
-    throw new Error("Session id required");
+    return session;
   }
-  console.log(updates.action.sessionSegments)
-  const session = await Session.findOneAndUpdate(
-    { sessionId: id, userId },
-    { $set: updates?.action },
-    { new: true },
-  );
-  if (!session) {
-    throw new Error("Session not found");
+
+  async update(userId, payload) {
+    const { sessionId, updates } = payload;
+
+    if (!sessionId) {
+      throw new Error("Session id required");
+    }
+
+    const session = await Session.findOneAndUpdate(
+      { sessionId: sessionId, userId },
+      { $set: updates },
+      { new: true },
+    );
+
+    if (!session) {
+      throw new Error("Session not found");
+    }
+
+    return session;
   }
 
-  return session;
-};
+  async feedback(userId, payload) {
+    const { sessionId, feedback } = payload;
 
-export const feedback = async (userId, data) => {
-  const { id, action } = data;
-};
+    const session = await Session.findOneAndUpdate(
+      { sessionId, userId },
+      {
+        $set: {
+          sessionFeedback: feedback,
+        },
+      },
+      { new: true },
+    );
+
+    return session;
+  }
+
+  async activeSessions(userId) {
+    if (!userId) {
+      throw new Error("User not found.");
+    }
+    const session = await Session.findOne({ _id:userId, status: "active" }); 
+    return session;
+  }
+
+  async sessions(userId) {
+    if (!userId) {
+      throw new Error("User not found.");
+    }
+    const session = await Session.find({ userId }).sort({ timestamp: -1 });
+    return session;
+  }
+
+  // -------- need to work from here (-_-) ----------- //
+  async getInsights(userId, type=null) {
+    switch(type){
+      case "today": {
+
+      }
+      default : {
+
+      }
+    }
+  }
+}
+
+export default new SessionService();

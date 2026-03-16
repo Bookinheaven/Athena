@@ -14,6 +14,10 @@ import adminRoutes from "./routes/adminRoutes.js";
 import sessionRoutes from "./routes/sessionRoutes.js";
 import generalRoutes from "./routes/generalRoutes.js";
 import streakRoutes from "./routes/streakRoutes.js";
+import notesRoutes from "./routes/notesRoute.js";
+import plannerRoutes from "./routes/plannerRoute.js";
+import goalRoutes from "./routes/goalRoutes.js";
+import taskRoutes from "./routes/taskRoutes.js";
 
 // Database instance setup
 import { connectDB, closeDB } from "./config/db.js";
@@ -65,6 +69,10 @@ app.use("/api/user", userRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/general", generalRoutes);
 app.use("/api/streak", streakRoutes);
+app.use("/api/notes", notesRoutes);
+app.use("/api/goal", goalRoutes);
+app.use("/api/task", taskRoutes);
+app.use("/api/planner", plannerRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
