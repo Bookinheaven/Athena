@@ -131,6 +131,12 @@ const sessionSchema = new mongoose.Schema({
   sessionSegments: {
     type: [segmentsSchema],
     default: []
+  },
+
+  sessionSettings: {
+    breakDuration: { type: Number, default: 300 },
+    autoStartBreaks: { type: Boolean, default: true },
+    breaksNumber: { type: Number, default: 4 },
   }
 
 },
