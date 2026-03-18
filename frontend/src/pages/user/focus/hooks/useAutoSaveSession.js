@@ -5,88 +5,96 @@ export const useAutoSaveSession = ({
   saveFunction,
   enabled = true,
   intervalMs = 60000,
+  allowedWhenDisabled = [],
 }) => {
   const [isDirty, setIsDirty] = useState(false);
   const [saveStatus, setSaveStatus] = useState("idle");
 
-  const isDirtyRef = useRef(false);
+  // Queue of dirty update types
+  const dirtyTypesRef = useRef(new Set());
   const savingRef = useRef(false);
+
+  // Keep latest save function without resetting interval
   const performSaveRef = useRef(null);
 
-  // Mark dirty
-  const markDirty = useCallback(() => {
-    if (!enabled) return;
-    setIsDirty(true);
-    isDirtyRef.current = true;
-  }, [enabled]);
+  const markDirty = useCallback(
+    (type) => {
+      if (!enabled && !allowedWhenDisabled.includes(type)) return;
+      dirtyTypesRef.current.add(type);
+      setIsDirty(true);
+    },
+    [enabled, allowedWhenDisabled],
+  );
 
-  // Core save function
   const performSave = useCallback(async () => {
-    if (!enabled) return;
     if (savingRef.current) return;
-    if (!isDirtyRef.current) return;
-    const payload = buildPayload();
-    console.log("Save: ", payload);
-    if (!payload) return;
-
+    const dirtyTypes = Array.from(dirtyTypesRef.current);
+    if (!dirtyTypes.length) return;
     savingRef.current = true;
     setSaveStatus("saving");
 
     try {
-      await saveFunction(payload);
-      setSaveStatus("saved");
+      for (const type of dirtyTypes) {
+        if (!enabled && !allowedWhenDisabled.includes(type)) continue;
+        const payload = buildPayload(type);
+        if (!payload) continue;
+        console.log("Autosave:", type, payload);
+        await saveFunction(payload);
+      }
+
+      // Clear queue after successful save
+      dirtyTypesRef.current.clear();
       setIsDirty(false);
-      isDirtyRef.current = false;
+      setSaveStatus("saved");
     } catch (err) {
       console.error("Auto save failed:", err);
       setSaveStatus("error");
     } finally {
       savingRef.current = false;
     }
-  }, [enabled, buildPayload, saveFunction]);
+  }, [enabled, allowedWhenDisabled, buildPayload, saveFunction]);
 
-  // Keep latest save function in ref (prevents interval reset)
+  // Keep latest save function without resetting interval
   useEffect(() => {
     performSaveRef.current = performSave;
   }, [performSave]);
 
-  // Debounce save (2 seconds after change)
+  // Debounce save (2s)
   useEffect(() => {
     if (!isDirty) return;
-
     const timeout = setTimeout(() => {
       performSaveRef.current?.();
     }, 2000);
-
     return () => clearTimeout(timeout);
   }, [isDirty]);
 
+  // Reset UI save status
   useEffect(() => {
     if (saveStatus !== "saved") return;
-
     const timeout = setTimeout(() => {
       setSaveStatus("idle");
     }, 2000);
-
     return () => clearTimeout(timeout);
   }, [saveStatus]);
 
-  // Stable interval save
+  // Interval fallback save
   useEffect(() => {
-    if (!enabled) return;
-
     const interval = setInterval(() => {
-      if (isDirtyRef.current) {
+      if (dirtyTypesRef.current.size > 0) {
         performSaveRef.current?.();
       }
     }, intervalMs);
-
     return () => clearInterval(interval);
-  }, [enabled, intervalMs]);
+  }, [intervalMs]);
+
+  // Force save
+  const forceSave = useCallback(async () => {
+    await performSave();
+  }, [performSave]);
 
   return {
     markDirty,
     saveStatus,
-    forceSave: performSave,
+    forceSave,
   };
 };

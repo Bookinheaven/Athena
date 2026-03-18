@@ -1,17 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
-import {
-  List,
-  ListTodo,
-  Loader2,
-  AlertCircle,
-  CheckCircle,
-  NotebookPen,
-  Quote,
-  Settings as SettingsIcon,
-} from "lucide-react";
-import { FullScreen, useFullScreenHandle } from "react-full-screen";
+import { Loader2, AlertCircle, CheckCircle } from "lucide-react";
 import createSessionData from "./hooks/useSessionData";
 import { useLocalStorage } from "./hooks/useLocalStorage";
 import { useSessionStorage } from "./hooks/useSessionStorage";
@@ -23,18 +13,15 @@ import CurrentProgress from "./components/CurrentProgress";
 import Notes from "./components/Notes.jsx";
 import { SessionReview } from "./components/SessionReview";
 import sessionService from "../../../../services/sessionService";
-// import { useAuth } from "../../../../contexts/AuthContext";
 import toast from "react-hot-toast";
 import { v4 as uuidv4 } from "uuid";
 
-import { useAutoSaveSession } from "./hooks/useAutoSaveSession.js";
-import { useSessionMachine } from "./hooks/useSessionMachine.js";
-import { useTimeEngine } from "./hooks/useTimeEngine.js";
 import HeaderNav from "../components/FocusHeader.jsx";
+import userService from "../../../../services/userService.js";
+import { loadSessionData } from "./utils/loadSessionData.js";
+import { useSessionController } from "./hooks/useSessionController";
 
 const FocusSession = () => {
-  // const { user } = useAuth();
-
   // Navigation states
   const [showQuotes, setShowQuotes] = useState(false);
   const [activePanel, setActivePanel] = useState("");
@@ -55,8 +42,8 @@ const FocusSession = () => {
     true,
   );
   const [breaksNumber, setBreaksNumber] = useLocalStorage("breaksNumber", 4);
-  const [totalFocusDuration, setTotalFocusDuration] = useLocalStorage(
-    "totalFocusDuration",
+  const [sessionPlannedDuration, setSessionPlannedDuration] = useLocalStorage(
+    "sessionPlannedDuration",
     25 * 60,
   );
 
@@ -76,10 +63,7 @@ const FocusSession = () => {
       createdAt: new Date().toISOString(),
     },
   ]);
-  const [sessionHistory, setSessionHistory] = useLocalStorage(
-    "sessionHistory",
-    [],
-  );
+
   const [newTodo, setNewTodo] = useState("");
   const [sessionTitle, setSessionTitle] = useState("Untitled Work"); // later we can check if same name is there if so add (no.) [only for all Untitled Work and custom which are created in a same day.]
   const [newSession, setNewSession] = useState(false);
@@ -91,7 +75,7 @@ const FocusSession = () => {
 
   // Initial Session
   const initialSession = useCallback(() => {
-    const safeTotalFocus = totalFocusDuration ?? 25 * 60;
+    const safeTotalFocus = sessionPlannedDuration ?? 25 * 60;
     const safeBreak = breakDuration ?? 5 * 60;
     const safeBreaksNum = breaksNumber ?? 4;
     const segments = createSessionData(
@@ -106,12 +90,13 @@ const FocusSession = () => {
       totalBreaks: segments.filter((s) => s.type === "break").length,
       breakDuration: safeBreak,
       maxBreaks: safeBreaksNum,
+      backendCreated: false,
       currentDuration: 0,
-      totalDuration: safeTotalFocus,
+      plannedDuration: safeTotalFocus,
       segments,
       timestamp: new Date().toISOString(),
     };
-  }, [totalFocusDuration, breakDuration, breaksNumber, setSessionReview]);
+  }, [sessionPlannedDuration, breakDuration, breaksNumber, setSessionReview]);
 
   // Session storage (local)
   const [sessionData, setSessionData] = useSessionStorage(
@@ -119,113 +104,65 @@ const FocusSession = () => {
     initialSession,
   );
 
-  const [machineState, dispatch] = useSessionMachine(sessionData);
-  // console.log(machineState)
-  // console.log(machineState.segmentIndex)
-  const currentSegment =
-    sessionData?.segments?.[machineState.segmentIndex] || null;
-
-  //Auto save system
-  const buildPayload = useCallback(() => {
-    if (!sessionData || !sessionData.sessionId) return;
-    // if (!hasStartedFocus) return;
-    const { sessionId, ...sessionDetails } = sessionData;
-    const uniqueHistory = Array.from(
-      new Map(sessionHistory.map((item) => [item.completedAt, item])).values(),
-    );
-    return {
-      sessionId: sessionData.sessionId,
-
-      session: {
-        ...sessionDetails,
-        title: sessionTitle,
-      },
-      userSettings: {
-        totalFocusDuration,
-        breakDuration,
-        autoStartBreaks,
-        breaksNumber,
-      },
-      userData: { todos, notes },
-      sessionFeedback: sessionReview,
-      history: uniqueHistory.length ? uniqueHistory : undefined,
+  useEffect(() => {
+    const update = async () => {
+      try {
+        const res = await userService.updateSettings(
+          {
+            breakDuration,
+            autoStartBreaks,
+            breaksNumber,
+          },
+          "session",
+        );
+        console.log("Updated settings:", res);
+      } catch (err) {
+        console.error("Settings update failed:", err);
+      }
     };
-  }, [
-    sessionData,
-    sessionTitle,
-    totalFocusDuration,
-    breakDuration,
-    autoStartBreaks,
-    breaksNumber,
-    todos,
-    notes,
-    sessionReview,
-    sessionHistory,
-  ]);
+    update();
+    // send payload
+  }, [breakDuration, autoStartBreaks, breaksNumber]);
 
-  const sendBackend = useCallback(async (payload) => {
-    try {
-      await sessionService.saveSession(payload);
-      // console.log("sendBackend: Saved");
-    } catch (error) {
-      console.error("Session save error: ", error);
-    }
-  });
-
-  const { markDirty, saveStatus, forceSave } = useAutoSaveSession({
-    buildPayload,
-    saveFunction: sendBackend,
-    enabled:
-      machineState.status === "running" ||
-      machineState.status === "paused" ||
-      machineState.status === "finished",
-  });
-  // useEffect(() => {
-  //   console.log("Save: ", saveStatus);
-  // }, [saveStatus]);
-  // useEffect(() => {
-  //   console.log("autoStartBreaks: ", autoStartBreaks);
-  // }, [autoStartBreaks]);
-
-  // Time Engine
+  //Auto save system && Time Engine
   const {
+    machineState,
+    dispatch,
+    currentSegment,
+    segmentIndex,
+    elapsed,
     timeLeft,
-    start: startTimer,
-    pause: pauseTimer,
-    isRunning,
-    isPaused,
-  } = useTimeEngine({
-    segment: currentSegment,
-    status: machineState.status,
-    updateSegment: (updates) => {
-      setSessionData((prev) => {
-        const newSegments = [...prev.segments];
-        newSegments[machineState.segmentIndex] = {
-          ...newSegments[machineState.segmentIndex],
-          ...updates,
-        };
-        return { ...prev, segments: newSegments };
-      });
-      markDirty();
-    },
-    onTimeUp: () => {
-      setSessionData((prev) => {
-        const newSegments = [...prev.segments];
-        const index = machineState.segmentIndex;
-
-        newSegments[index] = {
-          ...newSegments[index],
-          duration: newSegments[index].totalDuration,
-          completedAt: new Date().toISOString(),
-          startTimestamp: null,
-        };
-
-        return { ...prev, segments: newSegments };
-      });
-      markDirty();
-      dispatch({ type: "TIME_UP" });
-    },
+    saveStatus,
+    forceSave
+  } = useSessionController({
+    sessionData,
+    setSessionData,
+    saveFunction: sessionService.updateProgress,
+    sessionTitle,
+    autoStartBreaks
   });
+  const isRunning = machineState.status === "running";
+  
+  useEffect(() => {
+    console.log("Save: ", saveStatus);
+  }, [saveStatus]);
+
+  useEffect(() => {
+    if (newSession) return;
+    loadSessionData({
+      initialSession,
+      setSessionData,
+      setIsLoading,
+      dispatch,
+      setSessionTitle,
+      setSessionPlannedDuration,
+    });
+  }, []);
+
+  useEffect(() => {
+    console.log("autoStartBreaks: ", autoStartBreaks);
+  }, [autoStartBreaks]);
+
 
   const resetSession = () => {
     const fresh = initialSession();
@@ -272,26 +209,6 @@ const FocusSession = () => {
     };
   }, []);
 
-  // Auto start each focus sessions
-  useEffect(() => {
-    if (machineState.status !== "segment_transition") return;
-
-    dispatch({ type: "NEXT_SEGMENT" });
-  }, [machineState.status]);
-
-  useEffect(() => {
-    if (machineState.status !== "idle") return;
-    if (!autoStartBreaks) return;
-    if (machineState.isDone) return;
-    if (machineState.segmentIndex === 0) return;
-    dispatch({ type: "START" });
-  }, [machineState.status]);
-
-  useEffect(() => {
-    if (machineState.status !== "running") return;
-    startTimer();
-  }, [machineState.status]);
-
   // New Session
   useEffect(() => {
     if (!newSession) return;
@@ -299,7 +216,7 @@ const FocusSession = () => {
     resetSession();
 
     setSessionTitle("Untitled Work");
-    setSessionHistory([]);
+    // setSessionHistory([]);
     setTodos([]);
     setNotes([
       {
@@ -318,96 +235,10 @@ const FocusSession = () => {
 
     setNewSession(false);
   }, [newSession]);
-
-  useEffect(() => {
-    if (newSession) return;
-    const loadSession = async () => {
-      try {
-        // console.log("Checking backend for active session...");
-        const backendSession = await sessionService.getActiveSession();
-
-        if (backendSession?.status === "active") {
-          setTotalFocusDuration(backendSession.userSettings.totalFocusDuration);
-          setBreakDuration(backendSession.userSettings.breakDuration);
-          setAutoStartBreaks(backendSession.userSettings.autoStartBreaks);
-          setBreaksNumber(backendSession.userSettings.breaksNumber);
-          setSessionTitle(backendSession.title);
-          setTodos(backendSession.userData.todos || []);
-          setNotes(
-            backendSession.userData.notes || [
-              {
-                id: 1,
-                text: "Welcome back!",
-                group: "General",
-                createdAt: new Date().toISOString(),
-              },
-            ],
-          );
-          setSessionHistory(backendSession.history || []);
-          setSessionReview(
-            backendSession.sessionFeedback || {
-              mood: null,
-              focus: null,
-              distractions: "",
-            },
-          );
-          let index = backendSession.sessionSegments.findIndex(
-            (x) => x.completedAt === null,
-          );
-          if (index < 0) index = 0;
-          setSessionData({
-            sessionId: backendSession.sessionId,
-            title: backendSession.title,
-            segmentIndex: index,
-            totalBreaks: backendSession.sessionSegments.filter(
-              (s) => s.type === "break",
-            ).length,
-            breakDuration: backendSession.userSettings.breakDuration,
-            maxBreaks: backendSession.userSettings.breaksNumber,
-            segments: backendSession.sessionSegments,
-            currentDuration: backendSession.sessionSegments.reduce(
-              (sum, segment) => sum + segment.duration,
-              0,
-            ),
-            totalDuration: backendSession.userSettings.totalFocusDuration,
-            timestamp: backendSession.timestamp,
-          });
-          dispatch({
-            type: "LOAD",
-            payload: {
-              segments: backendSession.sessionSegments,
-              segmentIndex: index,
-              status: "idle",
-              isDone: false,
-            },
-          });
-        } else {
-          // console.log("No active session in backend. Creating new one.");
-          const newSessionData = initialSession();
-          setSessionData(newSessionData);
-        }
-      } catch (error) {
-        // console.error(
-        //   "Failed to fetch active session, creating new one:",
-        //   error
-        // );
-        setSessionData(initialSession());
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    loadSession();
-  }, []);
-
-  const handleFinalSaveAndStartNew = useCallback(async () => {
-    await forceSave();
-    setNewSession(true);
-  }, []);
-
+  
   const handleReviewUpdate = useCallback(
     (field, value) => {
       setSessionReview((prev) => ({ ...prev, [field]: value }));
-      markDirty();
     },
     [setSessionReview],
   );
@@ -428,7 +259,6 @@ const FocusSession = () => {
         } else {
           newDistractions = [...currentDistractions, distraction].join(", ");
         }
-        markDirty();
         return { ...prev, distractions: newDistractions };
       });
     },
@@ -447,13 +277,17 @@ const FocusSession = () => {
       },
     ]);
     setNewTodo("");
-    markDirty();
   }, [newTodo, setTodos]);
+
+  const handleFinalSaveAndStartNew = async () => {
+    await forceSave();
+    await sessionService.sessionFeedback(sessionData.sessionId, sessionReview);
+    setNewSession(true);
+  };
 
   const handleUpdateTodoStatus = useCallback(
     (id, status) => {
       setTodos((t) => t.map((x) => (x.id === id ? { ...x, status } : x)));
-      markDirty();
     },
     [setTodos],
   );
@@ -461,24 +295,17 @@ const FocusSession = () => {
   const handleDeleteTodo = useCallback(
     (id) => {
       setTodos((t) => t.filter((x) => x.id !== id));
-      markDirty();
     },
     [setTodos],
   );
 
   const handlePanelToggle = (panelName) => {
     setActivePanel((current) => (current === panelName ? null : panelName));
-    markDirty();
   };
-  // useEffect(() => {
-  //   console.log("Machine status changed:", machineState.status);
-  // }, [machineState.status]);
 
-  const handleClearHistory = useCallback(() => {
-    setSessionHistory([]);
-    toast.success("Session history has been cleared.");
-    markDirty();
-  }, [setSessionHistory]);
+  useEffect(() => {
+    console.log("Machine status changed:", machineState.status);
+  }, [machineState.status]);
 
   if (isLoading) {
     return (
@@ -498,7 +325,6 @@ const FocusSession = () => {
       ref={containerRef}
       className=" lg:pt-2 min-h-screen flex flex-col lg:p-4 relative theme-transition bg-background-color"
     >
-      
       <AnimatePresence>
         {saveStatus !== "idle" && (
           <motion.div
@@ -553,8 +379,8 @@ const FocusSession = () => {
           setAutoStartBreaks={setAutoStartBreaks}
           totalBreaks={breaksNumber}
           setTotalBreaks={setBreaksNumber}
-          onClearHistory={handleClearHistory}
-          show={activePanel === "settings"}
+          // onClearHistory={handleClearHistory}
+          show={activePanel === "settings" } // it should only display before a session start, not (paused / ready/ running)
           onClose={() => setActivePanel(null)}
         />
 
@@ -593,45 +419,64 @@ const FocusSession = () => {
               >
                 <Timer
                   timeLeft={timeLeft}
-                  isStarted={isRunning}
-                  start={() => {
+                  elapsed={elapsed}
+                  isStarted={machineState.status === "running"}
+                  start={async () => {
+                    try {
+                      if (!sessionData.backendCreated) {
+                        await sessionService.startSession({
+                          sessionId: sessionData.sessionId,
+                          title: sessionTitle,
+                          plannedDuration: sessionData.plannedDuration,
+                          sessionSegments: sessionData.segments,
+                        });
+
+                        setSessionData((prev) => ({
+                          ...prev,
+                          backendCreated: true,
+                        }));
+                      }
+                    } catch (err) {
+                      toast.error("Backend failed, starting locally");
+                    }
+
                     dispatch({ type: "START" });
-                    startTimer();
                   }}
-                  pause={async () => {
+                  pause={() => {
                     dispatch({ type: "PAUSE" });
-                    pauseTimer();
-                    await forceSave();
                   }}
-                  reset={resetSession}
-                  isBreak={currentSegment?.type === "break"}
+                  reset={() => {
+                    dispatch({ type: "RESET" });
+                  }}
                   sessionTitle={sessionTitle}
                   setSessionTitle={setSessionTitle}
-                  setTotalFocusDuration={setTotalFocusDuration}
-                  totalFocusDuration={totalFocusDuration}
+                  setSessionPlannedDuration={setSessionPlannedDuration}
+                  sessionPlannedDuration={sessionData.plannedDuration}
                   breaksLeft={
-                    sessionData.segments.filter(
+                    sessionData.segments?.filter(
                       (s) => s.type === "break" && !s.completedAt,
-                    ).length
+                    ).length || 0
                   }
                   currentSegmentData={currentSegment}
-                  currentSegmentIndex={machineState.segmentIndex}
-                  totalSegments={sessionData.segments.length}
+                  currentSegmentIndex={machineState?.segmentIndex}
+                  totalSegments={sessionData.segments?.length || 1}
                   totalfocusSegments={
-                    sessionData.segments.filter((s) => s.type === "focus")
-                      .length
+                    sessionData.segments?.filter((x) => x.type === "focus")
+                      ?.length || 1
                   }
                   totalbreakSegments={
-                    sessionData.segments.filter((s) => s.type === "break")
-                      .length
+                    sessionData.segments?.filter((x) => x.type === "break")
+                      ?.length || 1
                   }
-                  foucsSegments={
-                    sessionData.segments.filter(
+                  focusSegments={
+                    sessionData.segments?.filter(
                       (s) => s.type === "focus" && !s.completedAt,
                     ).length
                   }
                   setNewSession={() => setNewSession(true)}
-                  onUpdateBackend={forceSave}
+                  onUpdateBackend={() => {
+                    console.log("update title");
+                  }}
                 />
               </motion.div>
             )}

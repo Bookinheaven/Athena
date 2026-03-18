@@ -17,15 +17,15 @@ const CIRCUMFERENCE = 2 * Math.PI * R;
 
 export const Timer = ({
   timeLeft,
+  elapsed,
   isStarted,
   start,
   pause,
   reset,
-  isBreak,
   sessionTitle,
   setSessionTitle,
-  setTotalFocusDuration,
-  totalFocusDuration,
+  setSessionPlannedDuration,
+  sessionPlannedDuration,
   breaksLeft,
   currentSegmentData,
   setNewSession,
@@ -34,7 +34,7 @@ export const Timer = ({
   totalfocusSegments,
   totalbreakSegments,
   onUpdateBackend,
-  foucsSegments: focusSegmentsLeft,
+  focusSegments: focusSegmentsLeft,
 }) => {
   const [customMinutes, setCustomMinutes] = useState(25);
   const [showCustomInput, setShowCustomInput] = useState(false);
@@ -51,7 +51,7 @@ export const Timer = ({
   //   if (currentSegmentData && currentSegmentData.duration > 0) {
   //     setPaused(true);
   //   }
-  // }, []);
+  // }, []);  
 
   const notify = useCallback((msg, type = "success") => {
     if (type === "success") toast.success(msg);
@@ -85,11 +85,11 @@ export const Timer = ({
     Math.floor(seconds / 3600) > 0 ? "text-4xl" : "text-6xl";
 
   const progress = useMemo(() => {
-    const total = currentSegmentData?.totalDuration || totalFocusDuration || 1;
-    const remaining = Math.max(0, timeLeft);
+    const total = currentSegmentData?.totalDuration || 1;
+    const remaining = Math.max(total - elapsed, 0);
     return CIRCUMFERENCE * (remaining / total);
-  }, [timeLeft, totalFocusDuration, currentSegmentData?.totalDuration]);
-
+  }, [elapsed, currentSegmentData?.totalDuration]);
+  
   const handleDecrement = useCallback(
     () => setCustomMinutes((p) => Math.max(10, p - 1)),
     [],
@@ -113,11 +113,11 @@ export const Timer = ({
 
   const handleCustomTimeSet = useCallback(() => {
     const customDuration = customMinutes * 60;
-    setTotalFocusDuration(customDuration);
+    setSessionPlannedDuration(customDuration);
     setNewSession();
     setShowCustomInput(false);
     setSessionType(`${customMinutes}m Custom`);
-  }, [customMinutes, setTotalFocusDuration, setNewSession, setSessionType]);
+  }, [customMinutes, setSessionPlannedDuration, setNewSession, setSessionType]);
 
   useEffect(() => {
     const handleKeyDown = (event) => {
@@ -138,11 +138,16 @@ export const Timer = ({
   
   // useEffect(()=> {
   //   console.log(isStarted)
-  //   console.log(isBreak)
-  // }, [isStarted, isBreak])
+  //   console.log(currentSegmentData.type === "break")
+  // }, [isStarted, currentSegmentData])
+
+  useEffect(()=> {
+    console.log("elapsed", elapsed)
+  }, [])
+
   useEffect(() => {
-    if (timeLeft === 0 && isStarted) {
-      if (isBreak) {
+    if (timeLeft <= 0 && isStarted) {
+      if (currentSegmentData?.type === "break") {
         // breakEndSound.current?.play().catch(console.error);
         notify("☕ Break ended! Time to focus again!");
       } else {
@@ -150,7 +155,7 @@ export const Timer = ({
         notify("🎯 Focus session complete!");
       }
     }
-  }, [timeLeft, isStarted, isBreak, notify]);
+  }, [timeLeft, isStarted, currentSegmentData, notify]);
 
   useEffect(
     () => () => {
@@ -186,7 +191,7 @@ export const Timer = ({
                   done
                     ? "bg-text-muted opacity-30"
                     : active
-                      ? isBreak
+                      ? currentSegmentData.type === "break"
                         ? "bg-button-success"
                         : "bg-button-primary animate-pulse"
                       : "bg-border-secondary opacity-50"
@@ -200,13 +205,13 @@ export const Timer = ({
       <div className="text-center mb-6 pt-4 h-10 flex items-center justify-center">
         <span
           className={`group inline-flex items-center gap-2 px-6 py-2 rounded-full text-sm font-medium border transition-colors ${
-            isBreak
+            currentSegmentData.type === "break"
               ? "bg-success-bg text-success-text border-button-success"
               : "bg-background-secondary text-text-accent border-button-primary hover:bg-card-border cursor-pointer"
           }`}
-          title={isBreak ? "" : "Click to edit title"}
+          title={currentSegmentData.type === "break" ? "" : "Click to edit title"}
         >
-          {isBreak ? "☕ Break Time" : `🎯 ${sessionType || "Focus Session"}`}
+          {currentSegmentData.type === "break" ? "☕ Break Time" : `🎯 ${sessionType || "Focus Session"}`}
         </span>
       </div>
 
@@ -229,7 +234,7 @@ export const Timer = ({
               cy="50"
               r="45"
               className={
-                isBreak ? "stroke-button-success" : "stroke-button-primary"
+                currentSegmentData.type === "break" ? "stroke-button-success" : "stroke-button-primary"
               }
               strokeWidth="4"
               fill="none"
@@ -276,7 +281,7 @@ export const Timer = ({
         </div>
       </div>
 
-      {!isStarted && !isBreak && !currentSegmentData?.duration > 0 && completedFocusSegments == 0 && (
+      {!isStarted && currentSegmentData.type !== "break" && elapsed === 0 && completedFocusSegments == 0 && (
         <div className="mt-6 space-y-4">
           <div className="flex gap-2 justify-center flex-wrap">
             {durations.map((opt) => (
@@ -285,11 +290,11 @@ export const Timer = ({
                 onClick={() => {
                   setShowCustomInput(false);
                   setSessionType(opt.type);
-                  setTotalFocusDuration(opt.value);
+                  setSessionPlannedDuration(opt.value);
                   setNewSession();
                 }}
                 className={`px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 border border-card-border ${
-                  totalFocusDuration === opt.value && !showCustomInput
+                  sessionPlannedDuration === opt.value && !showCustomInput
                     ? "bg-button-primary text-button-primary-text scale-105"
                     : "bg-button-secondary text-button-secondary-text hover:scale-105"
                 }`}
@@ -371,7 +376,7 @@ export const Timer = ({
           )}
           {isStarted
             ? "Pause"
-            : currentSegmentData?.duration > 0
+            : elapsed > 0
               ? "Resume"
               : "Start"}
         </button>
