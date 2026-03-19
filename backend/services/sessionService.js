@@ -2,19 +2,16 @@ import Session from "../models/sessionModel.js";
 
 class SessionService {
   async start(userId, payload) {
-    const {
-      sessionId,
-      title,
-      sessionSegments,
-      taskId,
-      sessionType,
-      plannedDuration,
-    } = payload;
+    const { sessionId, title, sessionSegments, plannedDuration, taskId } =
+      payload;
 
     if (!sessionId || !sessionSegments?.length) {
       throw new Error("Invalid session payload");
     }
-
+    // if current session is same session as before and it is active then send it back.
+    const oldSession = await this.getSession(userId, sessionId);
+    console.log(oldSession)
+    if (oldSession && oldSession.status == "active") return oldSession;
     // Close any active sessions
     await Session.updateMany(
       { userId, status: "active" },
@@ -34,7 +31,7 @@ class SessionService {
           sessionId,
           title: title || "Untitled Work",
           taskId: taskId || null,
-          sessionType: sessionType || "quick",
+          sessionType: payload.sessionType || "quick",
           status: "active",
           startedAt: new Date(),
           sessionSegments,
@@ -47,24 +44,54 @@ class SessionService {
     return session;
   }
 
-  async update(userId, payload) {
-    const { sessionId, updates } = payload;
+  async getSession(userId, sessionId) {
+    return await Session.findOne({ userId, sessionId });
+  }
 
+  async update(userId, payload) {
+    const { sessionId, segment, title, status } = payload;
     if (!sessionId) {
       throw new Error("Session id required");
     }
-
-    const session = await Session.findOneAndUpdate(
-      { sessionId: sessionId, userId },
-      { $set: updates },
-      { new: true },
-    );
-
+    const session = await Session.findOne({ sessionId, userId });
     if (!session) {
       throw new Error("Session not found");
     }
+    const updateData = {};
+    if (segment) {
+      const existing = session.sessionSegments[segment.segmentIndex];
+      const total = existing?.totalDuration || 0;
+      if (segment.duration !== undefined) {
+        updateData[`sessionSegments.${segment.segmentIndex}.duration`] = Math.max(existing?.duration || 0, segment.duration);
+      }
+      if (segment.completedAt) {
+        updateData[`sessionSegments.${segment.segmentIndex}.completedAt`] = segment.completedAt;
+        updateData[`sessionSegments.${segment.segmentIndex}.duration`] = total; 
+      }
+    }
+    if (title) {
+      updateData.title = title;
+    }
+    if (status === "completed") {
+      updateData.status = "completed";
+      updateData.endedAt = new Date();
+    }
 
-    return session;
+    const updatedSession = await Session.findOneAndUpdate(
+      { sessionId, userId },
+      { $set: updateData },
+      { new: true }
+    );
+
+    const totalDuration = updatedSession.sessionSegments.reduce((sum, seg) => {
+      const safe = Math.min(seg.duration || 0, seg.totalDuration || Infinity);
+      return sum + safe;
+    }, 0);
+
+    updatedSession.duration = totalDuration;
+    await updatedSession.save();
+
+    return updatedSession;
   }
 
   async feedback(userId, payload) {
@@ -87,7 +114,8 @@ class SessionService {
     if (!userId) {
       throw new Error("User not found.");
     }
-    const session = await Session.findOne({ _id:userId, status: "active" }); 
+    const session = await Session.findOne({ userId, status: "active" });
+    // console.log(session);
     return session;
   }
 
@@ -100,13 +128,11 @@ class SessionService {
   }
 
   // -------- need to work from here (-_-) ----------- //
-  async getInsights(userId, type=null) {
-    switch(type){
+  async getInsights(userId, type = null) {
+    switch (type) {
       case "today": {
-
       }
-      default : {
-
+      default: {
       }
     }
   }
