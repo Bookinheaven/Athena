@@ -27,13 +27,37 @@ import {
   stopChangeStream,
 } from "./services/changeStream.js";
 
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20, // strict
   message: {
     success: false,
-    message: "Too many requests from this IP, please try again later.",
+    message: "Too many auth attempts. Try again later.",
   },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 200, // normal usage
+  message: {
+    success: false,
+    message: "Too many requests. Please slow down.",
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const heavyLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 1000, // very relaxed 
+  message: {
+    success: false,
+    message: "Too many session updates.",
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
 // SETUP for express instance and adding required in-built middleware (express.json() => JSON parser)
@@ -56,23 +80,24 @@ app.use(cookieParser());
 app.get("/health", (req, res) => {
   res.json({
     success: true,
-    message: "StudyTracker API is running!",
+    message: "Athena API is running!",
     timestamp: new Date().toISOString(),
   });
 });
 
 // Routing to auth for login and logout
-app.use("/api/auth", authRoutes);
+app.use("/api/auth", authLimiter, authRoutes);
 
-app.use("/api/session", sessionRoutes);
-app.use("/api/user", userRoutes);
-app.use("/api/admin", adminRoutes);
-app.use("/api/general", generalRoutes);
-app.use("/api/streak", streakRoutes);
-app.use("/api/notes", notesRoutes);
-app.use("/api/goal", goalRoutes);
-app.use("/api/task", taskRoutes);
-app.use("/api/planner", plannerRoutes);
+app.use("/api/session", heavyLimiter, sessionRoutes);
+
+app.use("/api/user", apiLimiter, userRoutes);
+app.use("/api/admin", apiLimiter, adminRoutes);
+app.use("/api/general", apiLimiter, generalRoutes);
+app.use("/api/streak", apiLimiter, streakRoutes);
+app.use("/api/notes", apiLimiter, notesRoutes);
+app.use("/api/goal", apiLimiter, goalRoutes);
+app.use("/api/task", apiLimiter, taskRoutes);
+app.use("/api/planner", apiLimiter, plannerRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

@@ -5,8 +5,8 @@ import {
 } from "../services/streakService.js";
 import Session from "../models/sessionModel.js";
 
-import generateInsights from "../utils/generateInsights.js"
-import transformSessionForDashboard from "../utils/transformSessionForDashboard.js"
+import generateInsights from "../utils/generateInsights.js";
+import transformSessionForDashboard from "../utils/transformSessionForDashboard.js";
 
 class SessionController {
   async startSession(req, res) {
@@ -20,18 +20,20 @@ class SessionController {
       });
     }
   }
-
+  
   async updateSession(req, res) {
     try {
       const userId = req.user._id;
       const session = await SessionService.update(userId, {
         sessionId: req.params.sessionId,
-        updates: req.body,
+        ...req.body,
       });
+
       if (session.status === "completed") {
         await dialyStreakUpdate(userId, session.duration / 60);
         await processDailyStreak(userId);
       }
+
       res.json({ success: true, session });
     } catch (err) {
       res.status(400).json({
@@ -40,14 +42,15 @@ class SessionController {
       });
     }
   }
+
   async feedbackSession(req, res) {
-     try {
+    try {
       const userId = req.user._id;
       const session = await SessionService.feedback(userId, {
         sessionId: req.params.sessionId,
         feedback: req.body,
       });
-        res.json({success: true, session});
+      res.json({ success: true, session });
     } catch (err) {
       res.status(400).json({
         success: false,
@@ -55,11 +58,11 @@ class SessionController {
       });
     }
   }
-  
+
   async getActiveSession(req, res) {
     try {
       const userId = req.user?._id;
-      const session = await SessionService.activeSessions(userId); 
+      const session = await SessionService.activeSessions(userId);
       res.status(200).json(session);
     } catch (error) {
       console.error("Error in getCurrentSession:", error);
@@ -73,7 +76,7 @@ class SessionController {
   async getSessions(req, res) {
     try {
       const userId = req.user._id;
-      const sessions = await SessionService.activeSessions(userId); 
+      const sessions = await SessionService.activeSessions(userId);
       res.status(200).json(sessions);
     } catch (error) {
       console.error("Error in getSessions:", error);
@@ -84,7 +87,7 @@ class SessionController {
     }
   }
   // -------- need to work from here (-_-) ----------- //
-  async getTodaysInsights (req, res) {
+  async getTodaysInsights(req, res) {
     try {
       const userId = req.user._id;
 
@@ -137,7 +140,9 @@ class SessionController {
   async getInsights(req, res) {
     try {
       const userId = req.user._id;
-      const allSessions = await Session.find({ userId }).sort({ timestamp: -1 });
+      const allSessions = await Session.find({ userId }).sort({
+        timestamp: -1,
+      });
       const insights = await generateInsights(userId, allSessions);
       const recentSessions = allSessions.map(transformSessionForDashboard);
       res.status(200).json({ insights, recentSessions });
@@ -149,7 +154,6 @@ class SessionController {
       });
     }
   }
-
 }
 
 export default new SessionController();
