@@ -25,8 +25,8 @@ export const Settings = ({
       localStorage.removeItem("breaksNumber");
       localStorage.removeItem("breakDuration");
       localStorage.removeItem("autoStartBreaks");
-      localStorage.removeItem("sessionHistory");
-      localStorage.removeItem("totalFocusDuration");
+      // localStorage.removeItem("sessionHistory");
+      // localStorage.removeItem("totalFocusDuration");
 
       sessionStorage.removeItem("focusTodos");
       sessionStorage.removeItem("notes");
@@ -36,12 +36,12 @@ export const Settings = ({
       window.location.reload();
     }
   };
-  const handleHistoryClear = () => {
-    if (window.confirm("Are you sure you want to clear session history?")) {
-      onClearHistory();
-      onClose(); 
-    }
-  };
+  // const handleHistoryClear = () => {
+  //   if (window.confirm("Are you sure you want to clear session history?")) {
+  //     onClearHistory();
+  //     onClose(); 
+  //   }
+  // };
 
   return (
     <div
@@ -119,13 +119,7 @@ export const Settings = ({
           
           <h4 className="text-sm font-semibold text-text-muted mt-4 mb-2">DATA</h4>
           
-          <button
-            onClick={handleHistoryClear}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-button-secondary/50 border border-card-border text-text-primary hover:bg-button-secondary/80 transition-all duration-300 font-medium"
-          >
-            <History className="w-4 h-4" />
-            Clear Session History
-          </button>
+       
 
           <button
             onClick={handleClearAllData}
@@ -143,3 +137,11 @@ export const Settings = ({
     </div>
   );
 };
+
+  //  <button
+  //     onClick={handleHistoryClear}
+  //     className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-button-secondary/50 border border-card-border text-text-primary hover:bg-button-secondary/80 transition-all duration-300 font-medium"
+  //   >
+  //     <History className="w-4 h-4" />
+  //     Clear Session History
+  //   </button>

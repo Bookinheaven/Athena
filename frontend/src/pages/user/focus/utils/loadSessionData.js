@@ -10,7 +10,6 @@ export const loadSessionData = async ({
 }) => {
   try {
     const backendSession = await sessionService.getActiveSession();
-
     if (backendSession?.status === "active") {
       const segments = backendSession.sessionSegments;
 
@@ -20,7 +19,6 @@ export const loadSessionData = async ({
       if (currentIndex < 0) currentIndex = 0;
 
       const currentSegment = segments[currentIndex];
-
       setSessionTitle(backendSession.title);
       setSessionPlannedDuration(backendSession.plannedDuration);
 
@@ -36,6 +34,7 @@ export const loadSessionData = async ({
         ),
         plannedDuration: backendSession.plannedDuration,
         timestamp: backendSession.createdAt,
+        backendCreated: true,
       });
 
       dispatch({

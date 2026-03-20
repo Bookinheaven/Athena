@@ -133,20 +133,19 @@ const FocusSession = () => {
     elapsed,
     timeLeft,
     saveStatus,
-    forceSave
+    forceSave,
+    timerStatus,
+    onTitleSet,
+    onReset
   } = useSessionController({
     sessionData,
     setSessionData,
-    saveFunction: sessionService.updateProgress,
+    saveFunction: (payload) => sessionService.updateProgress(payload),
     sessionTitle,
     autoStartBreaks
   });
   const isRunning = machineState.status === "running";
   
-  useEffect(() => {
-    console.log("Save: ", saveStatus);
-  }, [saveStatus]);
-
   useEffect(() => {
     if (newSession) return;
     loadSessionData({
@@ -159,22 +158,13 @@ const FocusSession = () => {
     });
   }, []);
 
-  useEffect(() => {
-    console.log("autoStartBreaks: ", autoStartBreaks);
-  }, [autoStartBreaks]);
-
-
   const resetSession = () => {
     const fresh = initialSession();
     setSessionData(fresh);
     setSessionReview({ mood: null, focus: null, distractions: "" });
-    dispatch({ type: "RESET_SESSION" });
+    dispatch({ type: "RESET" })
+    onReset();
   };
-
-  // useEffect(() => {
-  //   console.log("STATUS:", machineState.status);
-  //   console.log("INDEX:", machineState.segmentIndex);
-  // }, [machineState]);
 
   //Full screen mode
   const toggleDeepFocus = () => {
@@ -304,8 +294,9 @@ const FocusSession = () => {
   };
 
   useEffect(() => {
-    console.log("Machine status changed:", machineState.status);
-  }, [machineState.status]);
+    // console.log("Machine status changed:", machineState.status);
+    console.log("Machine data:", machineState);
+  }, [machineState]);
 
   if (isLoading) {
     return (
@@ -421,6 +412,7 @@ const FocusSession = () => {
                   timeLeft={timeLeft}
                   elapsed={elapsed}
                   isStarted={machineState.status === "running"}
+                  timerStatus= {machineState.status}
                   start={async () => {
                     try {
                       if (!sessionData.backendCreated) {
@@ -458,7 +450,7 @@ const FocusSession = () => {
                     ).length || 0
                   }
                   currentSegmentData={currentSegment}
-                  currentSegmentIndex={machineState?.segmentIndex}
+                  currentSegmentIndex={segmentIndex}
                   totalSegments={sessionData.segments?.length || 1}
                   totalfocusSegments={
                     sessionData.segments?.filter((x) => x.type === "focus")
@@ -474,9 +466,7 @@ const FocusSession = () => {
                     ).length
                   }
                   setNewSession={() => setNewSession(true)}
-                  onUpdateBackend={() => {
-                    console.log("update title");
-                  }}
+                  onTitleSet={() => onTitleSet()}
                 />
               </motion.div>
             )}

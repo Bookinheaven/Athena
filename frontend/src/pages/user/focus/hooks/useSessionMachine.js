@@ -31,6 +31,8 @@ const reducer = (state, action) => {
         isDone: false,
         totalSegments: state.totalSegments,
       }
+      case "LOAD":
+        return action.payload;
       default:
         return state;
   }
