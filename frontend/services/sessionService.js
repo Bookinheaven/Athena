@@ -1,47 +1,31 @@
 import RequestService from "./requestService";
 
 class SessionService extends RequestService {
-  async saveSession(sessionData) {
-    return this.request("/session/save", {
-      method: "POST",
-      body: sessionData,
-    });
+  startSession(payload) {
+    return this.request("/session", { method: "POST", body: payload });
   }
 
-  async startSession(data) {
-    return this.request("/session/", {
-      method: "POST",
-      body: data,
-    });
+  updateProgress(payload) {
+    return this.request(`/session/${payload.sessionId}`, { method: "PATCH", body: payload });
   }
 
-  updateSession(id,action){
-    return this.request(`/session/${id}`,{
-      method:"PATCH",
-      body:{ action }
-    })
+  sessionFeedback(payload) {
+    return this.request(`/session/${payload.sessionId}/feedback`, { method: "POST", body: payload })
   }
 
-  sendFeedback(id, data){
-    return this.request(`/session/${id}/feedback`,{
-      method:"POST",
-      body: data
-    })
+  getActiveSession() {
+    return this.request("/session/active", { method: "GET" });
   }
 
-  async getSessions() {
-      return this.request("/session/all", { method: "GET" });
+  getSessions() {
+    return this.request("/session/all", { method: "GET" });
   }
 
-  async getActiveSession() {
-      return this.request("/session/active", { method: "GET" });
-  }
-
-  async getInsights() {
+  getInsights() {
     return this.request("/session/insights", { method: "GET" });
   }
- 
-  async getTodaysInsights() {
+  
+  getTodaysInsights() {
     return this.request("/session/today", { method: "GET" });
   }
 }

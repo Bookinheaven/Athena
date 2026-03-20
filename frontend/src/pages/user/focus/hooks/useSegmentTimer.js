@@ -1,21 +1,31 @@
-import { useEffect, useState, useMemo } from "react"
+import { useEffect, useState, useMemo, useRef } from "react"
 import { useTimerEngine } from "./useTimerEngine";
 import { recoverElapsed } from "../utils/recoverSession";
 
 export const useSegmentTimer = (segments, onUpdateSegments) => {
-    const [segmentIndex, setSegmentIndex] = useState(0);
+    const getCurrentIndex = (segments) => {
+        if (!segments?.length) return 0;
+        const index = segments.findIndex((s) => !s.completedAt);
+        return index === -1 ? segments.length - 1 : index;
+    };
+    const [segmentIndex, setSegmentIndex] = useState(() => getCurrentIndex(segments));
+
+    useEffect(() => {
+        setSegmentIndex(getCurrentIndex(segments));
+    }, [segments]);
 
     const currentSegment = segments[segmentIndex];
+    
     const initialElapsed = useMemo(() => {
         if (!currentSegment) return 0;
         if (currentSegment.completedAt) return currentSegment.totalDuration;
         if (!currentSegment.startedAt) return currentSegment.duration || 0;
         return recoverElapsed(currentSegment);
     }, [currentSegment]);
-  
-  const { elapsed, start, pause, reset, status, syncElapsed } = useTimerEngine(initialElapsed || 0);
 
-    const timeLeft = Math.max(currentSegment.totalDuration - elapsed, 0);
+    const { elapsed, start, pause, reset, status, syncElapsed } = useTimerEngine(initialElapsed);
+
+    const timeLeft = currentSegment ? Math.max(currentSegment.totalDuration - elapsed, 0) : 0;
 
     // segment completion
     useEffect(() => {
@@ -34,7 +44,6 @@ export const useSegmentTimer = (segments, onUpdateSegments) => {
 
         // move to next segment
         setSegmentIndex((prev) => prev + 1);
-        reset();
     }, [timeLeft, status])
 
     const handleStart = () => {
@@ -70,11 +79,19 @@ export const useSegmentTimer = (segments, onUpdateSegments) => {
         pause();
         };
     
+    const lastSyncedRef = useRef(null);
     useEffect(() => {
         if (!currentSegment) return;
-
-        syncElapsed(initialElapsed);
-    }, [segmentIndex, initialElapsed, syncElapsed]);
+        const newElapsed =
+            currentSegment.completedAt
+            ? currentSegment.totalDuration
+            : currentSegment.startedAt
+            ? recoverElapsed(currentSegment)
+            : currentSegment.duration || 0;
+        if (lastSyncedRef.current === newElapsed) return;
+        lastSyncedRef.current = newElapsed;
+        syncElapsed(newElapsed);
+    }, [segmentIndex, currentSegment, syncElapsed]);
 
     return { segmentIndex, currentSegment, elapsed, timeLeft, start: handleStart, pause: handlePause, reset, status }
 }

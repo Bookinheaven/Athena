@@ -1,30 +1,32 @@
 import { useCallback, useEffect, useState, useRef } from "react";
 import { TimerEngine } from "../utils/TimerEngine";
 
-export const useTimerEngine = (initialElapsed = 0) => {
+export const useTimerEngine = (initialElapsed) => {
   const engineRef = useRef(null);
   const rafRef = useRef(null);
   const lastValueRef = useRef(null);
 
   const [elapsed, setElapsed] = useState(initialElapsed);
-  const [status, setStatus] = useState("idle"); // idle | running | paused
+  const [status, setStatus] = useState("idle");
 
   useEffect(() => {
     engineRef.current = new TimerEngine(initialElapsed);
     setElapsed(initialElapsed);
-  }, []);
+    lastValueRef.current = initialElapsed;
+  }, [initialElapsed]);
+  
+  useEffect(() => {
+    console.log("elapsed", elapsed)
+    console.log("initialElapsed", initialElapsed)
+  }, [elapsed, initialElapsed])
 
-  // RAF loop 
   const loop = useCallback(() => {
     const engine = engineRef.current;
-    if (!engine) return;
-
+    if (!engine || !engine.running) return;
     const value = engine.getElapsed();
-
-    // Prevent unnecessary re-renders (only update if changed)
     if (value !== lastValueRef.current) {
-      setElapsed(value);
       lastValueRef.current = value;
+      setElapsed(value);
     }
 
     rafRef.current = requestAnimationFrame(loop);
@@ -32,46 +34,46 @@ export const useTimerEngine = (initialElapsed = 0) => {
 
   const start = useCallback(() => {
     const engine = engineRef.current;
-    if (!engine || status === "running") return;
+    if (!engine || engine.running) return;
 
     engine.start();
     setStatus("running");
 
-    // Prevent multiple RAF loops
     cancelAnimationFrame(rafRef.current);
     rafRef.current = requestAnimationFrame(loop);
-  }, [status, loop]);
+  }, [loop]);
 
   const pause = useCallback(() => {
     const engine = engineRef.current;
-    if (!engine || status !== "running") return;
+    if (!engine || !engine.running) return;
 
     engine.pause();
     setStatus("paused");
 
     cancelAnimationFrame(rafRef.current);
-  }, [status]);
+  }, []);
 
   const reset = useCallback(() => {
     const engine = engineRef.current;
     if (!engine) return;
 
     engine.reset();
-    setElapsed(0);
-    lastValueRef.current = 0;
 
+    setElapsed(0);
+    console.log("reseted")
+    lastValueRef.current = 0;
     setStatus("idle");
+
     cancelAnimationFrame(rafRef.current);
   }, []);
 
-  // Sync external elapsed (for resume / segment change)
   const syncElapsed = useCallback(
     (newElapsed) => {
       const wasRunning = engineRef.current?.running;
 
       engineRef.current = new TimerEngine(newElapsed);
-      setElapsed(newElapsed);
       lastValueRef.current = newElapsed;
+      setElapsed(newElapsed);
 
       if (wasRunning) {
         engineRef.current.start();
@@ -80,19 +82,19 @@ export const useTimerEngine = (initialElapsed = 0) => {
         rafRef.current = requestAnimationFrame(loop);
       }
     },
-    [loop],
+    [loop]
   );
+
   useEffect(() => {
     return () => cancelAnimationFrame(rafRef.current);
   }, []);
 
-  // Handle tab visibility (fix freeze issue)
   useEffect(() => {
     const handleVisibility = () => {
-      if (document.visibilityState === "visible") {
-        const engine = engineRef.current;
-        if (!engine) return;
+      const engine = engineRef.current;
+      if (!engine) return;
 
+      if (document.visibilityState === "visible") {
         const value = engine.getElapsed();
 
         setElapsed(value);
@@ -102,14 +104,14 @@ export const useTimerEngine = (initialElapsed = 0) => {
           cancelAnimationFrame(rafRef.current);
           rafRef.current = requestAnimationFrame(loop);
         }
+      } else {
+        cancelAnimationFrame(rafRef.current);
       }
     };
 
     document.addEventListener("visibilitychange", handleVisibility);
-
-    return () => {
+    return () =>
       document.removeEventListener("visibilitychange", handleVisibility);
-    };
   }, [loop]);
 
   return {

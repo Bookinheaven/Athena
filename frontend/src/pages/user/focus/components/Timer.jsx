@@ -29,11 +29,12 @@ export const Timer = ({
   breaksLeft,
   currentSegmentData,
   setNewSession,
+  timerStatus,
   currentSegmentIndex,
   totalSegments,
   totalfocusSegments,
   totalbreakSegments,
-  onUpdateBackend,
+  onTitleSet,
   focusSegments: focusSegmentsLeft,
 }) => {
   const [customMinutes, setCustomMinutes] = useState(25);
@@ -84,6 +85,7 @@ export const Timer = ({
   const getTimeSizeClass = (seconds) =>
     Math.floor(seconds / 3600) > 0 ? "text-4xl" : "text-6xl";
 
+  useEffect(() => {console.log(elapsed)}, [elapsed])
   const progress = useMemo(() => {
     const total = currentSegmentData?.totalDuration || 1;
     const remaining = Math.max(total - elapsed, 0);
@@ -135,15 +137,6 @@ export const Timer = ({
   }, [handleStartPause, reset]);
 
   let activeTime = timeLeft;
-  
-  // useEffect(()=> {
-  //   console.log(isStarted)
-  //   console.log(currentSegmentData.type === "break")
-  // }, [isStarted, currentSegmentData])
-
-  useEffect(()=> {
-    console.log("elapsed", elapsed)
-  }, [])
 
   useEffect(() => {
     if (timeLeft <= 0 && isStarted) {
@@ -174,7 +167,7 @@ export const Timer = ({
         <EditableTitle
           title={sessionTitle}
           setTitle={setSessionTitle}
-          onUpdateBackend={onUpdateBackend}
+          titleSet={onTitleSet}
         />
       </div>
       {totalSegments > 0 && (
@@ -369,16 +362,8 @@ export const Timer = ({
           onClick={handleStartPause}
           className="flex items-center gap-2 px-8 py-3.5 rounded-xl bg-button-primary text-button-primary-text shadow-lg transition-all duration-300 hover:scale-105 active:scale-95"
         >
-          {isStarted ? (
-            <Pause className="w-5 h-5" />
-          ) : (
-            <Play className="w-5 h-5" />
-          )}
-          {isStarted
-            ? "Pause"
-            : elapsed > 0
-              ? "Resume"
-              : "Start"}
+          {timerStatus === "running" ? (<Pause className="w-5 h-5" />) : (<Play className="w-5 h-5" />)}
+          {timerStatus === "running" ? "Pause" : timerStatus === "paused" ? "Resume" : "Start"}
         </button>
         <button
           onClick={() => {
