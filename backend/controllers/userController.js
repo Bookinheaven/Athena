@@ -8,7 +8,7 @@ class UserController {
             const settings = await UserService.getSettings(userId, type);
             res.status(200).json({
                 success: true,
-                settings: settings.session
+                settings: settings || {}
             });
         } catch (err) {
             res.status(400).json({
@@ -27,7 +27,7 @@ class UserController {
             const settings = await UserService.updateSettings(userId, type, update);
             res.status(200).json({
                 success: true,
-                settings: settings
+                settings: settings 
             });
         } catch (err) {
             res.status(400).json({
