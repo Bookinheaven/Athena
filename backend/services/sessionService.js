@@ -2,9 +2,7 @@ import Session from "../models/sessionModel.js";
 
 class SessionService {
   async start(userId, payload) {
-    const { sessionId, title, sessionSegments, plannedDuration, taskId } =
-      payload;
-
+    const { sessionId, title, sessionSegments, plannedDuration, taskId, totalBreakMinutes, totalFocusMinutes } = payload;
     if (!sessionId || !sessionSegments?.length) {
       throw new Error("Invalid session payload");
     }
