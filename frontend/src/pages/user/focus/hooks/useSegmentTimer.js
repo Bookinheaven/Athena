@@ -2,19 +2,8 @@ import { useEffect, useState, useMemo, useRef } from "react"
 import { useTimerEngine } from "./useTimerEngine";
 import { recoverElapsed } from "../utils/recoverSession";
 
-export const useSegmentTimer = (segments, onUpdateSegments) => {
-    const getCurrentIndex = (segments) => {
-        if (!segments?.length) return 0;
-        const index = segments.findIndex((s) => !s.completedAt);
-        return index === -1 ? segments.length - 1 : index;
-    };
-    const [segmentIndex, setSegmentIndex] = useState(() => getCurrentIndex(segments));
-
-    useEffect(() => {
-        setSegmentIndex(getCurrentIndex(segments));
-    }, [segments]);
-
-    const currentSegment = segments[segmentIndex];
+export const useSegmentTimer = (segments, segmentIndex, onUpdateSegments) => {
+    const currentSegment = segments[segmentIndex] ?? null;;
     
     const initialElapsed = useMemo(() => {
         if (!currentSegment) return 0;
@@ -42,9 +31,7 @@ export const useSegmentTimer = (segments, onUpdateSegments) => {
             return updated;
         })
 
-        // move to next segment
-        setSegmentIndex((prev) => prev + 1);
-    }, [timeLeft, status])
+    }, [timeLeft, status, segmentIndex])
 
     const handleStart = () => {
         onUpdateSegments((prev) => {

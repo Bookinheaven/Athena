@@ -10,7 +10,7 @@ class SessionService {
     }
     // if current session is same session as before and it is active then send it back.
     const oldSession = await this.getSession(userId, sessionId);
-    console.log(oldSession)
+    
     if (oldSession && oldSession.status == "active") return oldSession;
     // Close any active sessions
     await Session.updateMany(
@@ -36,6 +36,8 @@ class SessionService {
           startedAt: new Date(),
           sessionSegments,
           plannedDuration,
+          totalBreakMinutes,
+          totalFocusMinutes
         },
       },
       { upsert: true, new: true },

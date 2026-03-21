@@ -1,19 +1,22 @@
 import { useReducer } from "react";
 
-
 const reducer = (state, action) => {
   switch (action.type) {
+    case "INIT":
+      return {
+        ...state,
+        totalSegments: action.payload,
+      };
     case "START":
       if (state.status === "running") return state;
       return { ...state, status: "running" };
     case "PAUSE":
-      if (state.status != "running") return state;
-      return { ...state, status: "paused"};
+      if (state.status !== "running") return state;
+      return { ...state, status: "paused" };
     case "NEXT_SEGMENT": {
       const next = state.segmentIndex + 1;
       const isLast = next >= state.totalSegments;
-
-      if(isLast) {
+      if (isLast) {
         return { ...state, status: "finished", isDone: true };
       }
       return {
@@ -30,13 +33,13 @@ const reducer = (state, action) => {
         status: "idle",
         isDone: false,
         totalSegments: state.totalSegments,
-      }
-      case "LOAD":
-        return action.payload;
-      default:
-        return state;
+      };
+    case "LOAD":
+      return action.payload;
+    default:
+      return state;
   }
-}
+};
 
 export const useSessionMachine = (totalSegments) => {
   return useReducer(reducer, {
@@ -44,5 +47,5 @@ export const useSessionMachine = (totalSegments) => {
     status: "idle",
     isDone: false,
     totalSegments,
-  })
-}
+  });
+};

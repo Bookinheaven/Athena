@@ -48,6 +48,14 @@ const FocusSession = () => {
   );
 
   // Data states
+  const [sessionStats, setSessionStats] = useSessionStorage("sessionStats", [{
+    breakSegmentsCompleted: 0,
+    focusSegmentsCompleted: 0,
+    interruptions: 0,
+    pauseCount: 0,
+    totalPauseDuration: 0,
+  }])
+
   const [todos, setTodos] = useSessionStorage("focusTodos", []);
   const [notes, setNotes] = useSessionStorage("notes", [
     {
@@ -115,7 +123,7 @@ const FocusSession = () => {
           },
           "session",
         );
-        console.log("Updated settings:", res);
+        // console.log("Updated settings:", res);
       } catch (err) {
         console.error("Settings update failed:", err);
       }
@@ -271,7 +279,7 @@ const FocusSession = () => {
 
   const handleFinalSaveAndStartNew = async () => {
     await forceSave();
-    await sessionService.sessionFeedback(sessionData.sessionId, sessionReview);
+    await sessionService.sessionFeedback({sessionId:sessionData.sessionId, playload:sessionReview});
     setNewSession(true);
   };
 
@@ -293,10 +301,9 @@ const FocusSession = () => {
     setActivePanel((current) => (current === panelName ? null : panelName));
   };
 
-  useEffect(() => {
-    // console.log("Machine status changed:", machineState.status);
-    console.log("Machine data:", machineState);
-  }, [machineState]);
+  // useEffect(() => {
+  //   console.log("Machine data:", machineState);
+  // }, [machineState]);
 
   if (isLoading) {
     return (
