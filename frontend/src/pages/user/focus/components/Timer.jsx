@@ -37,6 +37,8 @@ export const Timer = ({
   onTitleSet,
   focusSegments: focusSegmentsLeft,
 }) => {
+  if (!currentSegmentData) return null; // loading kinda thing later
+
   const [customMinutes, setCustomMinutes] = useState(25);
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [sessionType, setSessionType] = useState("");
@@ -85,7 +87,6 @@ export const Timer = ({
   const getTimeSizeClass = (seconds) =>
     Math.floor(seconds / 3600) > 0 ? "text-4xl" : "text-6xl";
 
-  useEffect(() => {console.log(elapsed)}, [elapsed])
   const progress = useMemo(() => {
     const total = currentSegmentData?.totalDuration || 1;
     const remaining = Math.max(total - elapsed, 0);

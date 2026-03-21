@@ -223,5 +223,6 @@ export const useSessionController = ({
     timerStatus,
     onTitleSet,
     onReset,
+    buildPayload,
   };
 };

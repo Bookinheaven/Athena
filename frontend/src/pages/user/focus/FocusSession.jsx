@@ -144,7 +144,8 @@ const FocusSession = () => {
     forceSave,
     timerStatus,
     onTitleSet,
-    onReset
+    onReset,
+    buildPayload
   } = useSessionController({
     sessionData,
     setSessionData,
@@ -423,13 +424,7 @@ const FocusSession = () => {
                   start={async () => {
                     try {
                       if (!sessionData.backendCreated) {
-                        await sessionService.startSession({
-                          sessionId: sessionData.sessionId,
-                          title: sessionTitle,
-                          plannedDuration: sessionData.plannedDuration,
-                          sessionSegments: sessionData.segments,
-                        });
-
+                        await sessionService.startSession(buildPayload("start"));
                         setSessionData((prev) => ({
                           ...prev,
                           backendCreated: true,
