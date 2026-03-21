@@ -16,7 +16,7 @@ import sessionService from "../../../../services/sessionService";
 import toast from "react-hot-toast";
 import { v4 as uuidv4 } from "uuid";
 
-import HeaderNav from "../components/FocusHeader.jsx";
+import HeaderNav from "./components/FocusHeader.jsx";
 import userService from "../../../../services/userService.js";
 import { loadSessionData } from "./utils/loadSessionData.js";
 import { useSessionController } from "./hooks/useSessionController";
@@ -46,7 +46,11 @@ const FocusSession = () => {
     "sessionPlannedDuration",
     25 * 60,
   );
-
+  const [isSoundEnabled, setIsSoundEnabled] = useLocalStorage("isSoundEnabled", true);
+  const [skipBreaks, setSkipBreaks] = useLocalStorage("skipBreaks", false);
+  const [confirmReset, setConfirmReset] = useLocalStorage("confirmReset", true);
+  const [soundOnTransition, setSoundOnTransition] = useLocalStorage("soundOnTransition", true);
+  
   // Data states
   const [sessionStats, setSessionStats] = useSessionStorage("sessionStats", [{
     breakSegmentsCompleted: 0,
@@ -112,25 +116,21 @@ const FocusSession = () => {
     initialSession,
   );
 
-  useEffect(() => {
-    const update = async () => {
-      try {
-        const res = await userService.updateSettings(
-          {
-            breakDuration,
-            autoStartBreaks,
-            breaksNumber,
-          },
-          "session",
-        );
-        // console.log("Updated settings:", res);
-      } catch (err) {
-        console.error("Settings update failed:", err);
-      }
+  const modifySettings = async (changed) => {
+    const merged = {
+      breakDuration,
+      autoStartBreaks,
+      breaksNumber,
+      ...changed,
     };
-    update();
-    // send payload
-  }, [breakDuration, autoStartBreaks, breaksNumber]);
+    
+    try {
+      let res = await userService.updateSettings(merged, "session");
+      console.log("Updated settings:", res);
+    } catch (err) {
+      console.error("Settings update failed:", err);
+    }
+  };
 
   //Auto save system && Time Engine
   const {
@@ -151,10 +151,28 @@ const FocusSession = () => {
     setSessionData,
     saveFunction: (payload) => sessionService.updateProgress(payload),
     sessionTitle,
-    autoStartBreaks
+    autoStartBreaks,
+    skipBreaks,
+    soundOnTransition,
   });
   const isRunning = machineState.status === "running";
-  
+  useEffect(() => {
+    const fetchSettings = async () => {
+      let res = await userService.getSettings("session");
+      if (res?.settings) {
+        const s = res.settings;
+        setAutoStartBreaks(s.autoStartBreaks ?? true);
+        setBreakDuration(s.breakDuration ?? 5 * 60);
+        setBreaksNumber(s.breaksNumber ?? 4);
+        setSkipBreaks(s.skipBreaks ?? false);
+        setConfirmReset(s.confirmReset ?? true);
+        setSoundOnTransition(s.soundOnTransition ?? true);
+        setIsSoundEnabled(s.isSoundEnabled ?? true);
+      }
+    };
+    fetchSettings();
+  }, []);
+
   useEffect(() => {
     if (newSession) return;
     loadSessionData({
@@ -168,6 +186,9 @@ const FocusSession = () => {
   }, []);
 
   const resetSession = () => {
+    if (confirmReset && isRunning) {
+      if (!window.confirm("Reset the current session? Your progress will be lost.")) return;
+    }
     const fresh = initialSession();
     setSessionData(fresh);
     setSessionReview({ mood: null, focus: null, distractions: "" });
@@ -372,12 +393,27 @@ const FocusSession = () => {
 
       <div className="flex justify-center items-center flex-grow">
         <Settings
-          breakDuration={breakDuration}
-          setBreakDuration={setBreakDuration}
-          autoStartBreaks={autoStartBreaks}
-          setAutoStartBreaks={setAutoStartBreaks}
-          totalBreaks={breaksNumber}
-          setTotalBreaks={setBreaksNumber}
+          plannedDuration={sessionData.plannedDuration}
+          initialValues={{
+            breakDuration,
+            breaksNumber,
+            autoStartBreaks,
+            skipBreaks,
+            confirmReset,
+            soundOnTransition,
+            isSoundEnabled,
+          }}
+          onSave={(values) => {
+            setBreakDuration(values.breakDuration);
+            setAutoStartBreaks(values.autoStartBreaks);
+            setBreaksNumber(values.breaksNumber);
+            setSkipBreaks(values.skipBreaks);
+            setConfirmReset(values.confirmReset);
+            setSoundOnTransition(values.soundOnTransition);
+            setIsSoundEnabled(values.isSoundEnabled);
+            // focusDuration lives in sessionData, update 
+            modifySettings(values);
+          }}
           // onClearHistory={handleClearHistory}
           show={activePanel === "settings" } // it should only display before a session start, not (paused / ready/ running)
           onClose={() => setActivePanel(null)}

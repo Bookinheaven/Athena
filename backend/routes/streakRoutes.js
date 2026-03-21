@@ -1,47 +1,21 @@
 import express from "express";
 import auth from '../middlewares/authMiddleware.js';
-import { processDailyStreak } from "../services/streakService.js"; 
-import User from "../models/userModel.js";
-import dailyStatsModel from "../models/dailyStatsModel.js";
+import StreakController from "../controllers/streakController.js";
 
 const router = express.Router();
 
-router.get("/process-today", auth, async (req, res) => {
-  const userId = req.user.id;
+// router.get("/process-today", auth, async (req, res) => {
+//   const userId = req.user.id;
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+//   const today = new Date();
+//   today.setHours(0, 0, 0, 0);
 
-  await processDailyStreak(userId, today);
+//   await StreakService.processDailyStreak(userId, today);
 
-  res.json({ success: true });
-});
+//   res.json({ success: true });
+// });
 
-router.get("/summary", auth, async (req, res) => {
-  try {
-    const userId = req.user.id;
-
-    let streakData = dailyStatsModel.findOne({ userId }).selectedInclusively("dailyTargetMinutes focusMinutes state freezeUsed streakRate resultType streakCount")
-
-    if (!streakData) {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      streakData = await processDailyStreak(
-        userId,
-        today,
-        0 
-      );
-    }
-    const userData = await User.findById(req.user.id).select("streak");
-    res.json({...userData.streak, ...streakData});
-  } catch (error) {
-    console.error("Streak summary error:", error);
-    res.status(500).json({
-      message: "Failed to fetch streak summary",
-    });
-  }
-});
+router.get("/summary", auth, StreakController.getSummary);
 
 
 router.get("/monthly", auth, async (req, res) => {
@@ -59,4 +33,8 @@ router.get("/monthly", auth, async (req, res) => {
   res.json(days);
 });
 
+router.get("/:type", auth, async (req, res) => {
+  const type = req.params.type;
+  console.log(type)
+})
 export default router;

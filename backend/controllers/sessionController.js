@@ -1,12 +1,10 @@
 import SessionService from "../services/sessionService.js";
-import {
-  dialyStreakUpdate,
-  processDailyStreak,
-} from "../services/streakService.js";
+import StreakService from "../services/streakService.js";
 import Session from "../models/sessionModel.js";
 
 import generateInsights from "../utils/generateInsights.js";
 import transformSessionForDashboard from "../utils/transformSessionForDashboard.js";
+import { getStartOfDay } from "../utils/streakHelpers.js";
 
 class SessionController {
   async startSession(req, res) {
@@ -30,8 +28,8 @@ class SessionController {
       });
 
       if (session.status === "completed") {
-        await dialyStreakUpdate(userId, session.duration / 60);
-        await processDailyStreak(userId);
+        await StreakService.dialyStreakUpdate(userId, session.duration / 60);
+        await StreakService.processDailyStreak(userId);
       }
 
       res.json({ success: true, session });
@@ -89,43 +87,36 @@ class SessionController {
   // -------- need to work from here (-_-) ----------- //
   async getTodaysInsights(req, res) {
     try {
-      const userId = req.user._id;
-
-      const startOfToday = new Date();
-      startOfToday.setHours(0, 0, 0, 0);
-
-      const endOfToday = new Date(startOfToday);
-      endOfToday.setDate(endOfToday.getDate() + 1);
-
+      const userId = req.user?._id;
       if (!userId) return res.status(404).json({ message: "user not found" });
+
+      const startOfToday = getStartOfDay()
+      const endOfToday = new Date(startOfToday);
+      endOfToday.setUTCDate(endOfToday.getUTCDate() + 1);
+
       const todaysSessions = await Session.find({
         userId,
-        timestamp: {
-          $gte: startOfToday,
-          $lt: endOfToday,
-        },
+        createdAt: { $gte: startOfToday, $lt: endOfToday },
       });
+
       let output = {
         sessions: todaysSessions.length,
         focus_blocks: 0,
         longest_focus: 0,
         distractions: [],
       };
+
       let maxDuration = 0;
+
       for (let session of todaysSessions) {
-        let focusSessions = session.sessionSegments.filter(
-          (s) => s.type == "focus",
-        );
+        const focusSessions = session.sessionSegments
         output.focus_blocks += focusSessions.length;
-        let duration = focusSessions.reduce(
-          (accumulator, currentValue) => accumulator + currentValue.duration,
-          0,
-        );
-        if (maxDuration < duration) maxDuration = duration;
+        if (session.duration > maxDuration) maxDuration = session.duration;
         if (session.sessionFeedback?.distractions) {
-          output.distractions.push(session.sessionFeedback.distractions);
+          output.distractions.push(...session.sessionFeedback.distractions);
         }
       }
+
       output.longest_focus = maxDuration;
       res.status(200).json({ insights: output });
     } catch (error) {
