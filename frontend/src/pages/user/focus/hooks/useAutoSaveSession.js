@@ -7,8 +7,9 @@ export const useAutoSaveSession = ({
   intervalMs = 60000,
   allowedWhenDisabled = [],
 }) => {
-  const [isDirty, setIsDirty] = useState(false);
   const [saveStatus, setSaveStatus] = useState("idle");
+  const dirtyCountRef = useRef(0);
+  const [dirtyTick, setDirtyTick] = useState(0);
 
   // Queue of dirty update types
   const dirtyTypesRef = useRef(new Set());
@@ -21,7 +22,8 @@ export const useAutoSaveSession = ({
     (type) => {
       if (!enabled && !allowedWhenDisabled.includes(type)) return;
       dirtyTypesRef.current.add(type);
-      setIsDirty(true);
+      dirtyCountRef.current += 1;
+      setDirtyTick(dirtyCountRef.current);
     },
     [enabled, allowedWhenDisabled],
   );
@@ -38,13 +40,12 @@ export const useAutoSaveSession = ({
         if (!enabled && !allowedWhenDisabled.includes(type)) continue;
         const payload = buildPayload(type);
         if (!payload) continue;
-        console.log("Autosave:", type, payload);
+        // console.log("Autosave:", type, payload);
         await saveFunction(payload);
       }
 
       // Clear queue after successful save
       dirtyTypesRef.current.clear();
-      setIsDirty(false);
       setSaveStatus("saved");
     } catch (err) {
       console.error("Auto save failed:", err);
@@ -61,18 +62,20 @@ export const useAutoSaveSession = ({
 
   // Debounce save (2s)
   useEffect(() => {
-    if (!isDirty) return;
+    if (dirtyTick === 0) return;
     const timeout = setTimeout(() => {
       performSaveRef.current?.();
     }, 2000);
     return () => clearTimeout(timeout);
-  }, [isDirty]);
+  }, [dirtyTick]);
 
   // Reset UI save status
   useEffect(() => {
     if (saveStatus !== "saved") return;
     const timeout = setTimeout(() => {
-      setSaveStatus("idle");
+      if (dirtyTypesRef.current.size === 0) {
+        setSaveStatus("idle");
+      }
     }, 2000);
     return () => clearTimeout(timeout);
   }, [saveStatus]);

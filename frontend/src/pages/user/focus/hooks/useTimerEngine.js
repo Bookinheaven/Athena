@@ -8,17 +8,17 @@ export const useTimerEngine = (initialElapsed) => {
 
   const [elapsed, setElapsed] = useState(initialElapsed);
   const [status, setStatus] = useState("idle");
+  const hasInitialized = useRef(false);
+
 
   useEffect(() => {
-    engineRef.current = new TimerEngine(initialElapsed);
-    setElapsed(initialElapsed);
-    lastValueRef.current = initialElapsed;
-  }, [initialElapsed]);
-  
-  useEffect(() => {
-    console.log("elapsed", elapsed)
-    console.log("initialElapsed", initialElapsed)
-  }, [elapsed, initialElapsed])
+    if (!hasInitialized.current) {
+      hasInitialized.current = true;
+      engineRef.current = new TimerEngine(initialElapsed);
+      setElapsed(initialElapsed);
+      lastValueRef.current = initialElapsed;
+    }
+  }, []); 
 
   const loop = useCallback(() => {
     const engine = engineRef.current;
@@ -31,6 +31,24 @@ export const useTimerEngine = (initialElapsed) => {
 
     rafRef.current = requestAnimationFrame(loop);
   }, []);
+  
+  const syncElapsed = useCallback(
+    (newElapsed) => {
+      const wasRunning = engineRef.current?.running;
+
+      engineRef.current = new TimerEngine(newElapsed);
+      lastValueRef.current = newElapsed;
+      setElapsed(newElapsed);
+
+      if (wasRunning) {
+        engineRef.current.start();
+
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = requestAnimationFrame(loop);
+      }
+    },
+    [loop]
+  );
 
   const start = useCallback(() => {
     const engine = engineRef.current;
@@ -56,34 +74,12 @@ export const useTimerEngine = (initialElapsed) => {
   const reset = useCallback(() => {
     const engine = engineRef.current;
     if (!engine) return;
-
     engine.reset();
-
     setElapsed(0);
-    console.log("reseted")
     lastValueRef.current = 0;
     setStatus("idle");
-
     cancelAnimationFrame(rafRef.current);
   }, []);
-
-  const syncElapsed = useCallback(
-    (newElapsed) => {
-      const wasRunning = engineRef.current?.running;
-
-      engineRef.current = new TimerEngine(newElapsed);
-      lastValueRef.current = newElapsed;
-      setElapsed(newElapsed);
-
-      if (wasRunning) {
-        engineRef.current.start();
-
-        cancelAnimationFrame(rafRef.current);
-        rafRef.current = requestAnimationFrame(loop);
-      }
-    },
-    [loop]
-  );
 
   useEffect(() => {
     return () => cancelAnimationFrame(rafRef.current);

@@ -42,6 +42,7 @@ export const loadSessionData = async ({
         payload: {
           segments,
           segmentIndex: currentIndex,
+          totalSegments: segments?.length,
           status: currentSegment?.completedAt ? "ready" : "paused",
           isDone: false,
         },

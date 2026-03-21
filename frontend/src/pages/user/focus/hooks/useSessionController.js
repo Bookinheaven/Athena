@@ -20,7 +20,6 @@ export const useSessionController = ({
   );
 
   const {
-    segmentIndex,
     currentSegment,
     elapsed,
     timeLeft,
@@ -28,21 +27,35 @@ export const useSessionController = ({
     pause,
     reset,
     status: timerStatus,
-  } = useSegmentTimer(sessionData?.segments || [], (updater) => {
-    setSessionData((prev) => ({
-      ...prev,
-      segments: updater(prev.segments),
-    }));
-  });
+  } = useSegmentTimer(
+    sessionData?.segments || [],
+    machineState.segmentIndex,
+    (updater) => {
+      setSessionData((prev) => ({
+        ...prev,
+        segments: updater(prev.segments),
+      }));
+    }
+  );
 
+  const segmentIndex = machineState.segmentIndex;
   const sessionId = sessionData?.sessionId;
   const plannedDuration = sessionData?.plannedDuration;
   const segments = sessionData?.segments;
+  const segmentsRef = useRef(segments);
+  const elapsedRef = useRef(elapsed);
+
+  useEffect(() => {
+    segmentsRef.current = segments;
+  }, [segments]);
+
+  useEffect(() => {
+    elapsedRef.current = elapsed;
+  }, [elapsed]);
 
   const buildPayload = useCallback(
     (type) => {
       if (!sessionId) return null;
-
       const current = segments?.[segmentIndex];
       if (!current) return null;
 
@@ -53,8 +66,9 @@ export const useSessionController = ({
             title: sessionTitle,
             plannedDuration,
             sessionSegments: segments,
+            totalBreakMinutes: sessionData.segments?.filter((x) => x.type === "break") ?.length || 1,
+            totalFocusMinutes: sessionData.segments?.filter((x) => x.type === "focus") ?.length || 1,
           };
-
         case "progress":
           return {
             sessionId,
@@ -63,7 +77,6 @@ export const useSessionController = ({
               duration: elapsed,
             },
           };
-
         case "segment_complete":
           return {
             sessionId,
@@ -72,20 +85,17 @@ export const useSessionController = ({
               completedAt: new Date(),
             },
           };
-
         case "title":
           return {
             sessionId,
             title: sessionTitle,
           };
-
         case "finish":
           return {
             sessionId,
             status: "completed",
             duration: elapsed,
           };
-
         default:
           return null;
       }
@@ -100,60 +110,60 @@ export const useSessionController = ({
     allowedWhenDisabled: ["progress"],
   });
 
-  const onTitleSet = () => {
-    markDirty("title");
-  }
+  const forceSaveRef = useRef(forceSave);
+  const markDirtyRef = useRef(markDirty);
+  useEffect(() => { forceSaveRef.current = forceSave; }, [forceSave]);
+  useEffect(() => { markDirtyRef.current = markDirty; }, [markDirty]);
 
-  const onReset = () => {
-    reset();
-  }
-  // const prevTitleRef = useRef(sessionTitle);
-  // useEffect(() => {
-  //   if (prevTitleRef.current !== sessionTitle) {
-  //     prevTitleRef.current = sessionTitle;
-  //   }
-  // }, [sessionTitle, markDirty]);
+  // Sync totalSegments into machine after sessionData loads
+  const totalSegments = sessionData?.segments?.length;
+  useEffect(() => {
+    if (!totalSegments) return;
+    dispatch({ type: "INIT", payload: totalSegments });
+  }, [totalSegments]);
 
+  // Handle running/paused/ready transitions
   useEffect(() => {
     const status = machineState.status;
+
     if (status === "running") {
       if (!isRunningRef.current) {
         isRunningRef.current = true;
         start();
-        // only once per session
         if (!hasStartedSessionRef.current) {
           hasStartedSessionRef.current = true;
-          markDirty("start");
+          markDirtyRef.current("start");
         }
       }
     }
+
     if (status === "paused") {
       if (isRunningRef.current) {
         isRunningRef.current = false;
         pause();
-        markDirty("progress");
+        markDirtyRef.current("progress");
       }
     }
 
-    if (status === "transition") {
-      dispatch({ type: "NEXT_SEGMENT" });
-    }
     if (status === "ready") {
-      const current = segments?.[segmentIndex];
+      const current = segmentsRef.current?.[machineState.segmentIndex];
       if (!current) return;
-
       if (current.type === "break") {
         if (autoStartBreaks) dispatch({ type: "START" });
       } else {
         dispatch({ type: "START" });
       }
     }
-  }, [machineState.status, segmentIndex, autoStartBreaks, segments]);
+  }, [machineState.status, machineState.segmentIndex, autoStartBreaks]);
 
-  // useEffect(() => {
-  //   reset();
-  // }, [segmentIndex, reset]);
+  // Handle transition in isolation to avoid stale segmentIndex re-runs
+  useEffect(() => {
+    if (machineState.status === "transition") {
+      dispatch({ type: "NEXT_SEGMENT" });
+    }
+  }, [machineState.status]);
 
+  // Detect segment completion
   useEffect(() => {
     if (
       timeLeft <= 0 &&
@@ -161,34 +171,45 @@ export const useSessionController = ({
       completedIndexRef.current !== segmentIndex
     ) {
       completedIndexRef.current = segmentIndex;
-
-      markDirty("segment_complete");
-
-      forceSave().finally(() => {
+      markDirtyRef.current("segment_complete");
+      forceSaveRef.current().finally(() => {
         dispatch({ type: "TIME_UP" });
       });
     }
-  }, [timeLeft, machineState.status, segmentIndex, markDirty, forceSave]);
-
+  }, [timeLeft, machineState.status, segmentIndex]);
+  
+  // Periodic progress save every 15s
   useEffect(() => {
-    if (machineState.status !== "running") return;
-
     const interval = setInterval(() => {
-      if (Math.abs(elapsed - lastSavedElapsedRef.current) >= 5) {
-        lastSavedElapsedRef.current = elapsed;
-        markDirty("progress");
+      if (!isRunningRef.current) return;
+      if (Math.abs(elapsedRef.current - lastSavedElapsedRef.current) >= 5) {
+        lastSavedElapsedRef.current = elapsedRef.current;
+        markDirtyRef.current("progress");
       }
     }, 15000);
 
     return () => clearInterval(interval);
-  }, [machineState.status, markDirty]);
+  }, []);
 
+  // Save on finish
   useEffect(() => {
     if (machineState.status === "finished") {
-      markDirty("finish");
-      forceSave();
+      markDirtyRef.current("finish");
+      isRunningRef.current = false;
+      forceSaveRef.current();
     }
-  }, [machineState.status, markDirty, forceSave]);
+  }, [machineState.status]);
+
+  const onTitleSet = () => {
+    markDirtyRef.current("title");
+  };
+
+  const onReset = () => {
+    hasStartedSessionRef.current = false;
+    isRunningRef.current = false;
+    lastSavedElapsedRef.current = 0;
+    reset();
+  };
 
   return {
     machineState,
