@@ -33,8 +33,6 @@ router.get("/monthly", auth, async (req, res) => {
   res.json(days);
 });
 
-router.get("/:type", auth, async (req, res) => {
-  const type = req.params.type;
-  console.log(type)
-})
+router.get("/:type", auth, StreakController.getSpecific)
+
 export default router;

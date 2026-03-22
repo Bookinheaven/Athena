@@ -107,6 +107,11 @@ class StreakService {
       { upsert: true, new: true },
     );
   }
+  
+  async getSpecificField(userId, type) {
+    const data = await Streak.findOne({ userId }).select(`${type} -_id`);
+    return data;
+  }
 }
 
 export default new StreakService();
