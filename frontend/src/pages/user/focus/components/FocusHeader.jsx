@@ -10,12 +10,14 @@ import {
   NotebookPen,
   List
 } from "lucide-react";
+import streakService from "../../../../../services/streakService";
 
 export default function HeaderNav({ isDeepFocus, toggleDeepFocus, toggleMotivation, handlePanelToggle, isRunning}) {
   const [isVisible, setIsVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
   const [time, setTime] = useState(new Date());
   const [streakNo, setStreakNo] = useState(0);
+
   useEffect(() => {
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
@@ -37,6 +39,13 @@ export default function HeaderNav({ isDeepFocus, toggleDeepFocus, toggleMotivati
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    let setStreakCount = async () => {
+      const streak = await streakService.fetchStreakDetails("currentStreak")
+      if(streak) setStreakNo(streak.currentStreak);
+    }
+    setStreakCount()
+  }, [])
   return (
     <header
       className={`
@@ -63,8 +72,8 @@ export default function HeaderNav({ isDeepFocus, toggleDeepFocus, toggleMotivati
         </button>
         
         <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-amber-500/10 text-amber-500" title="Current Streak">
-          <Flame size={14} />
-          <span className="text-xs font-bold tabular-nums">{streakNo}</span>
+          <Flame size={18} />
+          <span className="text-md font-bold tabular-nums">{streakNo}</span>
         </div>
       </div>
 
