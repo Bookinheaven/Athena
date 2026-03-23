@@ -18,7 +18,7 @@ The Focus Session system is a **layered, event-driven architecture** designed to
 ---
 # 1. Timer Engine (Core Time Logic)
 
-Pure JS (no React)
+**Pure JS**
 
 $$
 elapsed = baseElapsed + (now - startTime)
