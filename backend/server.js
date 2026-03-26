@@ -29,7 +29,7 @@ import {
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 20, // strict
+  max: 100, // strict
   message: {
     success: false,
     message: "Too many auth attempts. Try again later.",

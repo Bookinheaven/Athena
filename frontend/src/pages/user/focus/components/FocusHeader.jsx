@@ -12,12 +12,17 @@ import {
 } from "lucide-react";
 import streakService from "../../../../../services/streakService";
 
-export default function HeaderNav({ isDeepFocus, toggleDeepFocus, toggleMotivation, handlePanelToggle, isRunning}) {
+export default function HeaderNav({ isDeepFocus, toggleDeepFocus, toggleMotivation, isRunning, setActivePanel}) {
   const [isVisible, setIsVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
   const [time, setTime] = useState(new Date());
   const [streakNo, setStreakNo] = useState(0);
 
+  const handlePanelToggle = (panelName) => {
+    if(!isRunning) return;
+    setActivePanel((current) => (current === panelName ? null : panelName));
+  };
+  
   useEffect(() => {
     const handleScroll = () => {
       const currentScrollY = window.scrollY;

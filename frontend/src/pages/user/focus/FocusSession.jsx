@@ -18,8 +18,9 @@ import { v4 as uuidv4 } from "uuid";
 
 import HeaderNav from "./components/FocusHeader.jsx";
 import userService from "../../../../services/userService.js";
-import { loadSessionData } from "./utils/loadSessionData.js";
 import { useSessionController } from "./hooks/useSessionController";
+import { useFocusSessionInit } from "./hooks/useFocusSessionInit.js";
+import { useSessionSettings } from "./hooks/useSessionSettings.js";
 
 const FocusSession = () => {
   // Navigation states
@@ -31,26 +32,19 @@ const FocusSession = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isDeepFocus, setIsDeepFocus] = useState(false);
   const containerRef = useRef(null);
-
-  // Settings state
-  const [breakDuration, setBreakDuration] = useLocalStorage(
-    "breakDuration",
-    5 * 60,
-  );
-  const [autoStartBreaks, setAutoStartBreaks] = useLocalStorage(
-    "autoStartBreaks",
-    true,
-  );
-  const [breaksNumber, setBreaksNumber] = useLocalStorage("breaksNumber", 4);
-  const [sessionPlannedDuration, setSessionPlannedDuration] = useLocalStorage(
-    "sessionPlannedDuration",
-    25 * 60,
-  );
-  const [isSoundEnabled, setIsSoundEnabled] = useLocalStorage("isSoundEnabled", true);
-  const [skipBreaks, setSkipBreaks] = useLocalStorage("skipBreaks", false);
-  const [confirmReset, setConfirmReset] = useLocalStorage("confirmReset", true);
-  const [soundOnTransition, setSoundOnTransition] = useLocalStorage("soundOnTransition", true);
   
+  
+  // Settings state
+  const {
+    settings,
+    setBreakDuration,
+    setAutoStartBreaks,
+    setBreaksNumber,
+    setSkipBreaks,
+    setConfirmReset,
+    setSoundOnTransition,
+    setIsSoundEnabled,
+  } = useSessionSettings();
   // Data states
   const [sessionStats, setSessionStats] = useSessionStorage("sessionStats", [{
     breakSegmentsCompleted: 0,
@@ -59,7 +53,8 @@ const FocusSession = () => {
     pauseCount: 0,
     totalPauseDuration: 0,
   }])
-
+  
+  const [sessionPlannedDuration, setSessionPlannedDuration] = useLocalStorage("sessionPlannedDuration", 25 * 60);
   const [todos, setTodos] = useSessionStorage("focusTodos", []);
   const [notes, setNotes] = useSessionStorage("notes", [
     {
@@ -88,8 +83,8 @@ const FocusSession = () => {
   // Initial Session
   const initialSession = useCallback(() => {
     const safeTotalFocus = sessionPlannedDuration ?? 25 * 60;
-    const safeBreak = breakDuration ?? 5 * 60;
-    const safeBreaksNum = breaksNumber ?? 4;
+    const safeBreak = settings.breakDuration ?? 5 * 60;
+    const safeBreaksNum = settings.breaksNumber ?? 4;
     const segments = createSessionData(
       safeTotalFocus,
       safeBreak,
@@ -108,7 +103,7 @@ const FocusSession = () => {
       segments,
       timestamp: new Date().toISOString(),
     };
-  }, [sessionPlannedDuration, breakDuration, breaksNumber, setSessionReview]);
+  }, [sessionPlannedDuration, settings.breakDuration, settings.breaksNumber, setSessionReview]);
 
   // Session storage (local)
   const [sessionData, setSessionData] = useSessionStorage(
@@ -118,9 +113,7 @@ const FocusSession = () => {
 
   const modifySettings = async (changed) => {
     const merged = {
-      breakDuration,
-      autoStartBreaks,
-      breaksNumber,
+      ...settings,
       ...changed,
     };
     
@@ -151,42 +144,14 @@ const FocusSession = () => {
     setSessionData,
     saveFunction: (payload) => sessionService.updateProgress(payload),
     sessionTitle,
-    autoStartBreaks,
-    skipBreaks,
-    soundOnTransition,
+    autoStartBreaks: settings.autoStartBreaks,
+    skipBreaks: settings.skipBreaks,
+    soundOnTransition: settings.soundOnTransition,
   });
   const isRunning = machineState.status === "running";
-  useEffect(() => {
-    const fetchSettings = async () => {
-      let res = await userService.getSettings("session");
-      if (res?.settings) {
-        const s = res.settings;
-        setAutoStartBreaks(s.autoStartBreaks ?? true);
-        setBreakDuration(s.breakDuration ?? 5 * 60);
-        setBreaksNumber(s.breaksNumber ?? 4);
-        setSkipBreaks(s.skipBreaks ?? false);
-        setConfirmReset(s.confirmReset ?? true);
-        setSoundOnTransition(s.soundOnTransition ?? true);
-        setIsSoundEnabled(s.isSoundEnabled ?? true);
-      }
-    };
-    fetchSettings();
-  }, []);
-
-  useEffect(() => {
-    if (newSession) return;
-    loadSessionData({
-      initialSession,
-      setSessionData,
-      setIsLoading,
-      dispatch,
-      setSessionTitle,
-      setSessionPlannedDuration,
-    });
-  }, []);
-
+  
   const resetSession = () => {
-    if (confirmReset && isRunning) {
+    if (settings.confirmReset && isRunning) {
       if (!window.confirm("Reset the current session? Your progress will be lost.")) return;
     }
     const fresh = initialSession();
@@ -195,6 +160,29 @@ const FocusSession = () => {
     dispatch({ type: "RESET" })
     onReset();
   };
+
+  useFocusSessionInit({
+    newSession,
+    initialSession,
+    setSessionData,
+    setIsLoading,
+    dispatch,
+    setSessionTitle,
+    setSessionPlannedDuration,
+
+    setAutoStartBreaks,
+    setBreakDuration,
+    setBreaksNumber,
+    setSkipBreaks,
+    setConfirmReset,
+    setSoundOnTransition,
+    setIsSoundEnabled,
+
+    resetSession,
+    setTodos,
+    setNotes,
+    setNewSession,
+  });
 
   //Full screen mode
   const toggleDeepFocus = () => {
@@ -228,33 +216,6 @@ const FocusSession = () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, []);
-
-  // New Session
-  useEffect(() => {
-    if (!newSession) return;
-
-    resetSession();
-
-    setSessionTitle("Untitled Work");
-    // setSessionHistory([]);
-    setTodos([]);
-    setNotes([
-      {
-        id: 1,
-        text: "Welcome to your notes!",
-        taskId: "",
-        createdAt: new Date().toISOString(),
-      },
-      {
-        id: 2,
-        text: "Try editing this note.",
-        taskId: "",
-        createdAt: new Date().toISOString(),
-      },
-    ]);
-
-    setNewSession(false);
-  }, [newSession]);
   
   const handleReviewUpdate = useCallback(
     (field, value) => {
@@ -319,10 +280,6 @@ const FocusSession = () => {
     [setTodos],
   );
 
-  const handlePanelToggle = (panelName) => {
-    setActivePanel((current) => (current === panelName ? null : panelName));
-  };
-
   // useEffect(() => {
   //   console.log("Machine data:", machineState);
   // }, [machineState]);
@@ -340,6 +297,46 @@ const FocusSession = () => {
       </div>
     );
   }
+  
+  const timerData = {
+    timeLeft,
+    elapsed,
+    status: machineState.status,
+    isRunning: machineState.status === "running",
+  };
+
+  const sessionMetrics = {
+    breaksLeft: sessionData.segments?.filter((s) => s.type === "break" && !s.completedAt).length || 0,
+    currentSegment,
+    segmentIndex,
+    totalSegments: sessionData.segments?.length || 1,
+    totalFocusSegments: sessionData.segments?.filter((x) => x.type === "focus")?.length || 0,
+    totalBreakSegments: sessionData.segments?.filter((x) => x.type === "break")?.length || 0,
+    remainingFocusSegments: sessionData.segments?.filter((s) => s.type === "focus" && !s.completedAt).length,
+  };
+  const controls = {
+    start: async () => {
+      try {
+        if (!sessionData.backendCreated) {
+          await sessionService.startSession(buildPayload("start"));
+          setSessionData((prev) => ({
+            ...prev,
+            backendCreated: true,
+          }));
+        }
+      } catch (err) {
+        toast.error("Backend failed, starting locally");
+      }
+
+      dispatch({ type: "START" });
+    },
+
+    pause: () => dispatch({ type: "PAUSE" }),
+    reset: () => dispatch({ type: "RESET" }),
+
+    setNewSession: () => setNewSession(true),
+    onTitleSet: () => onTitleSet(),
+  };
   return (
     <div
       ref={containerRef}
@@ -387,22 +384,14 @@ const FocusSession = () => {
           toggleDeepFocus={toggleDeepFocus}
           toggleMotivation={() => setShowQuotes((s) => !s)}
           isRunning={isRunning}
-          handlePanelToggle={handlePanelToggle}
+          setActivePanel={setActivePanel}
         ></HeaderNav>
       </div>
 
       <div className="flex justify-center items-center flex-grow">
         <Settings
           plannedDuration={sessionData.plannedDuration}
-          initialValues={{
-            breakDuration,
-            breaksNumber,
-            autoStartBreaks,
-            skipBreaks,
-            confirmReset,
-            soundOnTransition,
-            isSoundEnabled,
-          }}
+          initialValues={settings}
           onSave={(values) => {
             setBreakDuration(values.breakDuration);
             setAutoStartBreaks(values.autoStartBreaks);
@@ -415,7 +404,7 @@ const FocusSession = () => {
             modifySettings(values);
           }}
           // onClearHistory={handleClearHistory}
-          show={activePanel === "settings" } // it should only display before a session start, not (paused / ready/ running)
+          show={activePanel === "settings"} // it should only display before a session start, not (paused / ready/ running)
           onClose={() => setActivePanel(null)}
         />
 
@@ -453,58 +442,13 @@ const FocusSession = () => {
                 className="w-full flex justify-center"
               >
                 <Timer
-                  timeLeft={timeLeft}
-                  elapsed={elapsed}
-                  isStarted={machineState.status === "running"}
-                  timerStatus= {machineState.status}
-                  start={async () => {
-                    try {
-                      if (!sessionData.backendCreated) {
-                        await sessionService.startSession(buildPayload("start"));
-                        setSessionData((prev) => ({
-                          ...prev,
-                          backendCreated: true,
-                        }));
-                      }
-                    } catch (err) {
-                      toast.error("Backend failed, starting locally");
-                    }
-
-                    dispatch({ type: "START" });
-                  }}
-                  pause={() => {
-                    dispatch({ type: "PAUSE" });
-                  }}
-                  reset={() => {
-                    dispatch({ type: "RESET" });
-                  }}
+                  timer={timerData}
+                  session={sessionMetrics}
+                  controls={controls}
                   sessionTitle={sessionTitle}
                   setSessionTitle={setSessionTitle}
-                  setSessionPlannedDuration={setSessionPlannedDuration}
                   sessionPlannedDuration={sessionData.plannedDuration}
-                  breaksLeft={
-                    sessionData.segments?.filter(
-                      (s) => s.type === "break" && !s.completedAt,
-                    ).length || 0
-                  }
-                  currentSegmentData={currentSegment}
-                  currentSegmentIndex={segmentIndex}
-                  totalSegments={sessionData.segments?.length || 1}
-                  totalfocusSegments={
-                    sessionData.segments?.filter((x) => x.type === "focus")
-                      ?.length || 1
-                  }
-                  totalbreakSegments={
-                    sessionData.segments?.filter((x) => x.type === "break")
-                      ?.length || 1
-                  }
-                  focusSegments={
-                    sessionData.segments?.filter(
-                      (s) => s.type === "focus" && !s.completedAt,
-                    ).length
-                  }
-                  setNewSession={() => setNewSession(true)}
-                  onTitleSet={() => onTitleSet()}
+                  setSessionPlannedDuration={setSessionPlannedDuration}
                 />
               </motion.div>
             )}
