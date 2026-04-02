@@ -28,7 +28,7 @@ class SessionController {
       });
 
       if (session.status === "completed") {
-        await StreakService.dialyStreakUpdate(userId, session.duration / 60);
+        await StreakService.dailyStreakUpdate(userId, session.duration / 60);
         await StreakService.processDailyStreak(userId);
       }
 

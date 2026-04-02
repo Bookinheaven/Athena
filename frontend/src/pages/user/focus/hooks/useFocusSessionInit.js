@@ -23,7 +23,7 @@ export const useFocusSessionInit = ({
     // reset handlers
     resetSession,
     setTodos,
-    setNotes,
+    createNote,
     setNewSession,
 }) => {
     // Load settings
@@ -62,24 +62,25 @@ export const useFocusSessionInit = ({
     }, []);
 
     useEffect(() => {
+        const handleNewSession = async () => {
         if (!newSession) return;
+        
         resetSession();
         setSessionTitle("Untitled Work");
         setTodos([]);
-        setNotes([
-            {
-                id: 1,
-                text: "Welcome to your notes!",
-                taskId: "",
-                createdAt: new Date().toISOString(),
-            },
-            {
-                id: 2,
-                text: "Try editing this note.",
-                taskId: "",
-                createdAt: new Date().toISOString(),
-            },
-        ]);
+        
+        const note = await createNote({
+            title: "",
+            content: "<p></p>",
+            task: null,
+        });
+
+        if (!note) {
+            console.warn("Initial note creation failed");
+        }
+        
         setNewSession(false);
+        };
+        handleNewSession();
     }, [newSession]);
 }

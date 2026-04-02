@@ -311,6 +311,61 @@
     color: var(--color-error-text);
     border: 1px solid var(--color-button-danger);
   }
+
+  .ProseMirror {
+    outline: none;
+  }
+
+  .ProseMirror p {
+    margin: 0.4rem 0;
+  }
+
+  .ProseMirror h1 {
+    font-size: 1.6rem;
+    font-weight: 700;
+  }
+
+  .ProseMirror h2 {
+    font-size: 1.3rem;
+    font-weight: 600;
+  }
+
+  .ProseMirror ul {
+    padding-left: 1.5rem;
+    list-style-type: disc !important;
+  }
+  
+  .ProseMirror ol {
+    padding-left: 1.5rem;
+    list-style-type: decimal !important;
+  }
+
+  .ProseMirror ul ul { list-style-type: circle !important; }
+  .ProseMirror ul ul ul { list-style-type: square !important; }
+
+  .ProseMirror li {
+    margin-bottom: 0.25rem;
+  }
+
+  .ProseMirror li p {
+    margin: 0;
+  }
+
+  .ProseMirror blockquote {
+    border-left: 3px solid var(--color-border-primary);
+    padding-left: 1rem;
+    margin-left: 0;
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+    font-style: italic;
+    color: var(--color-text-muted);
+  }
+
+  .ProseMirror img {
+    border-radius: 12px;
+    margin: 10px 0;
+    max-width: 100%;
+  }
 }
 
 @media (max-width: 640px) {

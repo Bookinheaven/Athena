@@ -124,12 +124,13 @@ export const Timer = ({
 
   useEffect(() => {
     const handleKeyDown = (event) => {
-      const isTyping = /^(input|textarea)$/i.test(event.target.tagName);
-
-      if (event.code === "Space" && !isTyping) {
+      const isTyping = /^(input|textarea)$/i.test(event.target.tagName) || event.target.isContentEditable;
+      const isInsideNotes = event.target.closest(".ProseMirror");
+      if (event.code === "Space" && (isTyping || isInsideNotes)) return;
+      if (event.code === "Space") {
         event.preventDefault();
         handleStartPause();
-      } else if (event.key.toLowerCase() === "r" && !isTyping) {
+      } else if (event.key.toLowerCase() === "r" && !isTyping && !isInsideNotes) {
         reset();
       }
     };

@@ -18,7 +18,9 @@ import { v4 as uuidv4 } from "uuid";
 
 import HeaderNav from "./components/FocusHeader.jsx";
 import userService from "../../../../services/userService.js";
-import { useSessionController } from "./hooks/useSessionController";
+
+import { useNotes } from "./hooks/useNotes.js";
+import { useSessionController } from "./hooks/useSessionController.js";
 import { useFocusSessionInit } from "./hooks/useFocusSessionInit.js";
 import { useSessionSettings } from "./hooks/useSessionSettings.js";
 
@@ -56,20 +58,14 @@ const FocusSession = () => {
   
   const [sessionPlannedDuration, setSessionPlannedDuration] = useLocalStorage("sessionPlannedDuration", 25 * 60);
   const [todos, setTodos] = useSessionStorage("focusTodos", []);
-  const [notes, setNotes] = useSessionStorage("notes", [
-    {
-      id: 1,
-      text: "Welcome to your notes!",
-      taskId: "",
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: 2,
-      text: "Try editing this note.",
-      taskId: "",
-      createdAt: new Date().toISOString(),
-    },
-  ]);
+
+  const {
+    notes,
+    setNotes,
+    createNote,
+    updateNote,
+    deleteNote,
+  } = useNotes();
 
   const [newTodo, setNewTodo] = useState("");
   const [sessionTitle, setSessionTitle] = useState("Untitled Work"); // later we can check if same name is there if so add (no.) [only for all Untitled Work and custom which are created in a same day.]
@@ -180,7 +176,7 @@ const FocusSession = () => {
 
     resetSession,
     setTodos,
-    setNotes,
+    createNote,
     setNewSession,
   });
 
@@ -340,8 +336,7 @@ const FocusSession = () => {
   return (
     <div
       ref={containerRef}
-      className=" lg:pt-2 min-h-screen flex flex-col lg:p-4 relative theme-transition bg-background-color"
-    >
+      className="h-screen max-h-screen flex flex-col lg:p-4 relative theme-transition bg-background-color overflow-hidden"    >
       <AnimatePresence>
         {saveStatus !== "idle" && (
           <motion.div
@@ -354,19 +349,23 @@ const FocusSession = () => {
           >
             <div
               className={`flex items-center gap-3 px-5 py-3 rounded-xl shadow-xl border backdrop-blur-md
-      ${
-        saveStatus === "saving"
-          ? "bg-blue-500/10 border-blue-400 text-blue-400"
-          : saveStatus === "error"
-            ? "bg-red-500/10 border-red-400 text-red-400"
-            : "bg-green-500/10 border-green-400 text-green-400"
-      }`}
+              ${
+                saveStatus === "saving"
+                  ? "bg-blue-500/10 border-blue-400 text-blue-400"
+                  : saveStatus === "error"
+                  ? "bg-red-500/10 border-red-400 text-red-400"
+                  : "bg-green-500/10 border-green-400 text-green-400"
+              }`}
             >
               {saveStatus === "saving" && (
                 <Loader2 className="w-4 h-4 animate-spin" />
               )}
-              {saveStatus === "error" && <AlertCircle className="w-4 h-4" />}
-              {saveStatus === "saved" && <CheckCircle className="w-4 h-4" />}
+              {saveStatus === "error" && (
+                <AlertCircle className="w-4 h-4" />
+              )}
+              {saveStatus === "saved" && (
+                <CheckCircle className="w-4 h-4" />
+              )}
 
               <span className="text-sm font-medium">
                 {saveStatus === "saving" && "Saving changes..."}
@@ -378,17 +377,17 @@ const FocusSession = () => {
         )}
       </AnimatePresence>
 
-      <div className="w-full mb-3 fade-in flex justify-center">
+      <div className="w-full mb-3 flex justify-center">
         <HeaderNav
           isDeepFocus={isDeepFocus}
           toggleDeepFocus={toggleDeepFocus}
           toggleMotivation={() => setShowQuotes((s) => !s)}
           isRunning={isRunning}
           setActivePanel={setActivePanel}
-        ></HeaderNav>
+        />
       </div>
 
-      <div className="flex justify-center items-center flex-grow">
+      <div className="flex flex-1 min-h-0 w-full overflow-hidden">
         <Settings
           plannedDuration={sessionData.plannedDuration}
           initialValues={settings}
@@ -400,78 +399,81 @@ const FocusSession = () => {
             setConfirmReset(values.confirmReset);
             setSoundOnTransition(values.soundOnTransition);
             setIsSoundEnabled(values.isSoundEnabled);
-            // focusDuration lives in sessionData, update 
             modifySettings(values);
           }}
-          // onClearHistory={handleClearHistory}
-          show={activePanel === "settings"} // it should only display before a session start, not (paused / ready/ running)
+          show={activePanel === "settings"}
           onClose={() => setActivePanel(null)}
         />
 
-        <motion.div
-          layout
-          transition={{ duration: 0.4, ease: "easeInOut" }}
-          className="flex flex-col items-center w-full lg:w-0 h-full lg:flex-row md:mt-2 lg:mt-10 relative"
-        >
-          <AnimatePresence mode="wait">
-            {machineState.status === "finished" ? (
-              <motion.div
-                key="review"
-                layout
-                initial={{ opacity: 0, y: 40, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -40, scale: 0.95 }}
-                transition={{ duration: 0.35, ease: "easeOut" }}
-                className="w-full flex justify-center"
-              >
-                <SessionReview
-                  reviewData={sessionReview}
-                  onUpdate={handleReviewUpdate}
-                  onDistractionToggle={handleDistractionToggle}
-                  onNewSession={handleFinalSaveAndStartNew}
-                />
-              </motion.div>
-            ) : (
-              <motion.div
-                key="timer"
-                layout
-                initial={{ opacity: 0, y: 40, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -40, scale: 0.95 }}
-                transition={{ duration: 0.35, ease: "easeOut" }}
-                className="w-full flex justify-center"
-              >
-                <Timer
-                  timer={timerData}
-                  session={sessionMetrics}
-                  controls={controls}
-                  sessionTitle={sessionTitle}
-                  setSessionTitle={setSessionTitle}
-                  sessionPlannedDuration={sessionData.plannedDuration}
-                  setSessionPlannedDuration={setSessionPlannedDuration}
-                />
-              </motion.div>
-            )}
-          </AnimatePresence>
+        <div className="flex flex-1 min-h-0 rounded-xl relative overflow-hidden flex-col lg:flex-row">
 
-          <motion.div layout>
-            <CurrentProgress
-              todos={todos}
-              show={activePanel === "progress"}
-              onClose={() => setActivePanel(null)}
-            />
-          </motion.div>
+          <div className="flex-1 flex justify-center items-center">
+            <AnimatePresence mode="wait">
+              {machineState.status === "finished" ? (
+                <motion.div
+                  key="review"
+                  initial={{ opacity: 0, scale: 0.96 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.96 }}
+                  transition={{ duration: 0.25 }}
+                  className="w-full flex justify-center"
+                >
+                  <SessionReview
+                    reviewData={sessionReview}
+                    onUpdate={handleReviewUpdate}
+                    onDistractionToggle={handleDistractionToggle}
+                    onNewSession={handleFinalSaveAndStartNew}
+                  />
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="timer"
+                  initial={{ opacity: 0, scale: 0.96 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.96 }}
+                  transition={{ duration: 0.25 }}
+                  className="w-full flex justify-center"
+                >
+                  <Timer
+                    timer={timerData}
+                    session={sessionMetrics}
+                    controls={controls}
+                    sessionTitle={sessionTitle}
+                    setSessionTitle={setSessionTitle}
+                    sessionPlannedDuration={sessionData.plannedDuration}
+                    setSessionPlannedDuration={setSessionPlannedDuration}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
 
-          <motion.div layout>
-            <Notes
-              notes={notes}
-              todos={todos}
-              setNotes={setNotes}
-              show={activePanel === "notes"}
-              onClose={() => setActivePanel(null)}
-            />
-          </motion.div>
-        </motion.div>
+          <div
+            className={`
+              transition-all duration-300 ease-in-out
+              ${
+                activePanel === "notes"
+                  ? "w-full lg:w-[500px] h-[50%] lg:h-full"
+                  : "w-0 h-0 lg:h-full"
+              }
+              overflow-hidden
+              bg-background-primary/30 backdrop-blur-xl
+            `}
+          >
+            <div className="h-full w-full max-h-full overflow-hidden">
+              <Notes
+                notes={notes}
+                todos={todos}
+                createNote={createNote}
+                updateNote={updateNote}
+                deleteNote={deleteNote}
+                show={activePanel === "notes"}
+                onClose={() => setActivePanel(null)}
+              />
+            </div>
+          </div>
+
+        </div>
 
         <TodoList
           todos={todos}
@@ -492,7 +494,6 @@ const FocusSession = () => {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9 }}
             transition={{ duration: 0.3 }}
-            className="flex flex-row justify-around transition-all duration-300"
           >
             <MotivationalQuotes
               show={showQuotes}
@@ -503,6 +504,6 @@ const FocusSession = () => {
       </AnimatePresence>
     </div>
   );
-};
+  }
 
 export default FocusSession;
