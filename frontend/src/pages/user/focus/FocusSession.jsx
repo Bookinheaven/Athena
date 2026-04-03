@@ -47,7 +47,6 @@ const FocusSession = () => {
   const [isDeepFocus, setIsDeepFocus] = useState(false);
   const containerRef = useRef(null);
   
-  
   // Settings state
   const {
     settings,
@@ -69,8 +68,6 @@ const FocusSession = () => {
   }])
   
   const [sessionPlannedDuration, setSessionPlannedDuration] = useLocalStorage("sessionPlannedDuration", 25 * 60);
-  const [todos, setTodos] = useSessionStorage("focusTodos", []);
-
   const {
     notes,
     setNotes,
@@ -109,6 +106,7 @@ const FocusSession = () => {
       currentDuration: 0,
       plannedDuration: safeTotalFocus,
       segments,
+      todos: [],
       timestamp: new Date().toISOString(),
     };
   }, [sessionPlannedDuration, settings.breakDuration, settings.breaksNumber, setSessionReview]);
@@ -118,6 +116,7 @@ const FocusSession = () => {
     "sessionData",
     initialSession,
   );
+  const todos = sessionData.todos || [];
 
   const modifySettings = async (changed) => {
     const merged = {
@@ -145,6 +144,7 @@ const FocusSession = () => {
     forceSave,
     timerStatus,
     onTitleSet,
+    onTodoChange,
     onReset,
     buildPayload
   } = useSessionController({
@@ -155,6 +155,7 @@ const FocusSession = () => {
     autoStartBreaks: settings.autoStartBreaks,
     skipBreaks: settings.skipBreaks,
     soundOnTransition: settings.soundOnTransition,
+    todos: sessionData.todos
   });
   const isRunning = machineState.status === "running";
   
@@ -167,6 +168,13 @@ const FocusSession = () => {
     setSessionReview({ mood: null, focus: null, distractions: "" });
     dispatch({ type: "RESET" })
     onReset();
+  };
+
+  const updateTodos = (newTodos) => {
+    setSessionData((prev) => ({
+      ...prev,
+      todos: newTodos,
+    }));
   };
 
   useFocusSessionInit({
@@ -187,7 +195,7 @@ const FocusSession = () => {
     setIsSoundEnabled,
 
     resetSession,
-    setTodos,
+    updateTodos,
     createNote,
     setNewSession,
   });
@@ -224,12 +232,6 @@ const FocusSession = () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, []);
-
-  useEffect(() => {
-    if (isRunning) {
-      setActivePanels((prev) => ({ ...prev, settings: false }));
-    }
-  }, [isRunning]);
   
   const handleReviewUpdate = useCallback(
     (field, value) => {
@@ -262,41 +264,61 @@ const FocusSession = () => {
 
   const handleAddTodo = useCallback(() => {
     if (!newTodo.trim()) return;
-    setTodos((t) => [
-      ...t,
+
+    const updated = [
+      ...todos,
       {
         id: Date.now(),
-        text: newTodo.trim(),
+        title: newTodo.trim(),
         status: "Not Started",
         createdAt: new Date().toISOString(),
       },
-    ]);
+    ];
+
+    updateTodos(updated);
+    onTodoChange()
     setNewTodo("");
-  }, [newTodo, setTodos]);
+  }, [newTodo, todos]);
 
   const handleFinalSaveAndStartNew = async () => {
     await forceSave();
-    await sessionService.sessionFeedback({sessionId:sessionData.sessionId, playload:sessionReview});
+    await sessionService.sessionFeedback({sessionId:sessionData.sessionId, feedback:sessionReview});
     setNewSession(true);
   };
 
-  const handleUpdateTodoStatus = useCallback(
-    (id, status) => {
-      setTodos((t) => t.map((x) => (x.id === id ? { ...x, status } : x)));
-    },
-    [setTodos],
-  );
+  const handleUpdateTodoStatus = useCallback((id, status) => {
+    const updated = todos.map((t) =>
+      t.id === id ? { ...t, status } : t
+    );
+    updateTodos(updated);
+    onTodoChange();
+  }, [todos]);
 
-  const handleDeleteTodo = useCallback(
-    (id) => {
-      setTodos((t) => t.filter((x) => x.id !== id));
-    },
-    [setTodos],
-  );
+  const handleDeleteTodo = useCallback((id) => {
+    const updated = todos.filter((t) => t.id !== id);
+    updateTodos(updated);
+    onTodoChange();
+  }, [todos]);
 
   // useEffect(() => {
   //   console.log("Machine data:", machineState);
   // }, [machineState]);
+
+  // Automatically close all panels when a session finishes or is reset
+  useEffect(() => {
+    if (machineState.status === "running") {
+      setActivePanels((prev) => ({ ...prev, settings: false }));
+    }
+    if (machineState.status === "finished" || machineState.status === "idle") {
+      setActivePanels({
+        notes: false,
+        todos: false,
+        settings: false,
+        progress: false,
+      });
+      setShowQuotes(false);
+    }
+  }, [machineState.status]);
 
   if (isLoading) {
     return (
@@ -356,7 +378,6 @@ const FocusSession = () => {
       ref={containerRef}
       className="h-screen w-full flex flex-col relative theme-transition bg-background-color overflow-hidden"
     >
-      {/* --- FLOATING TOASTS (For Saves) --- */}
       <AnimatePresence>
         {saveStatus !== "idle" && (
           <motion.div
@@ -390,23 +411,32 @@ const FocusSession = () => {
         )}
       </AnimatePresence>
 
-        <motion.div
+      <motion.div
         drag
         dragConstraints={containerRef}
         dragMomentum={false}
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         style={{ left: "calc(50% - 200px)", top: "3vh" }} 
-        className="absolute z-40 flex flex-col bg-card-background border border-card-border rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] overflow-hidden"
+        className="absolute z-40 flex flex-col items-center shadow-[0_20px_50px_rgba(0,0,0,0.3)] rounded-full border border-border-primary/40 bg-card-background/80 backdrop-blur-xl"
       >
-         <HeaderNav
+        <div className="h-4 w-full cursor-grab active:cursor-grabbing flex justify-center items-center hover:bg-background-secondary/50 transition-colors shrink-0 rounded-t-full pt-1">
+          <div className="w-8 h-1 bg-border-primary rounded-full pointer-events-none" />
+        </div>
+        
+        <div className="cursor-auto w-full pb-1.5 px-1.5">
+          <HeaderNav
             isDeepFocus={isDeepFocus}
             toggleDeepFocus={toggleDeepFocus}
             toggleMotivation={() => setShowQuotes((s) => !s)}
-            isRunning={isRunning}
             togglePanel={togglePanel}
+            activePanels={activePanels}
+            isIdle={machineState.status === "idle"}
+            isRunning={isRunning}
           />
+        </div>
       </motion.div>
+
       <motion.div
         drag
         dragConstraints={containerRef}
@@ -489,7 +519,32 @@ const FocusSession = () => {
         )}
       </AnimatePresence>
 
-      {/* TODOS WIDGET (Starts Top Left) */}
+      <AnimatePresence>
+        {activePanels.progress && (
+          <motion.div
+            drag
+            dragConstraints={containerRef}
+            dragMomentum={false}
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            style={{ left: "50px", top: "100px" }}
+            className="absolute w-[400px] h-[30vh] z-50 flex flex-col bg-card-background border border-card-border rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] overflow-hidden"
+          >
+            <div className="h-6 w-full cursor-grab active:cursor-grabbing flex justify-center items-center bg-background-secondary/50 hover:bg-background-secondary/80 transition-colors shrink-0 border-b border-border-secondary">
+              <div className="w-12 h-1 bg-border-primary rounded-full pointer-events-none" />
+            </div>
+            <div className="flex-1 overflow-hidden cursor-auto relative">
+              <CurrentProgress
+                todos={todos}
+                show={true}
+                onClose={() => togglePanel("progress")}
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <AnimatePresence>
         {activePanels.todos && (
           <motion.div
@@ -521,7 +576,6 @@ const FocusSession = () => {
         )}
       </AnimatePresence>
 
-      {/* SETTINGS WIDGET (Starts slightly off-center) */}
       <AnimatePresence>
         {activePanels.settings && (
           <motion.div
@@ -532,12 +586,12 @@ const FocusSession = () => {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9 }}
             style={{ left: "calc(50% - 200px)", top: "20vh" }}
-            className="absolute w-[400px] z-50 flex flex-col bg-card-background border border-card-border rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] overflow-hidden"
+            className="absolute w-[400px] h-[60vh] z-50 flex flex-col bg-card-background border border-card-border rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] overflow-hidden"
           >
             <div className="h-6 w-full cursor-grab active:cursor-grabbing flex justify-center items-center bg-background-secondary/50 hover:bg-background-secondary/80 transition-colors shrink-0 border-b border-border-secondary">
               <div className="w-12 h-1 bg-border-primary rounded-full pointer-events-none" />
             </div>
-            <div className="overflow-hidden cursor-auto relative">
+            <div className="flex-1 overflow-hidden cursor-auto relative">
               <Settings
                 plannedDuration={sessionData.plannedDuration}
                 initialValues={settings}
@@ -559,7 +613,6 @@ const FocusSession = () => {
         )}
       </AnimatePresence>
 
-      {/* QUOTES WIDGET (Starts Bottom Center) */}
       <AnimatePresence>
         {showQuotes && (
           <motion.div
@@ -569,7 +622,7 @@ const FocusSession = () => {
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9 }}
-            style={{ left: "calc(50% - 225px)", bottom: "40px" }} // 225px is half of 450px
+            style={{ left: "calc(50% - 225px)", bottom: "40px" }} 
             className="absolute w-[450px] z-50 flex flex-col shadow-[0_20px_50px_rgba(0,0,0,0.3)] rounded-2xl overflow-hidden"
           >
             <div className="h-6 w-full cursor-grab active:cursor-grabbing flex justify-center items-center bg-background-primary/90 hover:bg-background-primary transition-colors shrink-0 border-x border-t border-border-secondary rounded-t-2xl">

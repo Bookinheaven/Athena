@@ -9,6 +9,7 @@ export const useSessionController = ({
   sessionTitle,
   saveFunction,
   autoStartBreaks,
+  todos,
 }) => {
   const completedIndexRef = useRef(null);
   const hasStartedSessionRef = useRef(false);
@@ -90,6 +91,11 @@ export const useSessionController = ({
             sessionId,
             title: sessionTitle,
           };
+        case "todos":
+          return {
+            sessionId,
+            todos: todos,
+          };
         case "finish":
           return {
             sessionId,
@@ -100,14 +106,14 @@ export const useSessionController = ({
           return null;
       }
     },
-    [sessionId, plannedDuration, sessionTitle, segmentIndex, elapsed, segments]
+    [sessionId, plannedDuration, sessionTitle, segmentIndex, elapsed, segments, todos]
   );
 
   const { markDirty, saveStatus, forceSave } = useAutoSaveSession({
     buildPayload,
     saveFunction,
     enabled: machineState.status !== "idle",
-    allowedWhenDisabled: ["progress"],
+    allowedWhenDisabled: ["progress", "todos"],
   });
 
   const forceSaveRef = useRef(forceSave);
@@ -204,12 +210,25 @@ export const useSessionController = ({
     markDirtyRef.current("title");
   };
 
+  const onTodoChange = () => {
+    console.log(todos)
+    markDirtyRef.current("todos");
+  };
+
   const onReset = () => {
     hasStartedSessionRef.current = false;
     isRunningRef.current = false;
     lastSavedElapsedRef.current = 0;
     reset();
   };
+
+  useEffect(() => {
+    const handler = () => {
+      forceSaveRef.current();
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, []);
 
   return {
     machineState,
@@ -222,6 +241,7 @@ export const useSessionController = ({
     forceSave,
     timerStatus,
     onTitleSet,
+    onTodoChange,
     onReset,
     buildPayload,
   };
