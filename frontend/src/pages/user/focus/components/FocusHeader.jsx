@@ -12,15 +12,21 @@ import {
 } from "lucide-react";
 import streakService from "../../../../../services/streakService";
 
-export default function HeaderNav({ isDeepFocus, toggleDeepFocus, toggleMotivation, isRunning, setActivePanel}) {
+export default function HeaderNav({ isDeepFocus, toggleDeepFocus, toggleMotivation, isRunning, togglePanel}) {
   const [isVisible, setIsVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
   const [time, setTime] = useState(new Date());
   const [streakNo, setStreakNo] = useState(0);
 
   const handlePanelToggle = (panelName) => {
-    if(!isRunning) return;
-    setActivePanel((current) => (current === panelName ? null : panelName));
+    if (panelName === "settings") {
+      if (isRunning) return; 
+      togglePanel(panelName);
+      return;
+    }
+    
+    if (!isRunning) return;
+    togglePanel(panelName);
   };
   
   useEffect(() => {
@@ -107,7 +113,7 @@ export default function HeaderNav({ isDeepFocus, toggleDeepFocus, toggleMotivati
           <NotebookPen size={18} />
         </button>
 
-        <button className={`p-2 rounded-full text-text-muted transition-colors ${!isRunning? "opacity-50 cursor-not-allowed" : "hover:bg-background-secondary hover:text-text-primary"}`} title="Notes"
+        <button className={`p-2 rounded-full text-text-muted transition-colors ${!isRunning? "opacity-50 cursor-not-allowed" : "hover:bg-background-secondary hover:text-text-primary"}`} title="Progress"
           onClick={() => handlePanelToggle("progress")}>
           <List size={18} />
         </button>

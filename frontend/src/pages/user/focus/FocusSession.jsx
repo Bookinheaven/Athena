@@ -27,7 +27,19 @@ import { useSessionSettings } from "./hooks/useSessionSettings.js";
 const FocusSession = () => {
   // Navigation states
   const [showQuotes, setShowQuotes] = useState(false);
-  const [activePanel, setActivePanel] = useState("");
+  const [activePanels, setActivePanels] = useState({
+    notes: false,
+    todos: false,
+    settings: false,
+    progress: false
+  });
+
+  const togglePanel = (panelName) => {
+    setActivePanels((prev) => ({
+      ...prev,
+      [panelName]: !prev[panelName]
+    }));
+  };
 
   // Control states
   // const hasLoggedStart = useRef(false);
@@ -212,6 +224,12 @@ const FocusSession = () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, []);
+
+  useEffect(() => {
+    if (isRunning) {
+      setActivePanels((prev) => ({ ...prev, settings: false }));
+    }
+  }, [isRunning]);
   
   const handleReviewUpdate = useCallback(
     (field, value) => {
@@ -333,10 +351,12 @@ const FocusSession = () => {
     setNewSession: () => setNewSession(true),
     onTitleSet: () => onTitleSet(),
   };
-  return (
+ return (
     <div
       ref={containerRef}
-      className="h-screen max-h-screen flex flex-col lg:p-4 relative theme-transition bg-background-color overflow-hidden"    >
+      className="h-screen w-full flex flex-col relative theme-transition bg-background-color overflow-hidden"
+    >
+      {/* --- FLOATING TOASTS (For Saves) --- */}
       <AnimatePresence>
         {saveStatus !== "idle" && (
           <motion.div
@@ -345,7 +365,7 @@ const FocusSession = () => {
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: 100, opacity: 0 }}
             transition={{ duration: 0.3, ease: "easeOut" }}
-            className="fixed bottom-6 right-6 z-50"
+            className="fixed bottom-6 right-6 z-[100]"
           >
             <div
               className={`flex items-center gap-3 px-5 py-3 rounded-xl shadow-xl border backdrop-blur-md
@@ -357,16 +377,9 @@ const FocusSession = () => {
                   : "bg-green-500/10 border-green-400 text-green-400"
               }`}
             >
-              {saveStatus === "saving" && (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              )}
-              {saveStatus === "error" && (
-                <AlertCircle className="w-4 h-4" />
-              )}
-              {saveStatus === "saved" && (
-                <CheckCircle className="w-4 h-4" />
-              )}
-
+              {saveStatus === "saving" && <Loader2 className="w-4 h-4 animate-spin" />}
+              {saveStatus === "error" && <AlertCircle className="w-4 h-4" />}
+              {saveStatus === "saved" && <CheckCircle className="w-4 h-4" />}
               <span className="text-sm font-medium">
                 {saveStatus === "saving" && "Saving changes..."}
                 {saveStatus === "error" && "Offline. Retrying..."}
@@ -377,131 +390,201 @@ const FocusSession = () => {
         )}
       </AnimatePresence>
 
-      <div className="w-full mb-3 flex justify-center">
-        <HeaderNav
-          isDeepFocus={isDeepFocus}
-          toggleDeepFocus={toggleDeepFocus}
-          toggleMotivation={() => setShowQuotes((s) => !s)}
-          isRunning={isRunning}
-          setActivePanel={setActivePanel}
-        />
-      </div>
+        <motion.div
+        drag
+        dragConstraints={containerRef}
+        dragMomentum={false}
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        style={{ left: "calc(50% - 200px)", top: "3vh" }} 
+        className="absolute z-40 flex flex-col bg-card-background border border-card-border rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] overflow-hidden"
+      >
+         <HeaderNav
+            isDeepFocus={isDeepFocus}
+            toggleDeepFocus={toggleDeepFocus}
+            toggleMotivation={() => setShowQuotes((s) => !s)}
+            isRunning={isRunning}
+            togglePanel={togglePanel}
+          />
+      </motion.div>
+      <motion.div
+        drag
+        dragConstraints={containerRef}
+        dragMomentum={false}
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        style={{ left: "calc(50% - 200px)", top: "15vh" }} // 200px is half of the 400px width
+        className="absolute z-40 flex flex-col bg-card-background border border-card-border rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] overflow-hidden"
+      >
+        <div className="h-6 w-full cursor-grab active:cursor-grabbing flex justify-center items-center bg-background-secondary/50 hover:bg-background-secondary/80 transition-colors shrink-0 border-b border-border-secondary">
+          <div className="w-12 h-1 bg-border-primary rounded-full pointer-events-none" />
+        </div>
+        <div className="flex-1 overflow-hidden cursor-auto relative">
+          <AnimatePresence mode="wait">
+            {machineState.status === "finished" ? (
+              <motion.div
+                key="review"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+                transition={{ duration: 0.25 }}
+              >
+                <SessionReview
+                  reviewData={sessionReview}
+                  onUpdate={handleReviewUpdate}
+                  onDistractionToggle={handleDistractionToggle}
+                  onNewSession={handleFinalSaveAndStartNew}
+                />
+              </motion.div>
+            ) : (
+              <motion.div
+                key="timer"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+                transition={{ duration: 0.25 }}
+              >
+                <Timer
+                  timer={timerData}
+                  session={sessionMetrics}
+                  controls={controls}
+                  sessionTitle={sessionTitle}
+                  setSessionTitle={setSessionTitle}
+                  sessionPlannedDuration={sessionData.plannedDuration}
+                  setSessionPlannedDuration={setSessionPlannedDuration}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </motion.div>
 
-      <div className="flex flex-1 min-h-0 w-full overflow-hidden">
-        <Settings
-          plannedDuration={sessionData.plannedDuration}
-          initialValues={settings}
-          onSave={(values) => {
-            setBreakDuration(values.breakDuration);
-            setAutoStartBreaks(values.autoStartBreaks);
-            setBreaksNumber(values.breaksNumber);
-            setSkipBreaks(values.skipBreaks);
-            setConfirmReset(values.confirmReset);
-            setSoundOnTransition(values.soundOnTransition);
-            setIsSoundEnabled(values.isSoundEnabled);
-            modifySettings(values);
-          }}
-          show={activePanel === "settings"}
-          onClose={() => setActivePanel(null)}
-        />
-
-        <div className="flex flex-1 min-h-0 rounded-xl relative overflow-hidden flex-col lg:flex-row">
-
-          <div className="flex-1 flex justify-center items-center">
-            <AnimatePresence mode="wait">
-              {machineState.status === "finished" ? (
-                <motion.div
-                  key="review"
-                  initial={{ opacity: 0, scale: 0.96 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.96 }}
-                  transition={{ duration: 0.25 }}
-                  className="w-full flex justify-center"
-                >
-                  <SessionReview
-                    reviewData={sessionReview}
-                    onUpdate={handleReviewUpdate}
-                    onDistractionToggle={handleDistractionToggle}
-                    onNewSession={handleFinalSaveAndStartNew}
-                  />
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="timer"
-                  initial={{ opacity: 0, scale: 0.96 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.96 }}
-                  transition={{ duration: 0.25 }}
-                  className="w-full flex justify-center"
-                >
-                  <Timer
-                    timer={timerData}
-                    session={sessionMetrics}
-                    controls={controls}
-                    sessionTitle={sessionTitle}
-                    setSessionTitle={setSessionTitle}
-                    sessionPlannedDuration={sessionData.plannedDuration}
-                    setSessionPlannedDuration={setSessionPlannedDuration}
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-
-          <div
-            className={`
-              transition-all duration-300 ease-in-out
-              ${
-                activePanel === "notes"
-                  ? "w-full lg:w-[500px] h-[50%] lg:h-full"
-                  : "w-0 h-0 lg:h-full"
-              }
-              overflow-hidden
-              bg-background-primary/30 backdrop-blur-xl
-            `}
+      <AnimatePresence>
+        {activePanels.notes && (
+          <motion.div
+            drag
+            dragConstraints={containerRef}
+            dragMomentum={false}
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            style={{ right: "40px", top: "100px" }}
+            className="absolute w-[450px] h-[70vh] z-50 flex flex-col bg-card-background border border-card-border rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] overflow-hidden"
           >
-            <div className="h-full w-full max-h-full overflow-hidden">
+            <div className="h-6 w-full cursor-grab active:cursor-grabbing flex justify-center items-center bg-background-secondary/50 hover:bg-background-secondary/80 transition-colors shrink-0 border-b border-border-secondary">
+              <div className="w-12 h-1 bg-border-primary rounded-full pointer-events-none" />
+            </div>
+            <div className="flex-1 overflow-hidden cursor-auto relative">
               <Notes
                 notes={notes}
                 todos={todos}
                 createNote={createNote}
                 updateNote={updateNote}
                 deleteNote={deleteNote}
-                show={activePanel === "notes"}
-                onClose={() => setActivePanel(null)}
+                show={true}
+                onClose={() => togglePanel("notes")}
               />
             </div>
-          </div>
-
-        </div>
-
-        <TodoList
-          todos={todos}
-          newTodo={newTodo}
-          setNewTodo={setNewTodo}
-          onAddTodo={handleAddTodo}
-          onUpdateStatus={handleUpdateTodoStatus}
-          onDeleteTodo={handleDeleteTodo}
-          show={activePanel === "todos"}
-          onClose={() => setActivePanel(null)}
-        />
-      </div>
-
-      <AnimatePresence>
-        {showQuotes && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            transition={{ duration: 0.3 }}
-          >
-            <MotivationalQuotes
-              show={showQuotes}
-              onClose={() => setShowQuotes(false)}
-            />
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* TODOS WIDGET (Starts Top Left) */}
+      <AnimatePresence>
+        {activePanels.todos && (
+          <motion.div
+            drag
+            dragConstraints={containerRef}
+            dragMomentum={false}
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            style={{ left: "40px", top: "100px" }}
+            className="absolute w-[400px] h-[60vh] z-50 flex flex-col bg-card-background border border-card-border rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] overflow-hidden"
+          >
+            <div className="h-6 w-full cursor-grab active:cursor-grabbing flex justify-center items-center bg-background-secondary/50 hover:bg-background-secondary/80 transition-colors shrink-0 border-b border-border-secondary">
+              <div className="w-12 h-1 bg-border-primary rounded-full pointer-events-none" />
+            </div>
+            <div className="flex-1 overflow-hidden cursor-auto relative">
+              <TodoList
+                todos={todos}
+                newTodo={newTodo}
+                setNewTodo={setNewTodo}
+                onAddTodo={handleAddTodo}
+                onUpdateStatus={handleUpdateTodoStatus}
+                onDeleteTodo={handleDeleteTodo}
+                show={true}
+                onClose={() => togglePanel("todos")}
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* SETTINGS WIDGET (Starts slightly off-center) */}
+      <AnimatePresence>
+        {activePanels.settings && (
+          <motion.div
+            drag
+            dragConstraints={containerRef}
+            dragMomentum={false}
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            style={{ left: "calc(50% - 200px)", top: "20vh" }}
+            className="absolute w-[400px] z-50 flex flex-col bg-card-background border border-card-border rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] overflow-hidden"
+          >
+            <div className="h-6 w-full cursor-grab active:cursor-grabbing flex justify-center items-center bg-background-secondary/50 hover:bg-background-secondary/80 transition-colors shrink-0 border-b border-border-secondary">
+              <div className="w-12 h-1 bg-border-primary rounded-full pointer-events-none" />
+            </div>
+            <div className="overflow-hidden cursor-auto relative">
+              <Settings
+                plannedDuration={sessionData.plannedDuration}
+                initialValues={settings}
+                onSave={(values) => {
+                  setBreakDuration(values.breakDuration);
+                  setAutoStartBreaks(values.autoStartBreaks);
+                  setBreaksNumber(values.breaksNumber);
+                  setSkipBreaks(values.skipBreaks);
+                  setConfirmReset(values.confirmReset);
+                  setSoundOnTransition(values.soundOnTransition);
+                  setIsSoundEnabled(values.isSoundEnabled);
+                  modifySettings(values);
+                }}
+                show={true}
+                onClose={() => togglePanel("settings")}
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* QUOTES WIDGET (Starts Bottom Center) */}
+      <AnimatePresence>
+        {showQuotes && (
+          <motion.div
+            drag
+            dragConstraints={containerRef}
+            dragMomentum={false}
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            style={{ left: "calc(50% - 225px)", bottom: "40px" }} // 225px is half of 450px
+            className="absolute w-[450px] z-50 flex flex-col shadow-[0_20px_50px_rgba(0,0,0,0.3)] rounded-2xl overflow-hidden"
+          >
+            <div className="h-6 w-full cursor-grab active:cursor-grabbing flex justify-center items-center bg-background-primary/90 hover:bg-background-primary transition-colors shrink-0 border-x border-t border-border-secondary rounded-t-2xl">
+              <div className="w-12 h-1 bg-border-primary rounded-full pointer-events-none" />
+            </div>
+            <div className="cursor-auto relative bg-background-primary/80 backdrop-blur-2xl border border-border-secondary rounded-b-2xl overflow-hidden">
+              <MotivationalQuotes
+                show={showQuotes}
+                onClose={() => setShowQuotes(false)}
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      
     </div>
   );
   }
