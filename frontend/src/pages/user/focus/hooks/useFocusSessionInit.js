@@ -22,7 +22,7 @@ export const useFocusSessionInit = ({
 
     // reset handlers
     resetSession,
-    setTodos,
+    updateTodos,
     createNote,
     setNewSession,
 }) => {
@@ -67,7 +67,7 @@ export const useFocusSessionInit = ({
         
         resetSession();
         setSessionTitle("Untitled Work");
-        setTodos([]);
+        updateTodos([]);
         
         const note = await createNote({
             title: "",

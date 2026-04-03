@@ -10,7 +10,7 @@ class SessionService extends RequestService {
   }
 
   sessionFeedback(payload) {
-    return this.request(`/session/${payload.sessionId}/feedback`, { method: "POST", body: payload })
+    return this.request(`/session/${payload.sessionId}/feedback`, { method: "POST", body: payload.feedback })
   }
 
   getActiveSession() {

@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   X,
   Trash2,
@@ -11,8 +11,10 @@ import {
   List,
   ListOrdered,
   Quote,
+  NotebookPen,
+  FolderOpen,
+  CheckCircle2
 } from "lucide-react";
-
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
@@ -21,50 +23,67 @@ import Placeholder from "@tiptap/extension-placeholder";
 const MenuBar = ({ editor }) => {
   if (!editor) return null;
 
+  const Button = ({ onClick, disabled, isActive, children }) => (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={`p-1.5 rounded-lg transition-all duration-200 ${
+        isActive
+          ? "bg-button-primary/20 text-button-primary shadow-sm"
+          : "text-text-muted hover:bg-background-secondary hover:text-text-primary"
+      }`}
+    >
+      {children}
+    </button>
+  );
+
   return (
-    <div className="flex flex-wrap gap-1 mb-3 pb-2 border-b border-border-secondary shrink-0">
-      <button
+    <div className="flex items-center gap-1 p-1 bg-background-secondary/40 border border-border-secondary rounded-xl mb-4 w-fit shrink-0 shadow-sm">
+      <Button
         onClick={() => editor.chain().focus().toggleBold().run()}
         disabled={!editor.can().chain().focus().toggleBold().run()}
-        className={`p-1.5 rounded hover:bg-background-secondary transition ${editor.isActive("bold") ? "text-button-primary bg-button-primary/10" : "text-text-muted"}`}
+        isActive={editor.isActive("bold")}
       >
-        <Bold size={16} />
-      </button>
-      <button
+        <Bold size={16} strokeWidth={2.5} />
+      </Button>
+      <Button
         onClick={() => editor.chain().focus().toggleItalic().run()}
         disabled={!editor.can().chain().focus().toggleItalic().run()}
-        className={`p-1.5 rounded hover:bg-background-secondary transition ${editor.isActive("italic") ? "text-button-primary bg-button-primary/10" : "text-text-muted"}`}
+        isActive={editor.isActive("italic")}
       >
-        <Italic size={16} />
-      </button>
-      <button
+        <Italic size={16} strokeWidth={2.5} />
+      </Button>
+      <Button
         onClick={() => editor.chain().focus().toggleStrike().run()}
         disabled={!editor.can().chain().focus().toggleStrike().run()}
-        className={`p-1.5 rounded hover:bg-background-secondary transition ${editor.isActive("strike") ? "text-button-primary bg-button-primary/10" : "text-text-muted"}`}
+        isActive={editor.isActive("strike")}
       >
-        <Strikethrough size={16} />
-      </button>
+        <Strikethrough size={16} strokeWidth={2.5} />
+      </Button>
 
-      <div className="w-px h-6 bg-border-secondary mx-1 self-center" />
+      <div className="w-px h-5 bg-border-secondary mx-1" />
 
-      <button
+      <Button
         onClick={() => editor.chain().focus().toggleBulletList().run()}
-        className={`p-1.5 rounded hover:bg-background-secondary transition ${editor.isActive("bulletList") ? "text-button-primary bg-button-primary/10" : "text-text-muted"}`}
+        isActive={editor.isActive("bulletList")}
       >
-        <List size={16} />
-      </button>
-      <button
+        <List size={16} strokeWidth={2.5} />
+      </Button>
+      <Button
         onClick={() => editor.chain().focus().toggleOrderedList().run()}
-        className={`p-1.5 rounded hover:bg-background-secondary transition ${editor.isActive("orderedList") ? "text-button-primary bg-button-primary/10" : "text-text-muted"}`}
+        isActive={editor.isActive("orderedList")}
       >
-        <ListOrdered size={16} />
-      </button>
-      <button
+        <ListOrdered size={16} strokeWidth={2.5} />
+      </Button>
+
+      <div className="w-px h-5 bg-border-secondary mx-1" />
+
+      <Button
         onClick={() => editor.chain().focus().toggleBlockquote().run()}
-        className={`p-1.5 rounded hover:bg-background-secondary transition ${editor.isActive("blockquote") ? "text-button-primary bg-button-primary/10" : "text-text-muted"}`}
+        isActive={editor.isActive("blockquote")}
       >
-        <Quote size={16} />
-      </button>
+        <Quote size={16} strokeWidth={2.5} />
+      </Button>
     </div>
   );
 };
@@ -81,7 +100,7 @@ const Notes = ({
 }) => {
   const [selectedTaskId, setSelectedTaskId] = useState(null);
   const [editingId, setEditingId] = useState(null);
-
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const debounceRef = useRef(null);
 
   const selectedTask = useMemo(
@@ -117,9 +136,7 @@ const Notes = ({
     content: "",
     onUpdate: ({ editor }) => {
       if (!editingId) return;
-
       clearTimeout(debounceRef.current);
-
       debounceRef.current = setTimeout(() => {
         updateNote(editingId, {
           content: editor.getHTML(),
@@ -136,10 +153,8 @@ const Notes = ({
 
   useEffect(() => {
     if (!editor) return;
-
     const currentEditorContent = editor.getHTML();
     const newContent = currentNote?.content || "<p></p>";
-
     if (currentEditorContent !== newContent) {
       editor.commands.setContent(newContent);
     }
@@ -150,12 +165,10 @@ const Notes = ({
 
     const insertLocalImage = (file) => {
       if (!file || !file.type.startsWith("image")) return false;
-
       const reader = new FileReader();
       reader.onload = (e) => {
         editor.chain().focus().setImage({ src: e.target.result }).run();
       };
-
       reader.readAsDataURL(file);
       return true;
     };
@@ -163,7 +176,6 @@ const Notes = ({
     const handlePaste = (event) => {
       const items = event.clipboardData?.items;
       if (!items) return;
-
       for (let item of items) {
         if (insertLocalImage(item.getAsFile())) {
           event.preventDefault();
@@ -195,9 +207,7 @@ const Notes = ({
       content: "<p></p>",
       task: selectedTaskId || null,
     });
-
     if (!res) return;
-
     setEditingId(res.id);
   };
 
@@ -207,10 +217,7 @@ const Notes = ({
   };
 
   const handleDeleteGroup = async () => {
-    const contextName = selectedTask
-      ? `"${selectedTask.text}"`
-      : "General Notes";
-
+    const contextName = selectedTask ? `"${selectedTask.title || selectedTask.text}"` : "General Notes";
     if (window.confirm(`Delete all notes for ${contextName}?`)) {
       for (let note of filteredNotes) {
         await deleteNote(note.id);
@@ -222,124 +229,198 @@ const Notes = ({
   if (!show) return null;
 
   return (
-    <div className="h-full max-h-full w-full flex flex-col px-5 py-5 bg-card-background border border-card-border rounded-2xl shadow-card-shadow relative overflow-hidden">
-      <div className="flex justify-between items-center mb-4 shrink-0">
-        <h3 className="text-base font-semibold text-text-primary">
+    <div className="flex flex-col h-full w-full bg-transparent">
+      
+      <div className="flex justify-between items-center px-5 py-4 border-b border-border-secondary shrink-0">
+        <h3 className="text-base font-semibold text-text-primary flex items-center gap-2">
           {selectedTask ? "Task Notes" : "Workspace Notes"}
         </h3>
         <button
           onClick={onClose}
-          className="p-1 hover:bg-background-secondary rounded-md transition"
+          className="p-1 rounded-md text-text-muted hover:text-text-primary hover:bg-background-secondary transition-colors"
         >
-          <X className="w-5 h-5 text-text-muted hover:text-text-primary" />
+          <X className="w-4 h-4" />
         </button>
       </div>
 
-      <div className="mb-4 shrink-0">
-        <div className="flex justify-between items-center text-xs mb-1.5">
-          <span className="flex items-center gap-1 font-medium text-text-muted uppercase tracking-wider">
-            <Link size={12} /> Link to Task
+      <div className="px-5 py-4 border-b border-border-secondary shrink-0 bg-background-primary/20 z-20">
+        <div className="flex justify-between items-center text-xs mb-2.5">
+          <span className="flex items-center gap-1.5 font-bold text-text-muted uppercase tracking-wider">
+            <Link size={12} strokeWidth={2.5} /> Link Context
           </span>
           {filteredNotes.length > 0 && (
             <button
               onClick={handleDeleteGroup}
-              className="text-button-danger hover:underline"
+              className="text-[11px] font-bold text-red-400 bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 hover:text-red-300 px-2 py-1 rounded transition-all duration-300"
             >
               Clear All
             </button>
           )}
         </div>
 
-        <div className="relative group">
-          <select
-            value={selectedTaskId || ""}
-            onChange={(e) => {
-              setSelectedTaskId(e.target.value || null);
-              setEditingId(null);
-            }}
-            className="w-full appearance-none rounded-xl border border-border-secondary px-3 py-2.5 text-sm bg-input-background text-text-primary focus:border-button-primary focus:ring-1 focus:ring-button-primary outline-none transition cursor-pointer"
+        <div className="relative">
+          <button
+            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+            className="w-full flex items-center justify-between rounded-xl border border-border-secondary px-4 py-3 bg-input-background text-text-primary hover:border-border-primary hover:bg-background-secondary transition-all shadow-sm focus:outline-none focus:ring-2 focus:ring-button-primary/50"
           >
-            <option value="">
-              General Scratchpad [{noteCounts["general"] || 0}]
-            </option>
-            {todos.map((todo) => (
-              <option key={todo.id} value={todo.id}>
-                {todo.text} [{noteCounts[todo.id] || 0}]
-              </option>
-            ))}
-          </select>
-          <ChevronDown className="absolute right-3 top-3 w-4 h-4 text-text-muted pointer-events-none group-hover:text-text-primary transition" />
+            <div className="flex items-center gap-2 text-sm font-medium truncate">
+              {!selectedTaskId ? (
+                <>
+                  <FolderOpen size={16} className="text-text-muted" />
+                  <span>General Scratchpad</span>
+                  <span className="text-xs text-text-muted ml-1 bg-background-secondary px-1.5 rounded-full">
+                    {noteCounts["general"] || 0}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 size={16} className="text-button-primary" />
+                  <span className="truncate">{selectedTask?.title || selectedTask?.text}</span>
+                  <span className="text-xs text-button-primary bg-button-primary/10 px-1.5 rounded-full">
+                    {noteCounts[selectedTaskId] || 0}
+                  </span>
+                </>
+              )}
+            </div>
+            <ChevronDown 
+              size={16} 
+              className={`text-text-muted transition-transform duration-300 ${isDropdownOpen ? "rotate-180" : ""}`} 
+            />
+          </button>
+
+          {isDropdownOpen && (
+            <>
+              <div 
+                className="fixed inset-0 z-30" 
+                onClick={() => setIsDropdownOpen(false)} 
+              />
+              <div className="absolute top-full left-0 mt-2 w-full max-h-60 overflow-y-auto custom-scrollbar bg-card-background border border-border-secondary rounded-xl shadow-2xl z-40 py-2">
+                
+                <button
+                  onClick={() => {
+                    setSelectedTaskId(null);
+                    setEditingId(null);
+                    setIsDropdownOpen(false);
+                  }}
+                  className={`w-full flex items-center justify-between px-4 py-2.5 text-sm transition-colors ${
+                    !selectedTaskId ? "bg-background-secondary/80 text-text-primary font-semibold" : "text-text-secondary hover:bg-background-secondary/50 hover:text-text-primary font-medium"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <FolderOpen size={16} className={!selectedTaskId ? "text-button-primary" : "text-text-muted"} />
+                    <span>General Scratchpad</span>
+                  </div>
+                  <span className="text-xs text-text-muted bg-background-secondary px-2 py-0.5 rounded-full border border-border-secondary/50">
+                    {noteCounts["general"] || 0}
+                  </span>
+                </button>
+
+                {todos.length > 0 && (
+                  <div className="px-4 py-2 mt-1">
+                    <div className="text-[10px] font-bold text-text-muted uppercase tracking-wider mb-1">Tasks</div>
+                  </div>
+                )}
+                
+                {todos.map((todo) => {
+                  const isActive = String(todo.id) === String(selectedTaskId);
+                  return (
+                    <button
+                      key={todo.id}
+                      onClick={() => {
+                        setSelectedTaskId(todo.id);
+                        setEditingId(null);
+                        setIsDropdownOpen(false);
+                      }}
+                      className={`w-full flex items-center justify-between px-4 py-2.5 text-sm transition-colors ${
+                        isActive ? "bg-background-secondary/80 text-text-primary font-semibold" : "text-text-secondary hover:bg-background-secondary/50 hover:text-text-primary font-medium"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 truncate pr-4">
+                        <CheckCircle2 size={16} className={isActive ? "text-button-primary" : "text-text-muted"} />
+                        <span className="truncate">{todo.title || todo.text}</span>
+                      </div>
+                      <span className="text-xs text-text-muted bg-background-secondary px-2 py-0.5 rounded-full border border-border-secondary/50 shrink-0">
+                        {noteCounts[todo.id] || 0}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </div>
+
+        <div className="flex gap-2 mt-4 overflow-x-auto pb-1 custom-scrollbar shrink-0">
+          {filteredNotes.map((note) => (
+            <button
+              key={note.id}
+              onClick={() => setEditingId(note.id)}
+              className={`
+                whitespace-nowrap px-4 py-1.5 text-xs font-bold rounded-full transition-all border
+                ${
+                  editingId === note.id
+                    ? "bg-button-primary border-button-primary text-white shadow-md scale-105"
+                    : "bg-background-secondary border-border-secondary text-text-secondary hover:bg-background-secondary-contrast hover:text-text-primary"
+                }
+              `}
+            >
+              {note.title || "Untitled Note"}
+            </button>
+          ))}
+          <button
+            onClick={handleCreateNote}
+            className="flex items-center gap-1 px-4 py-1.5 rounded-full border border-dashed border-border-secondary text-text-muted hover:text-text-primary hover:border-border-primary hover:bg-background-secondary transition-all"
+          >
+            <Plus size={14} strokeWidth={2.5} /> <span className="text-xs font-bold">New</span>
+          </button>
         </div>
       </div>
 
-      <div className="flex gap-2 mb-4 overflow-x-auto p-2 pl-0 custom-scrollbar shrink-0">
-        {filteredNotes.map((note) => (
-          <button
-            key={note.id}
-            onClick={() => setEditingId(note.id)}
-            className={`
-              whitespace-nowrap px-3 py-1.5 text-sm font-medium rounded-lg transition-all border
-              ${
-                editingId === note.id
-                  ? "bg-button-primary border-button-primary text-white shadow-md"
-                  : "bg-background-secondary border-border-secondary text-text-secondary hover:bg-background-secondary-contrast"
-              }
-            `}
-          >
-            {note.title || "Untitled Note"}
-          </button>
-        ))}
-        <button
-          onClick={handleCreateNote}
-          className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-dashed border-border-secondary text-text-muted hover:text-text-primary hover:border-text-primary transition-colors"
-        >
-          <Plus size={16} /> <span className="text-sm font-medium">New</span>
-        </button>
-      </div>
-
-      <div className="flex-1 min-h-0 flex flex-col">
+      <div className="flex-1 min-h-0 flex flex-col p-5 overflow-hidden z-10">
         {editingId ? (
-          <div className="flex flex-col flex-1 min-h-0">
-            <input
-              placeholder="Note Title..."
-              value={currentNote?.title || ""}
-              onChange={(e) =>
-                updateNote(editingId, {
-                  title: e.target.value,
-                })
-              }
-              className="w-full text-2xl font-bold bg-transparent outline-none mb-4 text-text-primary placeholder:text-text-muted/50 shrink-0"
-            />
+          <div className="flex flex-col h-full w-full">
+            <div className="flex items-center justify-between mb-4 shrink-0">
+              <input
+                placeholder="Note Title..."
+                value={currentNote?.title || ""}
+                onChange={(e) =>
+                  updateNote(editingId, {
+                    title: e.target.value,
+                  })
+                }
+                className="w-full text-3xl font-black bg-transparent outline-none text-text-primary placeholder:text-text-muted/30 tracking-tight"
+              />
+            </div>
 
             <MenuBar editor={editor} />
 
             <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar cursor-text min-h-0">
-              <EditorContent editor={editor} className="min-h-full pb-4" />
+              <EditorContent editor={editor} className="min-h-full pb-10" />
             </div>
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center h-full text-center opacity-60 mt-10">
-            <div className="w-16 h-16 bg-background-secondary rounded-full flex items-center justify-center mb-4">
-              <Quote size={24} className="text-text-muted" />
+          <div className="flex flex-col items-center justify-center h-full text-center opacity-60">
+            <div className="w-16 h-16 bg-background-secondary/50 rounded-full flex items-center justify-center mb-4 border border-border-secondary">
+              <NotebookPen size={28} className="text-text-muted" strokeWidth={1.5} />
             </div>
-            <p className="text-sm text-text-primary font-medium">
+            <p className="text-base text-text-primary font-semibold">
               No note selected
             </p>
-            <p className="text-xs text-text-muted mt-1 max-w-[200px]">
-              Select a note from the tabs above or create a new one to start
-              writing.
+            <p className="text-sm text-text-muted mt-1 max-w-[220px]">
+              Select a note from the tabs above or create a new one.
             </p>
           </div>
         )}
       </div>
 
       {editingId && (
-        <div className="pt-3 mt-2 border-t border-border-secondary shrink-0">
+        <div className="px-5 py-3 border-t border-border-secondary bg-background-secondary/30 shrink-0 flex justify-end">
           <button
             onClick={() => handleDelete(editingId)}
-            className="text-sm text-button-danger flex items-center gap-1.5 hover:bg-button-danger/10 px-2 py-1.5 rounded-md transition"
+            className="group flex items-center gap-2 px-4 py-2 rounded-xl bg-button-danger/10 border border-button-danger/20 text-button-danger hover:bg-button-danger hover:text-white transition-all duration-300 font-bold text-xs shadow-sm"
           >
-            <Trash2 size={16} /> Delete Note
+            <Trash2 size={14} strokeWidth={2.5} className="group-hover:scale-110 transition-transform" /> 
+            Delete Current Note
           </button>
         </div>
       )}

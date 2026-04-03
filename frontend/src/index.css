@@ -249,9 +249,9 @@
     animation: slideUp 0.3s ease-out;
   }
 
-  .pluses {
+  .pulse {
     display: inline-block;
-    animation: pluse 0.6s ease-out infinite alternate;
+    animation: pulse 0.6s ease-out infinite alternate;
     transform-origin: center;
   }
 
@@ -275,13 +275,45 @@
     }
   }
 
-  @keyframes pluse {
+  @keyframes pulse {
     from {
       transform: scale(1);
     }
     to {
       transform: scale(1.5);
     }
+  }
+
+  @keyframes flame-flicker {
+    0%, 100% { 
+      transform: scale(1); 
+      filter: brightness(1) drop-shadow(0 0 2px rgba(249, 115, 22, 0.4)); 
+    }
+    50% { 
+      transform: scale(1.08); 
+      filter: brightness(1.2) drop-shadow(0 0 6px rgba(249, 115, 22, 0.8)); 
+    }
+  }
+
+  @keyframes badge-glow {
+    0%, 100% { 
+      box-shadow: 0 0 4px rgba(249, 115, 22, 0.1); 
+      border-color: rgba(249, 115, 22, 0.2); 
+    }
+    50% { 
+      box-shadow: 0 0 12px rgba(249, 115, 22, 0.3); 
+      border-color: rgba(249, 115, 22, 0.5); 
+    }
+  }
+
+  .animate-flame {
+    animation: flame-flicker 2s ease-in-out infinite;
+    transform-origin: bottom center;
+  }
+
+  .fire-badge-container {
+    animation: badge-glow 3s ease-in-out infinite;
+    background: linear-gradient(to bottom right, rgba(249,115,22,0.1), rgba(239,68,68,0.05));
   }
 
   .theme-transition {

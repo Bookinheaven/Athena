@@ -1,84 +1,82 @@
 import React from "react";
-import { Clock, CheckCircle2, XCircle, X } from "lucide-react";
+import { Clock, Activity, CheckCircle2, X } from "lucide-react";
 
-const STATUS_ICON = {
-  "In Progress": Clock,
-  Completed: CheckCircle2,
-  Skipped: XCircle,
-};
+export const CurrentProgress = ({ todos = [], show, onClose }) => {
+  if (!show) return null;
 
-export const CurrentProgress = ({ todos, show, onClose }) => {
-  const inProgress = todos.filter(
-    (t) => t.status === "In Progress"
-  );
-
-  if (inProgress.length === 0) {
-    return (
-      <div className="min-w-md max-w-md h-170 p-6 bg-card-background border border-card-border rounded-2xl shadow-md text-center"
-      style={{
-        display: show ? "block" : "none",
-      }}>
-        <div className="flex justify-between">
-          <h3 className="text-lg font-semibold text-text-primary mb-4">
-            Current Tasks
-          </h3>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-lg transition-all duration-300 text-text-secondary hover:text-text-primary shadow-none hover:scale-110"
-          >
-            <X className="w-5 h-5" />
-          </button>
-      </div>
-        <p className="text-text-muted">No tasks in progress right now.</p>
-      </div>
-    );
-  }
+  const inProgress = todos.filter((t) => t.status === "In Progress");
 
   return (
-    <div className="min-w-md max-w-md h-170 flex flex-col p-6 bg-card-background border border-card-border rounded-2xl shadow-md"
-    style={{
-        display: show ? "flex" : "none",
-    }}>
-      <div className="flex justify-between">
-        <h3 className="text-lg font-semibold text-text-primary mb-4">
-          Current Tasks
+    <div className="flex flex-col h-full w-full bg-transparent">
+      
+      <div className="flex justify-between items-center px-5 py-4 border-b border-border-secondary shrink-0">
+        <h3 className="text-base font-semibold text-text-primary flex items-center gap-2">
+          <Activity className="w-4 h-4 text-button-primary" />
+          Current Focus
         </h3>
         <button
           onClick={onClose}
-          className="p-2 rounded-lg transition-all duration-300 text-text-secondary hover:text-text-primary shadow-none hover:scale-110"
+          className="p-1 hover:bg-background-secondary rounded-md transition text-text-muted hover:text-text-primary"
         >
-          <X className="w-5 h-5" />
+          <X className="w-4 h-4" />
         </button>
       </div>
-      <div className="p-2 overflow-y-auto">
-        <ul className="space-y-3">
-            {inProgress.map((todo) => {
-            const Icon = STATUS_ICON[todo.status];
-            const badgeColor = "bg-yellow-100 text-yellow-700";
-            return (
-                <li
+
+      <div className="flex-1 overflow-y-auto p-5 custom-scrollbar min-h-0">
+        {inProgress.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-text-muted opacity-60">
+            <CheckCircle2 className="w-12 h-12 mb-3 stroke-[1.5]" />
+            <p className="text-sm font-medium">No active tasks</p>
+            <p className="text-xs mt-1 text-center">Set a task to "In Progress" <br/> from your Todo list.</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {inProgress.map((todo) => (
+              <div
                 key={todo.id}
-                className="flex items-center justify-between p-3 bg-background-secondary rounded-lg"
-                >
-                <div className="flex items-center gap-3">
-                    <Icon className="w-5 h-5 text-text-secondary" />
-                    <span className="font-medium text-text-primary break-words">
-                    {todo.text}
-                    </span>
+                className="group relative p-4 rounded-xl border border-amber-500/20 bg-amber-500/5 transition-all duration-300 hover:bg-amber-500/10 hover:shadow-lg"
+              >
+                <div className="flex items-center justify-between gap-4">
+                  
+                  <div className="flex items-center gap-4 overflow-hidden flex-1">
+                    <div className="relative flex items-center justify-center w-10 h-10 rounded-full bg-amber-500/20 text-amber-500 shrink-0">
+                      <Clock className="w-5 h-5 relative z-10" />
+                      <span className="absolute inset-0 rounded-full border border-amber-500 animate-ping opacity-30"></span>
+                    </div>
+                    
+                    <div className="flex-1 overflow-hidden">
+                      <h4 className="font-semibold text-text-primary text-base truncate">
+                        {todo.title || todo.text}
+                      </h4>
+                      <p className="text-xs text-amber-500/80 font-medium uppercase tracking-wider mt-0.5">
+                        In Progress
+                      </p>
+                    </div>
+                  </div>
+
                 </div>
-                <span
-                    className={`px-2 py-1 text-xs font-medium rounded-full ${badgeColor}`}
-                >
-                    {todo.status}
-                </span>
-                </li>
-            );
-            })}
-        </ul>
+                
+                <div className="absolute bottom-0 left-0 h-[2px] w-full bg-gradient-to-r from-transparent via-amber-500/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
-      <div className="mt-4 text-sm text-text-muted">
-        {inProgress.length} task{inProgress.length > 1 ? "s" : ""} ongoing
-      </div>
+
+      {inProgress.length > 0 && (
+        <div className="px-5 py-3 border-t border-border-secondary bg-background-secondary/30 shrink-0">
+          <div className="flex justify-between items-center text-[11px] font-medium text-text-muted uppercase tracking-wider">
+            <span>
+              {inProgress.length} task{inProgress.length !== 1 && "s"} ongoing
+            </span>
+            <span className="flex items-center gap-1.5 text-amber-500">
+              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+              Active
+            </span>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
