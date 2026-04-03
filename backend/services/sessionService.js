@@ -49,7 +49,7 @@ class SessionService {
   }
 
   async update(userId, payload) {
-    const { sessionId, segment, title, status } = payload;
+    const { sessionId, segment, title, status, todos } = payload;
     if (!sessionId) {
       throw new Error("Session id required");
     }
@@ -71,6 +71,9 @@ class SessionService {
     }
     if (title) {
       updateData.title = title;
+    }
+    if (todos) {
+      updateData.todos = todos;
     }
     if (status === "completed") {
       updateData.status = "completed";
@@ -96,7 +99,6 @@ class SessionService {
 
   async feedback(userId, payload) {
     const { sessionId, feedback } = payload;
-
     const session = await Session.findOneAndUpdate(
       { sessionId, userId },
       {
@@ -106,7 +108,6 @@ class SessionService {
       },
       { new: true },
     );
-
     return session;
   }
 

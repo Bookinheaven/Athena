@@ -32,7 +32,8 @@ const streakSchema = new mongoose.Schema({
     default:"no_change"
   },
 
-  lastProcessedDate:Date
+  lastProcessedDate: Date,
+  lastCountedDate: Date,
 
 },{ timestamps:true });
 

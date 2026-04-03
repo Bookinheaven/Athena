@@ -137,8 +137,21 @@ const sessionSchema = new mongoose.Schema({
     breakDuration: { type: Number, default: 300 },
     autoStartBreaks: { type: Boolean, default: true },
     breaksNumber: { type: Number, default: 4 },
+  },
+  todos: {
+    type: [
+      {
+        title: { type: String, required: true },
+        status: { type: String, default: false },
+        completedAt: Date,
+        createdAt: {
+          type: Date,
+          default: Date.now
+        }
+      }
+    ],
+    default: []
   }
-
 },
 { timestamps: true });
 
