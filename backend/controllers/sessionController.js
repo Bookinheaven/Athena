@@ -45,7 +45,7 @@ class SessionController {
     try {
       const userId = req.user._id;
       const session = await SessionService.feedback(userId, {
-        sessionId: req.params.sessionId,
+        sessionId: req.params.id,
         feedback: req.body,
       });
       res.json({ success: true, session });
