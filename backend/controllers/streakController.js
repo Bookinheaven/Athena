@@ -1,28 +1,32 @@
-import Session from "../models/sessionModel.js";
-import { processDailyStreak } from "../services/streakService.js";
-import { getStartOfDay } from "../utils/streakHelpers.js";
+import StreakService from "../services/streakService.js";
 
-export async function completeSession(req, res) {
-  try {
-    const session = await Session.findById(req.params.id);
-    if (!session) {
-      return res.status(404).json({ message: "Session not found" });
+class StreakController {
+  
+  async getSummary(req, res) {
+    try {
+      const userId = req.user.id;
+      const data = await StreakService.getSummaryData(userId);
+      res.status(200).json(data);
+    } catch (error) {
+      console.error("Streak summary error:", error);
+      res.status(500).json({
+        message: "Failed to fetch streak summary",
+      });
     }
-    if (session.isDone) {
-      return res.json({ success: true });
-    }
-    session.isDone = true;
-    session.status = "completed";
-    session.endedAt = new Date();
-    await session.save();
-
-    const today = getStartOfDay(new Date());
-    
-    await processDailyStreak(session.userId, today);
-    res.json({ success: true });
-  } catch (error) {
-    console.error("completeSession error:", error);
-    res.status(500).json({ message: "Server error" });
   }
-  res.json({ success: true });
+  
+  async getSpecific(req, res) {
+    try {
+      const type = req.params.type;
+      const userId = req.user.id;
+      const data = await StreakService.getSpecificField(userId, type);
+      res.status(200).json({ success:true, ...data.toObject()});
+    } catch (err) {
+      res.status(500).json({
+        message: "Failed to fetch streak get Specific",
+      }); 
+    }
+  }
 }
+
+export default new StreakController();

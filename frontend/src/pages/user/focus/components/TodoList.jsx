@@ -1,115 +1,126 @@
-import React from "react";
+import { useState } from "react";
 import {
   X,
-  PlusCircle,
+  Plus,
   Circle,
   Clock,
   CheckCircle2,
   XCircle,
+  ChevronDown
 } from "lucide-react";
 
 const STATUS_CONFIG = {
   "Not Started": {
     icon: Circle,
     color: "text-gray-500",
-    bg: "bg-gray-100 dark:bg-gray-800",
+    bg: "bg-gray-100 dark:bg-gray-800/50",
     border: "border-gray-300 dark:border-gray-600",
     label: "Not Started",
   },
   "In Progress": {
     icon: Clock,
-    color: "text-yellow-500",
-    bg: "bg-yellow-50 dark:bg-yellow-900/20",
-    border: "border-yellow-300 dark:border-yellow-600",
+    color: "text-amber-500",
+    bg: "bg-amber-50 dark:bg-amber-500/10",
+    border: "border-amber-300 dark:border-amber-500/30",
     label: "In Progress",
   },
-  Completed: {
+  "Completed": {
     icon: CheckCircle2,
-    color: "text-green-500",
-    bg: "bg-green-50 dark:bg-green-900/20",
-    border: "border-green-300 dark:border-green-600",
+    color: "text-emerald-500",
+    bg: "bg-emerald-50 dark:bg-emerald-500/10",
+    border: "border-emerald-300 dark:border-emerald-500/30",
     label: "Completed",
   },
-  Skipped: {
+  "Skipped": {
     icon: XCircle,
     color: "text-gray-400",
-    bg: "bg-gray-50 dark:bg-gray-900/20",
+    bg: "bg-gray-50 dark:bg-gray-900/40",
     border: "border-gray-200 dark:border-gray-700",
     label: "Skipped",
   },
 };
 
 const TodoItem = ({ todo, onUpdateStatus, onDelete }) => {
-  const [showActions, setShowActions] = React.useState(false);
-  const statusConfig = STATUS_CONFIG[todo.status];
+  const [isExpanded, setIsExpanded] = useState(false);
+  const statusConfig = STATUS_CONFIG[todo.status] || STATUS_CONFIG["Not Started"];
+  if (!statusConfig) return null;
   const StatusIcon = statusConfig.icon;
 
   return (
     <div
-      className={`p-4 rounded-xl border transition-all duration-500 transform hover:scale-[1.0] hover:shadow-lg ${statusConfig.bg} ${statusConfig.border}`}
-      onMouseEnter={() => setShowActions(true)}
-      onMouseLeave={() => setShowActions(false)}
-      style={{
-        transitionProperty: "all, transform, box-shadow",
-      }}
+      className={`group relative p-3 rounded-xl border transition-all duration-300 ${
+        isExpanded ? "shadow-md scale-[1.02]" : "hover:border-text-muted/30"
+      } ${statusConfig.bg} ${statusConfig.border}`}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-start gap-3 flex-1">
-          <StatusIcon
-            className={`w-5 h-5 mt-0.5 flex-shrink-0 ${statusConfig.color}`}
-          />
-          <div className="flex-1">
-            <div className="flex items-center flex-wrap gap-2 mb-1">
-              <p className="font-medium text-text-primary break-all pr-2">
-                {todo.text}
-              </p>
-              {/* <div className="flex-shrink-0 px-1.5 py-0.5 text-xs font-mono rounded bg-background-secondary text-text-muted border border-border-secondary">
-                ID: {todo.id}
-              </div> */}
-          </div>
-            <span className={`text-xs ${statusConfig.color} font-medium`}>
-              {statusConfig.label}
-            </span>
-          </div>
+      <div 
+        className="flex items-center justify-between gap-3 cursor-pointer"
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <div className="flex items-center gap-3 flex-1 overflow-hidden">
+          <StatusIcon className={`w-5 h-5 flex-shrink-0 ${statusConfig.color}`} />
+          <p className={`font-medium truncate transition-colors duration-300 ${
+            todo.status === "Completed" || todo.status === "Skipped" 
+              ? "text-text-muted line-through" 
+              : "text-text-primary"
+          }`}>
+            {todo.title}
+          </p>
         </div>
 
-        <button
-          onClick={onDelete}
-          className={`text-button-danger transition-all duration-500 opacity-0 translate-x-2 ${
-            showActions ? "opacity-100 translate-x-0" : ""
-          }`}
-          title="Delete task"
-        >
-          <X className="w-5 h-5" />
-        </button>
+        <div className="flex items-center gap-2">
+          <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${statusConfig.color} bg-background-primary/50 group-hover:opacity-0 transition-opacity`}>
+            {statusConfig.label}
+          </span>
+
+          <div className="absolute right-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button
+              onClick={(e) => { e.stopPropagation(); setIsExpanded(!isExpanded); }}
+              className="p-1.5 text-text-muted hover:text-text-primary hover:bg-background-primary/50 rounded-md transition-colors"
+            >
+              <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isExpanded ? "rotate-180" : ""}`} />
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onDelete(); }}
+              className="p-1.5 text-text-muted hover:text-button-danger hover:bg-button-danger/10 rounded-md transition-colors"
+              title="Delete task"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
       </div>
 
       <div
-        className={`transition-all duration-500 ease-in-out overflow-hidden ${
-          showActions
-            ? "max-h-40 opacity-100 mt-3 pt-3 border-t border-border-secondary"
-            : "max-h-0 opacity-0 mt-0 pt-0 border-transparent"
+        className={`grid transition-all duration-300 ease-in-out ${
+          isExpanded ? "grid-rows-[1fr] opacity-100 mt-3" : "grid-rows-[0fr] opacity-0 mt-0"
         }`}
       >
-        <div className="flex flex-wrap gap-2 overflow-y-hidden">
-          {Object.entries(STATUS_CONFIG).map(([status, config]) => {
-            const Icon = config.icon;
-            return (
-              <button
-                key={status}
-                onClick={() => onUpdateStatus(status)}
-                disabled={todo.status === status}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-300 ${
-                  todo.status === status
-                    ? `${config.bg} ${config.color} border ${config.border} cursor-not-allowed`
-                    : "bg-background-secondary text-text-secondary hover:bg-background-secondary-contrast border border-border-secondary"
-                }`}
-              >
-                <Icon className="w-3.5 h-3.5" />
-                {config.label}
-              </button>
-            );
-          })}
+        <div className="overflow-hidden">
+          <div className="flex flex-wrap gap-2 pt-3 border-t border-border-secondary/50">
+            {Object.entries(STATUS_CONFIG).map(([status, config]) => {
+              const Icon = config.icon;
+              const isActive = todo.status === status;
+              return (
+                <button
+                  key={status}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onUpdateStatus(status);
+                    setIsExpanded(false); // Auto-close after selection
+                  }}
+                  disabled={isActive}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${
+                    isActive
+                      ? `${config.color} bg-background-primary shadow-sm border border-[${config.border}] cursor-default`
+                      : "text-text-muted hover:text-text-primary hover:bg-background-primary/50 border border-transparent hover:border-border-secondary"
+                  }`}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  {config.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>
@@ -119,14 +130,17 @@ const TodoItem = ({ todo, onUpdateStatus, onDelete }) => {
 export const TodoList = ({
   show,
   onClose,
-  todos,
+  todos = [],
   newTodo,
   setNewTodo,
   onAddTodo,
   onUpdateStatus,
   onDeleteTodo,
 }) => {
+  if (!show) return null;
+
   const handleAddTodo = () => {
+    if (!newTodo.trim()) return;
     onAddTodo();
     setNewTodo("");
   };
@@ -134,120 +148,87 @@ export const TodoList = ({
   const stats = {
     total: todos.length,
     completed: todos.filter((t) => t.status === "Completed").length,
-    inProgress: todos.filter((t) => t.status === "In Progress").length,
-    notStarted: todos.filter((t) => t.status === "Not Started").length,
     skipped: todos.filter((t) => t.status === "Skipped").length,
   };
   const progressCount = stats.completed + stats.skipped;
-  const progressPercent =
-    stats.total > 0 ? Math.round((progressCount / stats.total) * 100) : 0;
+  const progressPercent = stats.total > 0 ? Math.round((progressCount / stats.total) * 100) : 0;
 
   return (
-    <div
-      className={`w-full h-full fixed inset-0 z-50 transition-all duration-300 ease-in-out ${
-        show ? "opacity-100 visible" : "opacity-0 invisible"
-      }`}
-    >
-      <div
-        className="absolute inset-0 bg-black/20 backdrop-blur-sm"
-        onClick={onClose}
-      />
-
-      <div
-        className={`flex flex-col absolute right-0 top-0 h-full w-full max-w-md bg-card-background border-l border-card-border shadow-2xl transform transition-transform duration-300 ease-in-out ${
-          show ? "translate-x-0" : "translate-x-full"
-        }`}
-      >
-        <div className="flex justify-between items-center p-6 border-b border-card-border">
-          <h3 className="text-xl font-semibold text-text-primary">Tasks</h3>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-lg transition-all duration-300 text-text-secondary hover:text-text-primary shadow-none hover:scale-110"
-          >
-            <X className="w-5 h-5" />
+    <div className="flex flex-col h-full w-full bg-transparent">
+      
+      <div className="px-5 py-4 border-b border-border-secondary shrink-0">
+        <div className="flex justify-between items-center mb-3">
+          <h3 className="text-base font-semibold text-text-primary flex items-center gap-2">
+            Tasks 
+            <span className="bg-background-secondary text-text-muted text-xs px-2 py-0.5 rounded-full font-medium">
+              {stats.total}
+            </span>
+          </h3>
+          <button onClick={onClose} className="p-1 hover:bg-background-secondary rounded-md transition text-text-muted hover:text-text-primary">
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="p-6 border-b border-card-border">
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={newTodo}
-              onChange={(e) => setNewTodo(e.target.value)}
-              onKeyDown={(e) => {e.stopPropagation(); e.key === "Enter" && handleAddTodo();}}
-              placeholder="Add a new task..."
-              className="flex-1 px-4 py-3 rounded-xl focus-ring-primary bg-input-background border border-input-border text-text-primary placeholder:text-input-placeholder"
-            />
-            <button
-              onClick={handleAddTodo}
-              className="px-5 py-3 rounded-xl font-semibold transition-all duration-300 bg-button-primary text-button-primary-text hover:bg-button-primary-hover"
-            >
-              <PlusCircle className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-
-        {todos.length > 0 && (
-          <div className="p-6 pb-4 border-b border-card-border">
-            <div className="flex gap-2 flex-wrap">
-              <div className="px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
-                Total: {stats.total}
-              </div>
-              {stats.notStarted > 0 && (
-                <div className="px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
-                  <Circle className="w-3 h-3 inline mr-1" />
-                  {stats.notStarted} Not Started
-                </div>
-              )}
-              {stats.inProgress > 0 && (
-                <div className="px-3 py-1.5 rounded-full text-xs font-medium bg-yellow-100 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-500">
-                  <Clock className="w-3 h-3 inline mr-1" />
-                  {stats.inProgress} In Progress
-                </div>
-              )}
-              {stats.completed > 0 && (
-                <div className="px-3 py-1.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-500">
-                  <CheckCircle2 className="w-3 h-3 inline mr-1" />
-                  {stats.completed} Completed
-                </div>
-              )}
+        {/* Sleek Progress Bar */}
+        {stats.total > 0 && (
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-1.5 bg-background-secondary rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-button-primary transition-all duration-700 ease-out rounded-full" 
+                style={{ width: `${progressPercent}%` }}
+              />
             </div>
-          </div>
-        )}
-
-        <div className="flex-1 overflow-hidden flex flex-col">
-          <div className="flex-1 overflow-y-auto p-6">
-            <div className="space-y-3">
-              {todos.length === 0 ? (
-                <div className="text-center py-12 text-text-muted">
-                  <Circle className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                  <p>No tasks yet. Add one to get started!</p>
-                </div>
-              ) : (
-                todos.map((todo) => (
-                  <TodoItem
-                    key={todo.id}
-                    todo={todo}
-                    onUpdateStatus={(status) => onUpdateStatus(todo.id, status)}
-                    onDelete={() => onDeleteTodo(todo.id)}
-                  />
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-
-        {todos.length > 0 && (
-          <div className="p-4 border-t border-card-border bg-background-secondary/50">
-            <div className="flex justify-between text-xs text-text-muted">
-              <span>
-                {progressCount} of {stats.total} done
-              </span>
-              <span>{progressPercent}% done</span>
-            </div>
+            <span className="text-[10px] font-bold text-text-muted tabular-nums w-8 text-right">
+              {progressPercent}%
+            </span>
           </div>
         )}
       </div>
+
+      <div className="flex-1 overflow-y-auto p-4 custom-scrollbar min-h-0">
+        <div className="space-y-2.5">
+          {todos.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-10 text-text-muted opacity-60">
+              <CheckCircle2 className="w-12 h-12 mb-3 stroke-[1.5]" />
+              <p className="text-sm font-medium">You're all caught up!</p>
+              <p className="text-xs mt-1">Add a task below to begin.</p>
+            </div>
+          ) : (
+            todos.map((todo) => (
+              <TodoItem
+                key={todo.id}
+                todo={todo}
+                onUpdateStatus={(status) => onUpdateStatus(todo.id, status)}
+                onDelete={() => onDeleteTodo(todo.id)}
+              />
+            ))
+          )}
+        </div>
+      </div>
+
+      <div className="p-4 border-t border-border-secondary bg-background-primary/30 shrink-0">
+        <div className="relative group">
+          <input
+            type="text"
+            value={newTodo}
+            onChange={(e) => setNewTodo(e.target.value)}
+            onKeyDown={(e) => {
+              e.stopPropagation();
+              if (e.key === "Enter") handleAddTodo();
+            }}
+            placeholder="Add a new task..."
+            className="w-full pl-4 pr-12 py-3 rounded-xl bg-input-background border border-input-border text-sm text-text-primary placeholder:text-input-placeholder focus:border-button-primary focus:outline-none focus:ring-2 focus:ring-button-primary/20 transition-all shadow-sm"
+          />
+          <button
+            onClick={handleAddTodo}
+            disabled={!newTodo.trim()}
+            className="absolute right-1.5 top-1.5 bottom-1.5 aspect-square flex items-center justify-center rounded-lg bg-button-primary text-white transition-all duration-300 hover:bg-button-primary-hover disabled:opacity-0 disabled:scale-90"
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
     </div>
   );
 };

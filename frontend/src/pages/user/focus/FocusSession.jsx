@@ -1,17 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
-import {
-  List,
-  ListTodo,
-  Loader2,
-  AlertCircle,
-  CheckCircle,
-  NotebookPen,
-  Quote,
-  Settings as SettingsIcon,
-} from "lucide-react";
-import { FullScreen, useFullScreenHandle } from "react-full-screen";
+import { Loader2, AlertCircle, CheckCircle } from "lucide-react";
 import createSessionData from "./hooks/useSessionData";
 import { useLocalStorage } from "./hooks/useLocalStorage";
 import { useSessionStorage } from "./hooks/useSessionStorage";
@@ -23,63 +13,69 @@ import CurrentProgress from "./components/CurrentProgress";
 import Notes from "./components/Notes.jsx";
 import { SessionReview } from "./components/SessionReview";
 import sessionService from "../../../../services/sessionService";
-// import { useAuth } from "../../../../contexts/AuthContext";
 import toast from "react-hot-toast";
 import { v4 as uuidv4 } from "uuid";
 
-import { useAutoSaveSession } from "./hooks/useAutoSaveSession.js";
-import { useSessionMachine } from "./hooks/useSessionMachine.js";
-import { useTimeEngine } from "./hooks/useTimeEngine.js";
-import HeaderNav from "../components/FocusHeader.jsx";
+import HeaderNav from "./components/FocusHeader.jsx";
+import userService from "../../../../services/userService.js";
+
+import { useNotes } from "./hooks/useNotes.js";
+import { useSessionController } from "./hooks/useSessionController.js";
+import { useFocusSessionInit } from "./hooks/useFocusSessionInit.js";
+import { useSessionSettings } from "./hooks/useSessionSettings.js";
 
 const FocusSession = () => {
-  // const { user } = useAuth();
-
   // Navigation states
   const [showQuotes, setShowQuotes] = useState(false);
-  const [activePanel, setActivePanel] = useState("");
+  const [activePanels, setActivePanels] = useState({
+    notes: false,
+    todos: false,
+    settings: false,
+    progress: false
+  });
+
+  const togglePanel = (panelName) => {
+    setActivePanels((prev) => ({
+      ...prev,
+      [panelName]: !prev[panelName]
+    }));
+  };
 
   // Control states
   // const hasLoggedStart = useRef(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isDeepFocus, setIsDeepFocus] = useState(false);
   const containerRef = useRef(null);
-
+  
   // Settings state
-  const [breakDuration, setBreakDuration] = useLocalStorage(
-    "breakDuration",
-    5 * 60,
-  );
-  const [autoStartBreaks, setAutoStartBreaks] = useLocalStorage(
-    "autoStartBreaks",
-    true,
-  );
-  const [breaksNumber, setBreaksNumber] = useLocalStorage("breaksNumber", 4);
-  const [totalFocusDuration, setTotalFocusDuration] = useLocalStorage(
-    "totalFocusDuration",
-    25 * 60,
-  );
-
+  const {
+    settings,
+    setBreakDuration,
+    setAutoStartBreaks,
+    setBreaksNumber,
+    setSkipBreaks,
+    setConfirmReset,
+    setSoundOnTransition,
+    setIsSoundEnabled,
+  } = useSessionSettings();
   // Data states
-  const [todos, setTodos] = useSessionStorage("focusTodos", []);
-  const [notes, setNotes] = useSessionStorage("notes", [
-    {
-      id: 1,
-      text: "Welcome to your notes!",
-      taskId: "",
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: 2,
-      text: "Try editing this note.",
-      taskId: "",
-      createdAt: new Date().toISOString(),
-    },
-  ]);
-  const [sessionHistory, setSessionHistory] = useLocalStorage(
-    "sessionHistory",
-    [],
-  );
+  const [sessionStats, setSessionStats] = useSessionStorage("sessionStats", [{
+    breakSegmentsCompleted: 0,
+    focusSegmentsCompleted: 0,
+    interruptions: 0,
+    pauseCount: 0,
+    totalPauseDuration: 0,
+  }])
+  
+  const [sessionPlannedDuration, setSessionPlannedDuration] = useLocalStorage("sessionPlannedDuration", 25 * 60);
+  const {
+    notes,
+    setNotes,
+    createNote,
+    updateNote,
+    deleteNote,
+  } = useNotes();
+
   const [newTodo, setNewTodo] = useState("");
   const [sessionTitle, setSessionTitle] = useState("Untitled Work"); // later we can check if same name is there if so add (no.) [only for all Untitled Work and custom which are created in a same day.]
   const [newSession, setNewSession] = useState(false);
@@ -91,9 +87,9 @@ const FocusSession = () => {
 
   // Initial Session
   const initialSession = useCallback(() => {
-    const safeTotalFocus = totalFocusDuration ?? 25 * 60;
-    const safeBreak = breakDuration ?? 5 * 60;
-    const safeBreaksNum = breaksNumber ?? 4;
+    const safeTotalFocus = sessionPlannedDuration ?? 25 * 60;
+    const safeBreak = settings.breakDuration ?? 5 * 60;
+    const safeBreaksNum = settings.breaksNumber ?? 4;
     const segments = createSessionData(
       safeTotalFocus,
       safeBreak,
@@ -106,138 +102,103 @@ const FocusSession = () => {
       totalBreaks: segments.filter((s) => s.type === "break").length,
       breakDuration: safeBreak,
       maxBreaks: safeBreaksNum,
+      backendCreated: false,
       currentDuration: 0,
-      totalDuration: safeTotalFocus,
+      plannedDuration: safeTotalFocus,
       segments,
+      todos: [],
       timestamp: new Date().toISOString(),
     };
-  }, [totalFocusDuration, breakDuration, breaksNumber, setSessionReview]);
+  }, [sessionPlannedDuration, settings.breakDuration, settings.breaksNumber, setSessionReview]);
 
   // Session storage (local)
   const [sessionData, setSessionData] = useSessionStorage(
     "sessionData",
     initialSession,
   );
+  const todos = sessionData.todos || [];
 
-  const [machineState, dispatch] = useSessionMachine(sessionData);
-  // console.log(machineState)
-  // console.log(machineState.segmentIndex)
-  const currentSegment =
-    sessionData?.segments?.[machineState.segmentIndex] || null;
-
-  //Auto save system
-  const buildPayload = useCallback(() => {
-    if (!sessionData || !sessionData.sessionId) return;
-    // if (!hasStartedFocus) return;
-    const { sessionId, ...sessionDetails } = sessionData;
-    const uniqueHistory = Array.from(
-      new Map(sessionHistory.map((item) => [item.completedAt, item])).values(),
-    );
-    return {
-      sessionId: sessionData.sessionId,
-
-      session: {
-        ...sessionDetails,
-        title: sessionTitle,
-      },
-      userSettings: {
-        totalFocusDuration,
-        breakDuration,
-        autoStartBreaks,
-        breaksNumber,
-      },
-      userData: { todos, notes },
-      sessionFeedback: sessionReview,
-      history: uniqueHistory.length ? uniqueHistory : undefined,
+  const modifySettings = async (changed) => {
+    const merged = {
+      ...settings,
+      ...changed,
     };
-  }, [
-    sessionData,
-    sessionTitle,
-    totalFocusDuration,
-    breakDuration,
-    autoStartBreaks,
-    breaksNumber,
-    todos,
-    notes,
-    sessionReview,
-    sessionHistory,
-  ]);
-
-  const sendBackend = useCallback(async (payload) => {
+    
     try {
-      await sessionService.saveSession(payload);
-      // console.log("sendBackend: Saved");
-    } catch (error) {
-      console.error("Session save error: ", error);
+      let res = await userService.updateSettings(merged, "session");
+      console.log("Updated settings:", res);
+    } catch (err) {
+      console.error("Settings update failed:", err);
     }
-  });
+  };
 
-  const { markDirty, saveStatus, forceSave } = useAutoSaveSession({
-    buildPayload,
-    saveFunction: sendBackend,
-    enabled:
-      machineState.status === "running" ||
-      machineState.status === "paused" ||
-      machineState.status === "finished",
-  });
-  // useEffect(() => {
-  //   console.log("Save: ", saveStatus);
-  // }, [saveStatus]);
-  // useEffect(() => {
-  //   console.log("autoStartBreaks: ", autoStartBreaks);
-  // }, [autoStartBreaks]);
-
-  // Time Engine
+  //Auto save system && Time Engine
   const {
+    machineState,
+    dispatch,
+    currentSegment,
+    segmentIndex,
+    elapsed,
     timeLeft,
-    start: startTimer,
-    pause: pauseTimer,
-    isRunning,
-    isPaused,
-  } = useTimeEngine({
-    segment: currentSegment,
-    status: machineState.status,
-    updateSegment: (updates) => {
-      setSessionData((prev) => {
-        const newSegments = [...prev.segments];
-        newSegments[machineState.segmentIndex] = {
-          ...newSegments[machineState.segmentIndex],
-          ...updates,
-        };
-        return { ...prev, segments: newSegments };
-      });
-      markDirty();
-    },
-    onTimeUp: () => {
-      setSessionData((prev) => {
-        const newSegments = [...prev.segments];
-        const index = machineState.segmentIndex;
-
-        newSegments[index] = {
-          ...newSegments[index],
-          duration: newSegments[index].totalDuration,
-          completedAt: new Date().toISOString(),
-          startTimestamp: null,
-        };
-
-        return { ...prev, segments: newSegments };
-      });
-      markDirty();
-      dispatch({ type: "TIME_UP" });
-    },
+    saveStatus,
+    forceSave,
+    timerStatus,
+    onTitleSet,
+    onTodoChange,
+    onReset,
+    buildPayload
+  } = useSessionController({
+    sessionData,
+    setSessionData,
+    saveFunction: (payload) => sessionService.updateProgress(payload),
+    sessionTitle,
+    autoStartBreaks: settings.autoStartBreaks,
+    skipBreaks: settings.skipBreaks,
+    soundOnTransition: settings.soundOnTransition,
+    todos: sessionData.todos
   });
-
+  const isRunning = machineState.status === "running";
+  
   const resetSession = () => {
+    if (settings.confirmReset && isRunning) {
+      if (!window.confirm("Reset the current session? Your progress will be lost.")) return;
+    }
     const fresh = initialSession();
     setSessionData(fresh);
     setSessionReview({ mood: null, focus: null, distractions: "" });
-    dispatch({ type: "RESET_SESSION" });
+    dispatch({ type: "RESET" })
+    onReset();
   };
 
-  // useEffect(() => {
-  //   console.log("STATUS:", machineState.status);
-  //   console.log("INDEX:", machineState.segmentIndex);
-  // }, [machineState]);
+  const updateTodos = (newTodos) => {
+    setSessionData((prev) => ({
+      ...prev,
+      todos: newTodos,
+    }));
+  };
+
+  useFocusSessionInit({
+    newSession,
+    initialSession,
+    setSessionData,
+    setIsLoading,
+    dispatch,
+    setSessionTitle,
+    setSessionPlannedDuration,
+
+    setAutoStartBreaks,
+    setBreakDuration,
+    setBreaksNumber,
+    setSkipBreaks,
+    setConfirmReset,
+    setSoundOnTransition,
+    setIsSoundEnabled,
+
+    resetSession,
+    updateTodos,
+    createNote,
+    setNewSession,
+  });
 
   //Full screen mode
   const toggleDeepFocus = () => {
@@ -271,143 +232,10 @@ const FocusSession = () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, []);
-
-  // Auto start each focus sessions
-  useEffect(() => {
-    if (machineState.status !== "segment_transition") return;
-
-    dispatch({ type: "NEXT_SEGMENT" });
-  }, [machineState.status]);
-
-  useEffect(() => {
-    if (machineState.status !== "idle") return;
-    if (!autoStartBreaks) return;
-    if (machineState.isDone) return;
-    if (machineState.segmentIndex === 0) return;
-    dispatch({ type: "START" });
-  }, [machineState.status]);
-
-  useEffect(() => {
-    if (machineState.status !== "running") return;
-    startTimer();
-  }, [machineState.status]);
-
-  // New Session
-  useEffect(() => {
-    if (!newSession) return;
-
-    resetSession();
-
-    setSessionTitle("Untitled Work");
-    setSessionHistory([]);
-    setTodos([]);
-    setNotes([
-      {
-        id: 1,
-        text: "Welcome to your notes!",
-        taskId: "",
-        createdAt: new Date().toISOString(),
-      },
-      {
-        id: 2,
-        text: "Try editing this note.",
-        taskId: "",
-        createdAt: new Date().toISOString(),
-      },
-    ]);
-
-    setNewSession(false);
-  }, [newSession]);
-
-  useEffect(() => {
-    if (newSession) return;
-    const loadSession = async () => {
-      try {
-        // console.log("Checking backend for active session...");
-        const backendSession = await sessionService.getActiveSession();
-
-        if (backendSession?.status === "active") {
-          setTotalFocusDuration(backendSession.userSettings.totalFocusDuration);
-          setBreakDuration(backendSession.userSettings.breakDuration);
-          setAutoStartBreaks(backendSession.userSettings.autoStartBreaks);
-          setBreaksNumber(backendSession.userSettings.breaksNumber);
-          setSessionTitle(backendSession.title);
-          setTodos(backendSession.userData.todos || []);
-          setNotes(
-            backendSession.userData.notes || [
-              {
-                id: 1,
-                text: "Welcome back!",
-                group: "General",
-                createdAt: new Date().toISOString(),
-              },
-            ],
-          );
-          setSessionHistory(backendSession.history || []);
-          setSessionReview(
-            backendSession.sessionFeedback || {
-              mood: null,
-              focus: null,
-              distractions: "",
-            },
-          );
-          let index = backendSession.sessionSegments.findIndex(
-            (x) => x.completedAt === null,
-          );
-          if (index < 0) index = 0;
-          setSessionData({
-            sessionId: backendSession.sessionId,
-            title: backendSession.title,
-            segmentIndex: index,
-            totalBreaks: backendSession.sessionSegments.filter(
-              (s) => s.type === "break",
-            ).length,
-            breakDuration: backendSession.userSettings.breakDuration,
-            maxBreaks: backendSession.userSettings.breaksNumber,
-            segments: backendSession.sessionSegments,
-            currentDuration: backendSession.sessionSegments.reduce(
-              (sum, segment) => sum + segment.duration,
-              0,
-            ),
-            totalDuration: backendSession.userSettings.totalFocusDuration,
-            timestamp: backendSession.timestamp,
-          });
-          dispatch({
-            type: "LOAD",
-            payload: {
-              segments: backendSession.sessionSegments,
-              segmentIndex: index,
-              status: "idle",
-              isDone: false,
-            },
-          });
-        } else {
-          // console.log("No active session in backend. Creating new one.");
-          const newSessionData = initialSession();
-          setSessionData(newSessionData);
-        }
-      } catch (error) {
-        // console.error(
-        //   "Failed to fetch active session, creating new one:",
-        //   error
-        // );
-        setSessionData(initialSession());
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    loadSession();
-  }, []);
-
-  const handleFinalSaveAndStartNew = useCallback(async () => {
-    await forceSave();
-    setNewSession(true);
-  }, []);
-
+  
   const handleReviewUpdate = useCallback(
     (field, value) => {
       setSessionReview((prev) => ({ ...prev, [field]: value }));
-      markDirty();
     },
     [setSessionReview],
   );
@@ -428,7 +256,6 @@ const FocusSession = () => {
         } else {
           newDistractions = [...currentDistractions, distraction].join(", ");
         }
-        markDirty();
         return { ...prev, distractions: newDistractions };
       });
     },
@@ -437,48 +264,61 @@ const FocusSession = () => {
 
   const handleAddTodo = useCallback(() => {
     if (!newTodo.trim()) return;
-    setTodos((t) => [
-      ...t,
+
+    const updated = [
+      ...todos,
       {
         id: Date.now(),
-        text: newTodo.trim(),
+        title: newTodo.trim(),
         status: "Not Started",
         createdAt: new Date().toISOString(),
       },
-    ]);
+    ];
+
+    updateTodos(updated);
+    onTodoChange()
     setNewTodo("");
-    markDirty();
-  }, [newTodo, setTodos]);
+  }, [newTodo, todos]);
 
-  const handleUpdateTodoStatus = useCallback(
-    (id, status) => {
-      setTodos((t) => t.map((x) => (x.id === id ? { ...x, status } : x)));
-      markDirty();
-    },
-    [setTodos],
-  );
-
-  const handleDeleteTodo = useCallback(
-    (id) => {
-      setTodos((t) => t.filter((x) => x.id !== id));
-      markDirty();
-    },
-    [setTodos],
-  );
-
-  const handlePanelToggle = (panelName) => {
-    setActivePanel((current) => (current === panelName ? null : panelName));
-    markDirty();
+  const handleFinalSaveAndStartNew = async () => {
+    await forceSave();
+    await sessionService.sessionFeedback({sessionId:sessionData.sessionId, feedback:sessionReview});
+    setNewSession(true);
   };
-  // useEffect(() => {
-  //   console.log("Machine status changed:", machineState.status);
-  // }, [machineState.status]);
 
-  const handleClearHistory = useCallback(() => {
-    setSessionHistory([]);
-    toast.success("Session history has been cleared.");
-    markDirty();
-  }, [setSessionHistory]);
+  const handleUpdateTodoStatus = useCallback((id, status) => {
+    const updated = todos.map((t) =>
+      t.id === id ? { ...t, status } : t
+    );
+    updateTodos(updated);
+    onTodoChange();
+  }, [todos]);
+
+  const handleDeleteTodo = useCallback((id) => {
+    const updated = todos.filter((t) => t.id !== id);
+    updateTodos(updated);
+    onTodoChange();
+  }, [todos]);
+
+  // useEffect(() => {
+  //   console.log("Machine data:", machineState);
+  // }, [machineState]);
+
+  // Automatically close all panels when a session finishes or is reset
+  useEffect(() => {
+    if (machineState.status === "running") {
+      setActivePanels((prev) => ({ ...prev, settings: false }));
+    }
+    if (machineState.status === "finished" || machineState.status === "idle") {
+      setActivePanels({
+        notes: false,
+        todos: false,
+        settings: false,
+        progress: false,
+      });
+      setShowQuotes(false);
+    }
+  }, [machineState.status]);
 
   if (isLoading) {
     return (
@@ -493,12 +333,51 @@ const FocusSession = () => {
       </div>
     );
   }
-  return (
+  
+  const timerData = {
+    timeLeft,
+    elapsed,
+    status: machineState.status,
+    isRunning: machineState.status === "running",
+  };
+
+  const sessionMetrics = {
+    breaksLeft: sessionData.segments?.filter((s) => s.type === "break" && !s.completedAt).length || 0,
+    currentSegment,
+    segmentIndex,
+    totalSegments: sessionData.segments?.length || 1,
+    totalFocusSegments: sessionData.segments?.filter((x) => x.type === "focus")?.length || 0,
+    totalBreakSegments: sessionData.segments?.filter((x) => x.type === "break")?.length || 0,
+    remainingFocusSegments: sessionData.segments?.filter((s) => s.type === "focus" && !s.completedAt).length,
+  };
+  const controls = {
+    start: async () => {
+      try {
+        if (!sessionData.backendCreated) {
+          await sessionService.startSession(buildPayload("start"));
+          setSessionData((prev) => ({
+            ...prev,
+            backendCreated: true,
+          }));
+        }
+      } catch (err) {
+        toast.error("Backend failed, starting locally");
+      }
+
+      dispatch({ type: "START" });
+    },
+
+    pause: () => dispatch({ type: "PAUSE" }),
+    reset: () => dispatch({ type: "RESET" }),
+
+    setNewSession: () => setNewSession(true),
+    onTitleSet: () => onTitleSet(),
+  };
+ return (
     <div
       ref={containerRef}
-      className=" lg:pt-2 min-h-screen flex flex-col lg:p-4 relative theme-transition bg-background-color"
+      className="h-screen w-full flex flex-col relative theme-transition bg-background-color overflow-hidden"
     >
-      
       <AnimatePresence>
         {saveStatus !== "idle" && (
           <motion.div
@@ -507,24 +386,21 @@ const FocusSession = () => {
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: 100, opacity: 0 }}
             transition={{ duration: 0.3, ease: "easeOut" }}
-            className="fixed bottom-6 right-6 z-50"
+            className="fixed bottom-6 right-6 z-[100]"
           >
             <div
               className={`flex items-center gap-3 px-5 py-3 rounded-xl shadow-xl border backdrop-blur-md
-      ${
-        saveStatus === "saving"
-          ? "bg-blue-500/10 border-blue-400 text-blue-400"
-          : saveStatus === "error"
-            ? "bg-red-500/10 border-red-400 text-red-400"
-            : "bg-green-500/10 border-green-400 text-green-400"
-      }`}
+              ${
+                saveStatus === "saving"
+                  ? "bg-blue-500/10 border-blue-400 text-blue-400"
+                  : saveStatus === "error"
+                  ? "bg-red-500/10 border-red-400 text-red-400"
+                  : "bg-green-500/10 border-green-400 text-green-400"
+              }`}
             >
-              {saveStatus === "saving" && (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              )}
+              {saveStatus === "saving" && <Loader2 className="w-4 h-4 animate-spin" />}
               {saveStatus === "error" && <AlertCircle className="w-4 h-4" />}
               {saveStatus === "saved" && <CheckCircle className="w-4 h-4" />}
-
               <span className="text-sm font-medium">
                 {saveStatus === "saving" && "Saving changes..."}
                 {saveStatus === "error" && "Offline. Retrying..."}
@@ -535,44 +411,53 @@ const FocusSession = () => {
         )}
       </AnimatePresence>
 
-      <div className="w-full mb-3 fade-in flex justify-center">
-        <HeaderNav
-          isDeepFocus={isDeepFocus}
-          toggleDeepFocus={toggleDeepFocus}
-          toggleMotivation={() => setShowQuotes((s) => !s)}
-          isRunning={isRunning}
-          handlePanelToggle={handlePanelToggle}
-        ></HeaderNav>
-      </div>
+      <motion.div
+        drag
+        dragConstraints={containerRef}
+        dragMomentum={false}
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        style={{ left: "calc(50% - 200px)", top: "3vh" }} 
+        className="absolute z-40 flex flex-col items-center shadow-[0_20px_50px_rgba(0,0,0,0.3)] rounded-full border border-border-primary/40 bg-card-background/80 backdrop-blur-xl"
+      >
+        <div className="h-4 w-full cursor-grab active:cursor-grabbing flex justify-center items-center hover:bg-background-secondary/50 transition-colors shrink-0 rounded-t-full pt-1">
+          <div className="w-8 h-1 bg-border-primary rounded-full pointer-events-none" />
+        </div>
+        
+        <div className="cursor-auto w-full pb-1.5 px-1.5">
+          <HeaderNav
+            isDeepFocus={isDeepFocus}
+            toggleDeepFocus={toggleDeepFocus}
+            toggleMotivation={() => setShowQuotes((s) => !s)}
+            togglePanel={togglePanel}
+            activePanels={activePanels}
+            isIdle={machineState.status === "idle"}
+            isRunning={isRunning}
+          />
+        </div>
+      </motion.div>
 
-      <div className="flex justify-center items-center flex-grow">
-        <Settings
-          breakDuration={breakDuration}
-          setBreakDuration={setBreakDuration}
-          autoStartBreaks={autoStartBreaks}
-          setAutoStartBreaks={setAutoStartBreaks}
-          totalBreaks={breaksNumber}
-          setTotalBreaks={setBreaksNumber}
-          onClearHistory={handleClearHistory}
-          show={activePanel === "settings"}
-          onClose={() => setActivePanel(null)}
-        />
-
-        <motion.div
-          layout
-          transition={{ duration: 0.4, ease: "easeInOut" }}
-          className="flex flex-col items-center w-full lg:w-0 h-full lg:flex-row md:mt-2 lg:mt-10 relative"
-        >
+      <motion.div
+        drag
+        dragConstraints={containerRef}
+        dragMomentum={false}
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        style={{ left: "calc(50% - 200px)", top: "15vh" }} // 200px is half of the 400px width
+        className="absolute z-40 flex flex-col bg-card-background border border-card-border rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] overflow-hidden"
+      >
+        <div className="h-6 w-full cursor-grab active:cursor-grabbing flex justify-center items-center bg-background-secondary/50 hover:bg-background-secondary/80 transition-colors shrink-0 border-b border-border-secondary">
+          <div className="w-12 h-1 bg-border-primary rounded-full pointer-events-none" />
+        </div>
+        <div className="flex-1 overflow-hidden cursor-auto relative">
           <AnimatePresence mode="wait">
             {machineState.status === "finished" ? (
               <motion.div
                 key="review"
-                layout
-                initial={{ opacity: 0, y: 40, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -40, scale: 0.95 }}
-                transition={{ duration: 0.35, ease: "easeOut" }}
-                className="w-full flex justify-center"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+                transition={{ duration: 0.25 }}
               >
                 <SessionReview
                   reviewData={sessionReview}
@@ -584,108 +469,177 @@ const FocusSession = () => {
             ) : (
               <motion.div
                 key="timer"
-                layout
-                initial={{ opacity: 0, y: 40, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -40, scale: 0.95 }}
-                transition={{ duration: 0.35, ease: "easeOut" }}
-                className="w-full flex justify-center"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+                transition={{ duration: 0.25 }}
               >
                 <Timer
-                  timeLeft={timeLeft}
-                  isStarted={isRunning}
-                  start={() => {
-                    dispatch({ type: "START" });
-                    startTimer();
-                  }}
-                  pause={async () => {
-                    dispatch({ type: "PAUSE" });
-                    pauseTimer();
-                    await forceSave();
-                  }}
-                  reset={resetSession}
-                  isBreak={currentSegment?.type === "break"}
+                  timer={timerData}
+                  session={sessionMetrics}
+                  controls={controls}
                   sessionTitle={sessionTitle}
                   setSessionTitle={setSessionTitle}
-                  setTotalFocusDuration={setTotalFocusDuration}
-                  totalFocusDuration={totalFocusDuration}
-                  breaksLeft={
-                    sessionData.segments.filter(
-                      (s) => s.type === "break" && !s.completedAt,
-                    ).length
-                  }
-                  currentSegmentData={currentSegment}
-                  currentSegmentIndex={machineState.segmentIndex}
-                  totalSegments={sessionData.segments.length}
-                  totalfocusSegments={
-                    sessionData.segments.filter((s) => s.type === "focus")
-                      .length
-                  }
-                  totalbreakSegments={
-                    sessionData.segments.filter((s) => s.type === "break")
-                      .length
-                  }
-                  foucsSegments={
-                    sessionData.segments.filter(
-                      (s) => s.type === "focus" && !s.completedAt,
-                    ).length
-                  }
-                  setNewSession={() => setNewSession(true)}
-                  onUpdateBackend={forceSave}
+                  sessionPlannedDuration={sessionData.plannedDuration}
+                  setSessionPlannedDuration={setSessionPlannedDuration}
                 />
               </motion.div>
             )}
           </AnimatePresence>
+        </div>
+      </motion.div>
 
-          <motion.div layout>
-            <CurrentProgress
-              todos={todos}
-              show={activePanel === "progress"}
-              onClose={() => setActivePanel(null)}
-            />
+      <AnimatePresence>
+        {activePanels.notes && (
+          <motion.div
+            drag
+            dragConstraints={containerRef}
+            dragMomentum={false}
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            style={{ right: "40px", top: "100px" }}
+            className="absolute w-[450px] h-[70vh] z-50 flex flex-col bg-card-background border border-card-border rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] overflow-hidden"
+          >
+            <div className="h-6 w-full cursor-grab active:cursor-grabbing flex justify-center items-center bg-background-secondary/50 hover:bg-background-secondary/80 transition-colors shrink-0 border-b border-border-secondary">
+              <div className="w-12 h-1 bg-border-primary rounded-full pointer-events-none" />
+            </div>
+            <div className="flex-1 overflow-hidden cursor-auto relative">
+              <Notes
+                notes={notes}
+                todos={todos}
+                createNote={createNote}
+                updateNote={updateNote}
+                deleteNote={deleteNote}
+                show={true}
+                onClose={() => togglePanel("notes")}
+              />
+            </div>
           </motion.div>
+        )}
+      </AnimatePresence>
 
-          <motion.div layout>
-            <Notes
-              notes={notes}
-              todos={todos}
-              setNotes={setNotes}
-              show={activePanel === "notes"}
-              onClose={() => setActivePanel(null)}
-            />
+      <AnimatePresence>
+        {activePanels.progress && (
+          <motion.div
+            drag
+            dragConstraints={containerRef}
+            dragMomentum={false}
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            style={{ left: "50px", top: "100px" }}
+            className="absolute w-[400px] h-[30vh] z-50 flex flex-col bg-card-background border border-card-border rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] overflow-hidden"
+          >
+            <div className="h-6 w-full cursor-grab active:cursor-grabbing flex justify-center items-center bg-background-secondary/50 hover:bg-background-secondary/80 transition-colors shrink-0 border-b border-border-secondary">
+              <div className="w-12 h-1 bg-border-primary rounded-full pointer-events-none" />
+            </div>
+            <div className="flex-1 overflow-hidden cursor-auto relative">
+              <CurrentProgress
+                todos={todos}
+                show={true}
+                onClose={() => togglePanel("progress")}
+              />
+            </div>
           </motion.div>
-        </motion.div>
+        )}
+      </AnimatePresence>
 
-        <TodoList
-          todos={todos}
-          newTodo={newTodo}
-          setNewTodo={setNewTodo}
-          onAddTodo={handleAddTodo}
-          onUpdateStatus={handleUpdateTodoStatus}
-          onDeleteTodo={handleDeleteTodo}
-          show={activePanel === "todos"}
-          onClose={() => setActivePanel(null)}
-        />
-      </div>
+      <AnimatePresence>
+        {activePanels.todos && (
+          <motion.div
+            drag
+            dragConstraints={containerRef}
+            dragMomentum={false}
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            style={{ left: "40px", top: "100px" }}
+            className="absolute w-[400px] h-[60vh] z-50 flex flex-col bg-card-background border border-card-border rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] overflow-hidden"
+          >
+            <div className="h-6 w-full cursor-grab active:cursor-grabbing flex justify-center items-center bg-background-secondary/50 hover:bg-background-secondary/80 transition-colors shrink-0 border-b border-border-secondary">
+              <div className="w-12 h-1 bg-border-primary rounded-full pointer-events-none" />
+            </div>
+            <div className="flex-1 overflow-hidden cursor-auto relative">
+              <TodoList
+                todos={todos}
+                newTodo={newTodo}
+                setNewTodo={setNewTodo}
+                onAddTodo={handleAddTodo}
+                onUpdateStatus={handleUpdateTodoStatus}
+                onDeleteTodo={handleDeleteTodo}
+                show={true}
+                onClose={() => togglePanel("todos")}
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {activePanels.settings && (
+          <motion.div
+            drag
+            dragConstraints={containerRef}
+            dragMomentum={false}
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            style={{ left: "calc(50% - 200px)", top: "20vh" }}
+            className="absolute w-[400px] h-[60vh] z-50 flex flex-col bg-card-background border border-card-border rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] overflow-hidden"
+          >
+            <div className="h-6 w-full cursor-grab active:cursor-grabbing flex justify-center items-center bg-background-secondary/50 hover:bg-background-secondary/80 transition-colors shrink-0 border-b border-border-secondary">
+              <div className="w-12 h-1 bg-border-primary rounded-full pointer-events-none" />
+            </div>
+            <div className="flex-1 overflow-hidden cursor-auto relative">
+              <Settings
+                plannedDuration={sessionData.plannedDuration}
+                initialValues={settings}
+                onSave={(values) => {
+                  setBreakDuration(values.breakDuration);
+                  setAutoStartBreaks(values.autoStartBreaks);
+                  setBreaksNumber(values.breaksNumber);
+                  setSkipBreaks(values.skipBreaks);
+                  setConfirmReset(values.confirmReset);
+                  setSoundOnTransition(values.soundOnTransition);
+                  setIsSoundEnabled(values.isSoundEnabled);
+                  modifySettings(values);
+                }}
+                show={true}
+                onClose={() => togglePanel("settings")}
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {showQuotes && (
           <motion.div
+            drag
+            dragConstraints={containerRef}
+            dragMomentum={false}
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9 }}
-            transition={{ duration: 0.3 }}
-            className="flex flex-row justify-around transition-all duration-300"
+            style={{ left: "calc(50% - 225px)", bottom: "40px" }} 
+            className="absolute w-[450px] z-50 flex flex-col shadow-[0_20px_50px_rgba(0,0,0,0.3)] rounded-2xl overflow-hidden"
           >
-            <MotivationalQuotes
-              show={showQuotes}
-              onClose={() => setShowQuotes(false)}
-            />
+            <div className="h-6 w-full cursor-grab active:cursor-grabbing flex justify-center items-center bg-background-primary/90 hover:bg-background-primary transition-colors shrink-0 border-x border-t border-border-secondary rounded-t-2xl">
+              <div className="w-12 h-1 bg-border-primary rounded-full pointer-events-none" />
+            </div>
+            <div className="cursor-auto relative bg-background-primary/80 backdrop-blur-2xl border border-border-secondary rounded-b-2xl overflow-hidden">
+              <MotivationalQuotes
+                show={showQuotes}
+                onClose={() => setShowQuotes(false)}
+              />
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
+      
     </div>
   );
-};
+  }
 
 export default FocusSession;

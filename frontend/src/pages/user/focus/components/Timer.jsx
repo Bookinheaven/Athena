@@ -16,26 +16,29 @@ const R = 45;
 const CIRCUMFERENCE = 2 * Math.PI * R;
 
 export const Timer = ({
-  timeLeft,
-  isStarted,
-  start,
-  pause,
-  reset,
-  isBreak,
+  timer,
+  session,
+  controls,
   sessionTitle,
   setSessionTitle,
-  setTotalFocusDuration,
-  totalFocusDuration,
-  breaksLeft,
-  currentSegmentData,
-  setNewSession,
-  currentSegmentIndex,
-  totalSegments,
-  totalfocusSegments,
-  totalbreakSegments,
-  onUpdateBackend,
-  foucsSegments: focusSegmentsLeft,
+  sessionPlannedDuration,
+  setSessionPlannedDuration,
 }) => {
+  const { timeLeft, elapsed, status, isRunning } = timer;
+  const {
+    breaksLeft,
+    currentSegment,
+    segmentIndex,
+    totalSegments,
+    totalFocusSegments,
+    totalBreakSegments,
+    remainingFocusSegments,
+  } = session;
+
+  const { start, pause, reset, setNewSession, onTitleSet } = controls;
+  
+  if (!currentSegment) return null; // loading kinda thing later
+
   const [customMinutes, setCustomMinutes] = useState(25);
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [sessionType, setSessionType] = useState("");
@@ -48,10 +51,10 @@ export const Timer = ({
   // useEffect(() => {
   //   focusEndSound.current = new Audio("/focus_ended.mp3");
   //   breakEndSound.current = new Audio("/break_ended.mp3");
-  //   if (currentSegmentData && currentSegmentData.duration > 0) {
+  //   if (currentSegment && currentSegment.duration > 0) {
   //     setPaused(true);
   //   }
-  // }, []);
+  // }, []);  
 
   const notify = useCallback((msg, type = "success") => {
     if (type === "success") toast.success(msg);
@@ -66,12 +69,12 @@ export const Timer = ({
   ];
 
   const handleStartPause = useCallback(() => {
-    if (isStarted) {
+    if (isRunning) {
       pause();
     } else {
       start();
     }
-  }, [isStarted, pause, start]);
+  }, [isRunning, pause, start]);
 
   const formatTime = useCallback((totalSeconds) => {
     const h = Math.floor(totalSeconds / 3600);
@@ -85,11 +88,11 @@ export const Timer = ({
     Math.floor(seconds / 3600) > 0 ? "text-4xl" : "text-6xl";
 
   const progress = useMemo(() => {
-    const total = currentSegmentData?.totalDuration || totalFocusDuration || 1;
-    const remaining = Math.max(0, timeLeft);
+    const total = currentSegment?.totalDuration || 1;
+    const remaining = Math.max(total - elapsed, 0);
     return CIRCUMFERENCE * (remaining / total);
-  }, [timeLeft, totalFocusDuration, currentSegmentData?.totalDuration]);
-
+  }, [elapsed, currentSegment?.totalDuration]);
+  
   const handleDecrement = useCallback(
     () => setCustomMinutes((p) => Math.max(10, p - 1)),
     [],
@@ -113,20 +116,21 @@ export const Timer = ({
 
   const handleCustomTimeSet = useCallback(() => {
     const customDuration = customMinutes * 60;
-    setTotalFocusDuration(customDuration);
+    setSessionPlannedDuration(customDuration);
     setNewSession();
     setShowCustomInput(false);
     setSessionType(`${customMinutes}m Custom`);
-  }, [customMinutes, setTotalFocusDuration, setNewSession, setSessionType]);
+  }, [customMinutes, setSessionPlannedDuration, setNewSession, setSessionType]);
 
   useEffect(() => {
     const handleKeyDown = (event) => {
-      const isTyping = /^(input|textarea)$/i.test(event.target.tagName);
-
-      if (event.code === "Space" && !isTyping) {
+      const isTyping = /^(input|textarea)$/i.test(event.target.tagName) || event.target.isContentEditable;
+      const isInsideNotes = event.target.closest(".ProseMirror");
+      if (event.code === "Space" && (isTyping || isInsideNotes)) return;
+      if (event.code === "Space") {
         event.preventDefault();
         handleStartPause();
-      } else if (event.key.toLowerCase() === "r" && !isTyping) {
+      } else if (event.key.toLowerCase() === "r" && !isTyping && !isInsideNotes) {
         reset();
       }
     };
@@ -134,15 +138,11 @@ export const Timer = ({
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [handleStartPause, reset]);
 
-  let activeTime = timeLeft;
-  
-  // useEffect(()=> {
-  //   console.log(isStarted)
-  //   console.log(isBreak)
-  // }, [isStarted, isBreak])
+  const activeTime = timeLeft;
+
   useEffect(() => {
-    if (timeLeft === 0 && isStarted) {
-      if (isBreak) {
+    if (timeLeft <= 0 && isRunning) {
+      if (currentSegment?.type === "break") {
         // breakEndSound.current?.play().catch(console.error);
         notify("☕ Break ended! Time to focus again!");
       } else {
@@ -150,7 +150,7 @@ export const Timer = ({
         notify("🎯 Focus session complete!");
       }
     }
-  }, [timeLeft, isStarted, isBreak, notify]);
+  }, [timeLeft, isRunning, currentSegment, notify]);
 
   useEffect(
     () => () => {
@@ -160,23 +160,23 @@ export const Timer = ({
     [],
   );
 
-  const completedFocusSegments = totalfocusSegments - focusSegmentsLeft;
-  const completedBreakSegments = totalbreakSegments - breaksLeft;
+  const completedFocusSegments = totalFocusSegments - remainingFocusSegments;
+  const completedBreakSegments = totalBreakSegments - breaksLeft;
 
   return (
-    <div className="lg:min-w-lg lg:max-w-md md:min-w-lg min-w-full p-8 rounded-3xl shadow-2xl w-full h-full bg-card-background border border-card-border card-hover relative flex flex-col hover:border-blue-400">
+    <div className="lg:min-w-lg lg:max-w-md md:min-w-lg min-w-full p-8  shadow-2xl w-full h-full bg-card-background border border-card-border relative flex flex-col">
       <div className="text-center mb-6 pt-4 h-10 flex items-center justify-center">
         <EditableTitle
           title={sessionTitle}
           setTitle={setSessionTitle}
-          onUpdateBackend={onUpdateBackend}
+          titleSet={onTitleSet}
         />
       </div>
       {totalSegments > 0 && (
         <div className="flex items-center justify-center gap-2 flex-wrap">
           {Array.from({ length: totalSegments }).map((_, i) => {
-            const done = i < currentSegmentIndex;
-            const active = i === currentSegmentIndex;
+            const done = i < segmentIndex;
+            const active = i === segmentIndex;
             return (
               <div
                 key={i}
@@ -186,7 +186,7 @@ export const Timer = ({
                   done
                     ? "bg-text-muted opacity-30"
                     : active
-                      ? isBreak
+                      ? currentSegment?.type === "break"
                         ? "bg-button-success"
                         : "bg-button-primary animate-pulse"
                       : "bg-border-secondary opacity-50"
@@ -200,13 +200,13 @@ export const Timer = ({
       <div className="text-center mb-6 pt-4 h-10 flex items-center justify-center">
         <span
           className={`group inline-flex items-center gap-2 px-6 py-2 rounded-full text-sm font-medium border transition-colors ${
-            isBreak
+            currentSegment?.type === "break"
               ? "bg-success-bg text-success-text border-button-success"
               : "bg-background-secondary text-text-accent border-button-primary hover:bg-card-border cursor-pointer"
           }`}
-          title={isBreak ? "" : "Click to edit title"}
+          title={currentSegment?.type === "break" ? "" : "Click to edit title"}
         >
-          {isBreak ? "☕ Break Time" : `🎯 ${sessionType || "Focus Session"}`}
+          {currentSegment?.type === "break" ? "☕ Break Time" : `🎯 ${sessionType || "Focus Session"}`}
         </span>
       </div>
 
@@ -229,7 +229,7 @@ export const Timer = ({
               cy="50"
               r="45"
               className={
-                isBreak ? "stroke-button-success" : "stroke-button-primary"
+                currentSegment?.type === "break" ? "stroke-button-success" : "stroke-button-primary"
               }
               strokeWidth="4"
               fill="none"
@@ -259,24 +259,24 @@ export const Timer = ({
               <span className="text-sm font-medium">Focus</span>
             </div>
             <span className="text-lg font-bold text-text-primary">
-              {completedFocusSegments} / {totalfocusSegments}
+              {completedFocusSegments} / {totalFocusSegments}
             </span>
           </div>
-          {totalbreakSegments > 0 && (
+          {totalBreakSegments > 0 && (
             <div className="flex flex-col items-center">
               <div className="flex items-center gap-2 text-text-secondary">
                 <Coffee className="w-4 h-4" />
                 <span className="text-sm font-medium">Breaks</span>
               </div>
               <span className="text-lg font-bold text-text-primary">
-                {completedBreakSegments} / {totalbreakSegments}
+                {completedBreakSegments} / {totalBreakSegments}
               </span>
             </div>
           )}
         </div>
       </div>
 
-      {!isStarted && !isBreak && !currentSegmentData?.duration > 0 && completedFocusSegments == 0 && (
+      {!isRunning && currentSegment?.type !== "break" && elapsed === 0 && completedFocusSegments === 0 && (
         <div className="mt-6 space-y-4">
           <div className="flex gap-2 justify-center flex-wrap">
             {durations.map((opt) => (
@@ -285,11 +285,11 @@ export const Timer = ({
                 onClick={() => {
                   setShowCustomInput(false);
                   setSessionType(opt.type);
-                  setTotalFocusDuration(opt.value);
+                  setSessionPlannedDuration(opt.value);
                   setNewSession();
                 }}
                 className={`px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 border border-card-border ${
-                  totalFocusDuration === opt.value && !showCustomInput
+                  sessionPlannedDuration === opt.value && !showCustomInput
                     ? "bg-button-primary text-button-primary-text scale-105"
                     : "bg-button-secondary text-button-secondary-text hover:scale-105"
                 }`}
@@ -364,22 +364,11 @@ export const Timer = ({
           onClick={handleStartPause}
           className="flex items-center gap-2 px-8 py-3.5 rounded-xl bg-button-primary text-button-primary-text shadow-lg transition-all duration-300 hover:scale-105 active:scale-95"
         >
-          {isStarted ? (
-            <Pause className="w-5 h-5" />
-          ) : (
-            <Play className="w-5 h-5" />
-          )}
-          {isStarted
-            ? "Pause"
-            : currentSegmentData?.duration > 0
-              ? "Resume"
-              : "Start"}
+          {status === "running" ? (<Pause className="w-5 h-5" />) : (<Play className="w-5 h-5" />)}
+          {status === "running" ? "Pause" : status === "paused" ? "Resume" : "Start"}
         </button>
         <button
-          onClick={() => {
-            setNewSession(true);
-            reset();
-          }}
+          onClick={() => setNewSession()}
           className="flex items-center gap-2 px-6 py-3.5 rounded-xl bg-button-secondary text-button-secondary-text border border-card-border transition-all duration-300 hover:scale-105 active:scale-95"
         >
           <RotateCcw className="w-5 h-5" />

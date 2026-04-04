@@ -13,7 +13,14 @@ export default function StreakCard({
 
   const timeLeft = Math.max(dailyTargetMinutes - todayFocusMinutes, 0);
   const extraMinutes = Math.max(todayFocusMinutes - dailyTargetMinutes, 0);
-
+ 
+  function formatMinutes(minutes) {
+    const h = Math.floor(minutes / 60);
+    const m = Math.round(minutes % 60);
+    if (h === 0) return `${m}m`;
+    if (m === 0) return `${h}h`;
+    return `${h}h ${m}m`;
+  }
   const stateColor =
     state === "green"
       ? "text-text-primary"
@@ -35,9 +42,9 @@ export default function StreakCard({
   const progressText =
     state === "green" ? (
       <>
-        🎯 Target Completed: {todayFocusMinutes} min
+        🎯 Target Completed: {formatMinutes(todayFocusMinutes)}
         {extraMinutes > 0 && (
-          <span className="ml-1 text-text-athena">(+{extraMinutes} extra)</span>
+          <span className="ml-1 text-text-athena">(+{formatMinutes(extraMinutes)} extra)</span>
         )}
       </>
     ) : state === "yellow" ? (
@@ -95,7 +102,6 @@ export default function StreakCard({
 
           <TodayStatusBadge state={state} timeLeft={timeLeft} />
 
-          {/* Freeze */}
           <div className="flex items-center gap-2 text-sm">
             <span className="text-text-accent">🧊</span>
             <span className="text-text-muted">Freeze</span>
@@ -105,7 +111,6 @@ export default function StreakCard({
           </div>
         </div>
 
-        {/* MIDDLE */}
         <div
           className="
             hidden lg:flex flex-col justify-center gap-3
