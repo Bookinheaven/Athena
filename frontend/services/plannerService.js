@@ -1,7 +1,7 @@
 import RequestService from "./requestService";
 
 class plannerService extends RequestService {
-  getTasks() {
+  getPlanner() {
     return this.request("/planner", { method: "GET"});
   }
 }

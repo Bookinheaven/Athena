@@ -35,6 +35,8 @@ export const loadSessionData = async ({
         plannedDuration: backendSession.plannedDuration,
         timestamp: backendSession.createdAt,
         backendCreated: true,
+        taskIds: backendSession.taskIds || [],
+        sessionType: backendSession.sessionType || "quick",
       });
 
       dispatch({
