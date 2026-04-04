@@ -1,74 +1,51 @@
 import { useReducer } from "react";
 
-const sessionReducer = (state, action) => {
+const reducer = (state, action) => {
   switch (action.type) {
-    case "START":
-      return { ...state, status: "running" };
-
-    case "PAUSE":
-      return { ...state, status: "paused" };
-
-    case "RESUME":
-      return { ...state, status: "running" };
-
-    case "TIME_UP":
-      const total = state.segments?.length || 0;
-      const isLast = state.segmentIndex + 1 >= total;
-
-      if (isLast) {
-        return {
-          ...state,
-          status: "finished",
-          isDone: true,
-        };
-      }
-      return { ...state, status: "segment_transition" };
-
-    case "NEXT_SEGMENT": {
-      const nextIndex = state.segmentIndex + 1;
-      const isLast = nextIndex >= (state.segments?.length || 0);
-
-      if (isLast) {
-        return {
-          ...state,
-          status: "finished",
-          isDone: true,
-        };
-      }
-
+    case "INIT":
       return {
         ...state,
-        segmentIndex: nextIndex,
-        status: "idle",
+        totalSegments: action.payload,
+      };
+    case "START":
+      if (state.status === "running") return state;
+      return { ...state, status: "running" };
+    case "PAUSE":
+      if (state.status !== "running") return state;
+      return { ...state, status: "paused" };
+    case "NEXT_SEGMENT": {
+      const next = state.segmentIndex + 1;
+      const isLast = next >= state.totalSegments;
+      if (isLast) {
+        return { ...state, status: "finished", isDone: true };
+      }
+      return {
+        ...state,
+        segmentIndex: next,
+        status: "ready",
       };
     }
-
-    case "OPEN_REVIEW":
-      return { ...state, status: "reviewing" };
-
-    case "RESET_SEGMENT":
-      return { ...state, status: "idle" };
-
-    case "RESET_SESSION":
+    case "TIME_UP":
+      return { ...state, status: "transition" };
     case "RESET":
       return {
-        ...state,
-        status: "idle",
         segmentIndex: 0,
+        status: "idle",
         isDone: false,
+        totalSegments: state.totalSegments,
       };
-
     case "LOAD":
       return action.payload;
-
     default:
       return state;
   }
 };
 
-export const useSessionMachine = (initialState) => {
-  return useReducer(sessionReducer, {
-    ...initialState,
+export const useSessionMachine = (totalSegments) => {
+  return useReducer(reducer, {
+    segmentIndex: 0,
     status: "idle",
+    isDone: false,
+    totalSegments,
   });
 };

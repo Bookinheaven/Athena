@@ -1,4 +1,4 @@
-# Athena 
+# Athena
 
 ![React](https://img.shields.io/badge/React-18-blue?logo=react)
 ![Vite](https://img.shields.io/badge/Vite-fast-yellow?logo=vite)
@@ -7,137 +7,287 @@
 ![JWT](https://img.shields.io/badge/Auth-JWT%20Cookies-orange)
 ![License](https://img.shields.io/badge/License-MIT-lightgrey)
 
-A focus & habit tracking app I’m building to understand how people actually work — not just how long they run a timer.
+Athena is a **focus, planning, and habit tracking system** designed to understand how people actually work — not just how long they run a timer.
 
-Athena started as a simple focus tracker and slowly grew into a system that tracks **sessions, streaks, and behavior patterns**, with the goal of building sustainable study/work habits.
-
----
-
-## What Athena does (so far)
-
-### Authentication
-- Login & register flow
-- JWT authentication using **HTTP-only cookies** (no tokens in localStorage)
-- Email OTP verification
-- Forgot password flow
-- Basic rate limiting on auth routes
+Instead of only tracking time, Athena tracks **sessions, tasks, goals, notes, streaks, and behavioral patterns** to help users build sustainable productivity habits.
 
 ---
 
-### Focus Sessions
-- Create focus sessions with a title
-- Each session is split into **focus and break segments**
-- Tracks:
-  - start time
-  - duration
-  - completion state
-- Sessions can be paused, resumed, and completed
-- Active session is restored on refresh
-- All session data is persisted automatically
+# What Athena does (current features)
+
+## Authentication
+
+Secure authentication system built with cookie-based JWT.
+
+Features:
+
+* User registration
+* Login & logout
+* Email OTP verification
+* Password reset flow
+* Secure **HTTP-only JWT cookies**
+* Auth rate limiting
+* Session-based authentication check
+
+Protected routes ensure only authenticated users can access planner, sessions, and analytics.
 
 ---
 
-### Streak System
-This is the core idea behind Athena.
+# Focus Sessions
 
-- Daily focus streak tracking
-- Starts with a **25 minute/day target** for everyone
-- Calculates a daily streak rate instead of just “done / not done”
-- Streak states:
-  - Green → target completed
-  - Yellow → close to target
-  - Red → streak at risk
-- Freeze credits to protect streaks on off days
-- Visual streak ring showing today’s progress
-- Shows exactly how many minutes are left to save the streak
+Athena's core unit is a **Focus Session**.
 
----
+A session represents a structured period of focused work.
 
-### Dashboard & Analytics
-Everything here is generated from real session data.
+Each session contains:
 
-- Total focus time
-- Sessions completed
-- Average focus score
-- Average mood score
-- Productivity percentage
-- Weekly focus trends
-- Focus vs break comparison
-- Sessions by weekday
-- Mood vs focus analysis
-- Completion rate
-- Top distractions
-- This week vs last week comparison
+* Title
+* Start time
+* Focus segments
+* Break segments
+* Completion state
+* Duration tracking
+
+Features:
+
+* Start / pause / resume sessions
+* Automatic session persistence
+* Active session recovery on refresh
+* Focus vs break tracking
+* Session completion analytics
+
+Sessions also generate **productivity insights** used by the dashboard.
 
 ---
 
-### Session History
-- List of all completed sessions
-- Session details:
-  - title
-  - duration
-  - status
-  - focus/break breakdown
-- Recent sessions panel on dashboard
+# Planner System
+
+Athena includes a **daily planner system** that integrates tasks, goals, and notes.
+
+Users can plan their work day directly inside the focus tracker.
+
+Planner contains:
+
+### Tasks
+
+Tasks represent actionable items.
+
+Each task supports:
+
+* Title
+* Status
+* Priority
+* Order for drag-and-drop
+* Goal linking
+* Completion state
+
+Tasks can be organized and completed during focus sessions.
 
 ---
 
-### UI & Experience
-- Clean, minimal dashboard
-- Light and dark mode
-- Smooth animations (Framer Motion)
-- Skeleton loaders instead of blank screens
-- Fully responsive layout
+### Goals
+
+Goals group related tasks into larger objectives.
+
+Example:
+
+```
+Goal: Build Portfolio Website
+   Task: Design layout
+   Task: Build homepage
+   Task: Deploy site
+```
+
+Goals support:
+
+* Progress tracking
+* Task grouping
+* Completion state
+* Priority and ordering
 
 ---
 
-## Tech Stack
+### Notes
 
-### Frontend
-- React (Vite)
-- Context-based auth
-- Recharts for charts
-- Framer Motion
-- Lucide icons
+Notes allow users to capture ideas or session insights.
 
-### Backend
-- Node.js + Express
-- MongoDB + Mongoose
-- Cookie-based authentication
-- Session & streak models
-- Validation and rate-limiting middleware
+Each note contains:
 
-### Deployment
-- Frontend deployed on Vercel
-- Backend deployed on Render
-- CORS and cookies configured properly for production
+* Title
+* Content
+* Creation timestamp
+* Optional session linkage
+
+This allows users to record:
+
+* thoughts during focus sessions
+* study notes
+* ideas or reminders
 
 ---
 
-## Why I’m building this
+# Streak System
+
+Athena tracks **daily focus streaks** to help build consistency.
+
+Unlike simple streak apps, Athena uses **focus minutes and behavior metrics**.
+
+Features:
+
+* Daily focus target
+* Streak rate calculation
+* Streak risk detection
+* Freeze credits for off days
+* Visual streak progress
+
+Streak states include:
+
+Green → Target completed
+Yellow → Close to target
+Red → Streak at risk
+
+---
+
+# Dashboard & Analytics
+
+The dashboard converts raw session data into meaningful insights.
+
+Metrics include:
+
+* Total focus time
+* Sessions completed
+* Productivity score
+* Weekly focus trends
+* Focus vs break comparison
+* Completion rate
+* Session patterns
+* Mood vs focus correlation
+
+Analytics are generated from session history.
+
+---
+
+# Session History
+
+Athena keeps a history of completed sessions.
+
+Each session record includes:
+
+* Session title
+* Total duration
+* Focus / break breakdown
+* Completion status
+* Timestamp
+
+This data feeds the analytics system.
+
+---
+
+# UI & Experience
+
+The frontend focuses on **clarity and responsiveness**.
+
+Features:
+
+* Minimal distraction interface
+* Light / dark mode
+* Smooth animations (Framer Motion)
+* Skeleton loaders
+* Fully responsive layout
+* Modern planner layout
+
+---
+
+# Architecture
+
+Athena follows a **layered backend architecture**.
+
+```
+Routes
+   ↓
+Controllers
+   ↓
+Services
+   ↓
+Models (MongoDB)
+```
+
+Benefits:
+
+* Clean separation of logic
+* Easier testing
+* Maintainable codebase
+* Scalable architecture
+
+---
+
+# Tech Stack
+
+## Frontend
+
+* React (Vite)
+* Context API
+* Framer Motion
+* Recharts
+* Lucide Icons
+
+---
+
+## Backend
+
+* Node.js
+* Express
+* MongoDB
+* Mongoose
+* JWT Authentication
+* HTTP-only cookies
+* Express Validator
+* Rate limiting
+* Socket.IO support
+
+---
+
+## Deployment
+
+* Frontend → Vercel
+* Backend → Render
+* MongoDB → Atlas
+
+---
+
+# Why I’m building Athena
+
 Most productivity apps either:
-- guilt-trip you with streaks, or
-- give raw data without meaning
 
-Athena is my attempt to sit in the middle —  
-**track behavior, show patterns, and slowly help improve focus without burnout.**
+• guilt-trip users with streaks
+• or show raw data without meaning
 
-This project is also a learning playground for:
-- system design
-- backend auth
-- analytics pipelines
-- and later, AI-driven insights
+Athena tries to sit in the middle:
 
----
+Track behavior → show patterns → gradually improve focus.
 
-## What’s next
-(Not implemented yet)
-- Advanced Streak System including Monthly streak view
-- Smarter daily target adjustment
-- AI-based focus insights
-- Leveling & gamification
+The project also serves as a **learning playground for:**
+
+* backend system design
+* analytics pipelines
+* behavioral tracking systems
+* future AI insights
 
 ---
 
-## License
+# Planned Features
+
+Future roadmap includes:
+
+* Advanced streak visualization
+* Monthly productivity reports
+* AI-generated focus insights
+* Smart daily target adjustment
+* Gamification & leveling
+* Behavior prediction
+
+---
+
+# License
+
 MIT

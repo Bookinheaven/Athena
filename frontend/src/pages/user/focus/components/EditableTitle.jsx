@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Pencil, Target } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-export const EditableTitle = ({ title, setTitle, className = "" , onUpdateBackend}) => {
+export const EditableTitle = ({ title, setTitle, className = "", titleSet}) => {
   const [isEditing, setIsEditing] = useState(false);
   const inputRef = useRef(null);
   const [originalTitle, setOriginalTitle] = useState(title);
@@ -43,7 +43,7 @@ export const EditableTitle = ({ title, setTitle, className = "" , onUpdateBacken
       setTitle(trimmedTitle);
       toast.success("Title updated!");
       setOriginalTitle(trimmedTitle);
-      onUpdateBackend()
+      titleSet();
     } else if (!trimmedTitle) {
       setTitle(originalTitle);
       toast.error("Title cannot be empty.");

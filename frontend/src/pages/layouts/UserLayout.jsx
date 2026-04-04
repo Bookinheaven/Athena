@@ -6,15 +6,11 @@ const UserLayout = () => {
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="flex min-h-screen bg-background-color text-text-primary overflow-x-hidden">
+    <div className="flex h-screen bg-background-color text-text-primary overflow-hidden">
+      
       <Sidebar expanded={expanded} setExpanded={setExpanded} />
 
-      <main
-        className={`
-          flex-1 transition-all duration-300
-          ${expanded ? "ml-56" : "ml-20"}
-        `}
-      >
+      <main className={`flex-1 transition-[margin] duration-300 ease-in-out h-full overflow-y-auto overflow-x-hidden ${expanded ? "ml-64" : "ml-20"}`}>
         <Outlet />
       </main>
     </div>

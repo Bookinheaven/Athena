@@ -16,17 +16,17 @@ class AuthService {
 
   static async registerUser(userData) {
     const { username, email, password, fullName } = userData;
-
+    const usernameLower = username.toLowerCase();
     const existingUser = await User.findOne({
-      $or: [{ email }, { username }]
+      $or: [{ email }, { usernameLower }]
     });
 
     if (existingUser) {
       if (existingUser.email === email) {
         throw new Error('Email already registered');
       }
-      if (existingUser.username === username) {
-        throw new Error('Username already taken');
+      if (existingUser.usernameLower === usernameLower) {
+        throw new Error("Username already taken");
       }
     }
 
@@ -35,6 +35,7 @@ class AuthService {
 
     const user = new User({
       username,
+      usernameLower,
       email,
       password,
       fullName,

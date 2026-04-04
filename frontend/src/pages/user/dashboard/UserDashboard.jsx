@@ -81,7 +81,6 @@ const Dashboard = () => {
         const data = await sessionService.getInsights();
         const todaysData = await sessionService.getTodaysInsights();
         const streakDataO = await StreakService.fetchStreak();
-        
         const todaysInsights = todaysData?.insights || {};
         const insights = data?.insights || {};
 
@@ -97,16 +96,16 @@ const Dashboard = () => {
           moodTrend: insights.moodTrend || [],
           topDistractions: insights.topDistractions || [],
           recentSessions: data?.recentSessions || [],
-          dailyStreak: streakDataO.dailyStreak || 0,
+          dailyStreak: streakDataO.currentStreak || 0,
           dailyTargetMinutes: streakDataO.dailyTargetMinutes || 25,
           freezeBalance: streakDataO.freezeBalance || 0,
           maxFreezeBalance: streakDataO.maxFreezeBalance || 0,
-          streakRate: streakDataO.streakRate || 0,
+          streakRate: (streakDataO.focusMinutes / streakDataO.maxTargetMinutes) || 0,
           state: streakDataO.state || "green",
           focusMinutes: streakDataO.focusMinutes || 0, 
           t_distractions: todaysInsights.distractions,
           t_sessions: todaysInsights.sessions || 0,
-          t_longest_focus: todaysInsights.longest_focus || 0,
+          t_longest_focus: formatTime(todaysInsights.longest_focus || 0),
           t_focus_blocks: todaysInsights.focus_blocks || 0,
         });
       } catch (err) {
@@ -284,7 +283,6 @@ const Dashboard = () => {
               </div>
             )}
 
-            {/* ======================= TAB 2: TRENDS ======================= */}
             {activeTab === "trends" && (
               <div className="space-y-10">
                 <section>

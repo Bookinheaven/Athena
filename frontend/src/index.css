@@ -249,9 +249,9 @@
     animation: slideUp 0.3s ease-out;
   }
 
-  .pluses {
+  .pulse {
     display: inline-block;
-    animation: pluse 0.6s ease-out infinite alternate;
+    animation: pulse 0.6s ease-out infinite alternate;
     transform-origin: center;
   }
 
@@ -275,13 +275,45 @@
     }
   }
 
-  @keyframes pluse {
+  @keyframes pulse {
     from {
       transform: scale(1);
     }
     to {
       transform: scale(1.5);
     }
+  }
+
+  @keyframes flame-flicker {
+    0%, 100% { 
+      transform: scale(1); 
+      filter: brightness(1) drop-shadow(0 0 2px rgba(249, 115, 22, 0.4)); 
+    }
+    50% { 
+      transform: scale(1.08); 
+      filter: brightness(1.2) drop-shadow(0 0 6px rgba(249, 115, 22, 0.8)); 
+    }
+  }
+
+  @keyframes badge-glow {
+    0%, 100% { 
+      box-shadow: 0 0 4px rgba(249, 115, 22, 0.1); 
+      border-color: rgba(249, 115, 22, 0.2); 
+    }
+    50% { 
+      box-shadow: 0 0 12px rgba(249, 115, 22, 0.3); 
+      border-color: rgba(249, 115, 22, 0.5); 
+    }
+  }
+
+  .animate-flame {
+    animation: flame-flicker 2s ease-in-out infinite;
+    transform-origin: bottom center;
+  }
+
+  .fire-badge-container {
+    animation: badge-glow 3s ease-in-out infinite;
+    background: linear-gradient(to bottom right, rgba(249,115,22,0.1), rgba(239,68,68,0.05));
   }
 
   .theme-transition {
@@ -310,6 +342,61 @@
     background-color: var(--color-error-bg);
     color: var(--color-error-text);
     border: 1px solid var(--color-button-danger);
+  }
+
+  .ProseMirror {
+    outline: none;
+  }
+
+  .ProseMirror p {
+    margin: 0.4rem 0;
+  }
+
+  .ProseMirror h1 {
+    font-size: 1.6rem;
+    font-weight: 700;
+  }
+
+  .ProseMirror h2 {
+    font-size: 1.3rem;
+    font-weight: 600;
+  }
+
+  .ProseMirror ul {
+    padding-left: 1.5rem;
+    list-style-type: disc !important;
+  }
+  
+  .ProseMirror ol {
+    padding-left: 1.5rem;
+    list-style-type: decimal !important;
+  }
+
+  .ProseMirror ul ul { list-style-type: circle !important; }
+  .ProseMirror ul ul ul { list-style-type: square !important; }
+
+  .ProseMirror li {
+    margin-bottom: 0.25rem;
+  }
+
+  .ProseMirror li p {
+    margin: 0;
+  }
+
+  .ProseMirror blockquote {
+    border-left: 3px solid var(--color-border-primary);
+    padding-left: 1rem;
+    margin-left: 0;
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+    font-style: italic;
+    color: var(--color-text-muted);
+  }
+
+  .ProseMirror img {
+    border-radius: 12px;
+    margin: 10px 0;
+    max-width: 100%;
   }
 }
 
