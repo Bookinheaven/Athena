@@ -66,6 +66,8 @@ export const useSessionController = ({
             sessionId,
             title: sessionTitle,
             plannedDuration,
+            sessionType: sessionData.sessionType,
+            taskIds: sessionData.taskIds || [],
             sessionSegments: segments,
             totalBreakMinutes: sessionData.segments?.filter((x) => x.type === "break") ?.length || 1,
             totalFocusMinutes: sessionData.segments?.filter((x) => x.type === "focus") ?.length || 1,

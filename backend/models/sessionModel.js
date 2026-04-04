@@ -65,10 +65,14 @@ const sessionSchema = new mongoose.Schema({
     required: true
   },
 
-  taskId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Task",
-    default: null
+  taskIds: {
+    type: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Task"
+      }
+    ],
+    default: []
   },
 
   title: {

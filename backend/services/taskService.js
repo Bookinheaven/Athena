@@ -1,5 +1,6 @@
-import Task from "../models/taskModel.js";
+import { getStartOfDay } from "../utils/streakHelpers.js";
 import GoalService from "./goalService.js";
+import Task from "../models/taskModel.js";
 
 class TaskService {
   async createTask(userId, data) {
@@ -7,7 +8,6 @@ class TaskService {
       user: userId,
       ...data,
     });
-
     if (task.goal) {
       await GoalService.recalculateProgress(task.goal);
     }
@@ -16,7 +16,16 @@ class TaskService {
   }
 
   async getTasks(userId) {
-    return Task.find({ user: userId }).sort({ order: 1 });
+    const today = getStartOfDay()
+
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+
+    const tasks = await Task.find({
+      user: userId,
+      dueDate: { $gte: today, $lt: tomorrow }
+    }).sort({ order: 1 });
+    return tasks;
   }
 
   async updateTask(userId, taskId, data) {

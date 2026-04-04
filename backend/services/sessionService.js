@@ -2,7 +2,7 @@ import Session from "../models/sessionModel.js";
 
 class SessionService {
   async start(userId, payload) {
-    const { sessionId, title, sessionSegments, plannedDuration, taskId, totalBreakMinutes, totalFocusMinutes } = payload;
+    const { sessionId, title, sessionSegments, plannedDuration, taskIds, totalBreakMinutes, totalFocusMinutes } = payload;
     if (!sessionId || !sessionSegments?.length) {
       throw new Error("Invalid session payload");
     }
@@ -28,7 +28,7 @@ class SessionService {
           userId,
           sessionId,
           title: title || "Untitled Work",
-          taskId: taskId || null,
+          taskIds: taskIds || [],
           sessionType: payload.sessionType || "quick",
           status: "active",
           startedAt: new Date(),
@@ -59,7 +59,8 @@ class SessionService {
     }
     const updateData = {};
     if (segment) {
-      const existing = session.sessionSegments[segment.segmentIndex];
+      const existing = session.sessionSegments?.[segment.segmentIndex];
+      if (!existing) return session;
       const total = existing?.totalDuration || 0;
       if (segment.duration !== undefined) {
         updateData[`sessionSegments.${segment.segmentIndex}.duration`] = Math.max(existing?.duration || 0, segment.duration);
@@ -72,14 +73,13 @@ class SessionService {
     if (title) {
       updateData.title = title;
     }
-    if (todos) {
+    if (Array.isArray(todos)) {
       updateData.todos = todos;
     }
     if (status === "completed") {
       updateData.status = "completed";
       updateData.endedAt = new Date();
     }
-
     const updatedSession = await Session.findOneAndUpdate(
       { sessionId, userId },
       { $set: updateData },
@@ -124,7 +124,7 @@ class SessionService {
     if (!userId) {
       throw new Error("User not found.");
     }
-    const session = await Session.find({ userId }).sort({ timestamp: -1 });
+    const session = await Session.find({ userId }).sort({ createdAt: -1 });
     return session;
   }
 
