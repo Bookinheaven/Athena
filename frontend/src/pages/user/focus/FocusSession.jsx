@@ -733,6 +733,10 @@ const FocusSession = () => {
       <AnimatePresence>
         {showQuotes && (
           <motion.div
+            drag={!isMobile} 
+            dragConstraints={containerRef}
+            dragMomentum={false}
+            
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 30 }}
@@ -741,7 +745,7 @@ const FocusSession = () => {
                 ? { left: "3%", bottom: "20px", width: "94%" }
                 : { left: "calc(50% - 240px)", bottom: "40px", width: "480px" }
             }
-            className="absolute z-50 flex flex-col shadow-2xl rounded-[32px] overflow-hidden border border-border-secondary bg-background-primary/90 backdrop-blur-2xl"
+            className="absolute z-50 flex flex-col shadow-2xl rounded-[32px] overflow-hidden border border-border-secondary bg-background-primary/90 backdrop-blur-2xl cursor-grab active:cursor-grabbing"
           >
             <div className="h-6 w-full flex justify-center items-center shrink-0 pt-2">
               <div className="w-10 h-1 bg-border-primary/30 rounded-full" />
