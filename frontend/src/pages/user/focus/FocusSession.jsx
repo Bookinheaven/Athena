@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { motion, AnimatePresence, useDragControls } from "framer-motion";
 import { Loader2, AlertCircle, CheckCircle } from "lucide-react";
 import createSessionData from "./hooks/useSessionData";
@@ -12,6 +12,7 @@ import CurrentProgress from "./components/CurrentProgress";
 import Notes from "./components/Notes.jsx";
 import { SessionReview } from "./components/SessionReview";
 import sessionService from "../../../../services/sessionService";
+import taskService from "../../../../services/taskService";
 import toast from "react-hot-toast";
 import { v4 as uuidv4 } from "uuid";
 import { useLocation } from "react-router-dom";
@@ -112,13 +113,13 @@ const FocusSession = () => {
       sessionType: plannerData?.taskIds ? "task" : "quick",
       todos: plannerData?.title
         ? [
-            {
-              id: Date.now(),
-              title: plannerData.title,
-              status: "Not Started",
-              createdAt: new Date().toISOString(),
-            },
-          ]
+          {
+            id: Date.now(),
+            title: plannerData.title,
+            status: "Not Started",
+            createdAt: new Date().toISOString(),
+          },
+        ]
         : [],
       timestamp: new Date().toISOString(),
     };
@@ -135,9 +136,15 @@ const FocusSession = () => {
   );
   const isPlannerSession =
     sessionData?.sessionType === "task" || sessionData?.taskIds?.length > 0;
-  const activeTaskTitle =
-    sessionData?.taskIds?.length > 0 ? sessionData.title : null;
   const todos = sessionData.todos || [];
+
+  const activeTaskTitle = useMemo(() => {
+    if (sessionData?.taskIds?.length > 0) {
+      const task = todos.find(t => String(t.id) === String(sessionData.taskIds[0]));
+      return task ? task.title : plannerData?.title || null;
+    }
+    return null;
+  }, [sessionData?.taskIds, todos, plannerData?.title]);
 
   const modifySettings = async (changed) => {
     const merged = {
@@ -168,11 +175,11 @@ const FocusSession = () => {
     sessionData,
     setSessionData,
     saveFunction: (payload) => sessionService.updateProgress(payload),
-    sessionTitle,
-    autoStartBreaks: settings.autoStartBreaks,
+    autoStartBreaks: settings?.autoStartBreaks,
     skipBreaks: settings.skipBreaks,
     soundOnTransition: settings.soundOnTransition,
     todos: sessionData.todos,
+    sessionStats,
   });
   const isRunning = machineState.status === "running";
 
@@ -189,6 +196,22 @@ const FocusSession = () => {
     setSessionData(fresh);
     setSessionReview({ mood: null, focus: null, distractions: "" });
     dispatch({ type: "RESET" });
+    onReset();
+  };
+
+  const stopSession = () => {
+    if (settings.confirmReset && isRunning) {
+      if (
+        !window.confirm(
+          "Stop the current session? Your progress will be lost.",
+        )
+      )
+        return;
+    }
+    const fresh = initialSession();
+    setSessionData(fresh);
+    setSessionReview({ mood: null, focus: null, distractions: "" });
+    dispatch({ type: "STOP" });
     onReset();
   };
 
@@ -218,6 +241,7 @@ const FocusSession = () => {
     updateTodos,
     createNote,
     setNewSession,
+    isPlanner: plannerData != null
   });
 
   const toggleDeepFocus = () => {
@@ -250,6 +274,28 @@ const FocusSession = () => {
     };
   }, []);
 
+  useEffect(() => {
+    const fetchTasks = async () => {
+      try {
+        const tasks = await taskService.getTasks();
+        const mappedTodos = tasks.map(task => ({
+          id: task._id,
+          title: task.title,
+          status: task.status === "completed" ? "Completed"
+            : task.status === "in-progress" ? "In Progress"
+              : "Not Started",
+          createdAt: task.createdAt
+        }));
+        updateTodos(mappedTodos);
+      } catch (err) {
+        console.error("Failed to fetch planner tasks for focus session", err);
+      }
+    };
+    if (!isLoading) {
+      fetchTasks();
+    }
+  }, [isLoading, isPlannerSession]);
+
   const handleReviewUpdate = useCallback(
     (field, value) => {
       setSessionReview((prev) => ({ ...prev, [field]: value }));
@@ -279,21 +325,38 @@ const FocusSession = () => {
     [setSessionReview],
   );
 
-  const handleAddTodo = useCallback(() => {
+  useEffect(() => {
+    console.log(machineState)
+  }, [machineState])
+
+  const handleAddTodo = useCallback(async () => {
     if (!newTodo.trim()) return;
-    const updated = [
-      ...todos,
-      {
-        id: Date.now(),
-        title: newTodo.trim(),
-        status: "Not Started",
-        createdAt: new Date().toISOString(),
-      },
-    ];
+    const optimisticId = Date.now().toString();
+    const newTodoObj = {
+      id: optimisticId,
+      title: newTodo.trim(),
+      status: "Not Started",
+      createdAt: new Date().toISOString(),
+    };
+    const updated = [...todos, newTodoObj];
     updateTodos(updated);
     onTodoChange();
     setNewTodo("");
-  }, [newTodo, todos]);
+
+    try {
+      const createdTask = await taskService.createTask({
+        title: newTodoObj.title,
+        dueDate: new Date(),
+        priority: "medium",
+      });
+      setSessionData((prev) => ({
+        ...prev,
+        todos: prev.todos.map((t) => t.id === optimisticId ? { ...t, id: createdTask._id } : t)
+      }));
+    } catch (err) {
+      console.error("Failed to create task in DB", err);
+    }
+  }, [newTodo, todos, updateTodos, onTodoChange, setSessionData]);
 
   const handleFinalSaveAndStartNew = async () => {
     await forceSave();
@@ -305,21 +368,36 @@ const FocusSession = () => {
   };
 
   const handleUpdateTodoStatus = useCallback(
-    (id, status) => {
+    async (id, status) => {
       const updated = todos.map((t) => (t.id === id ? { ...t, status } : t));
       updateTodos(updated);
       onTodoChange();
+
+      try {
+        const backendStatus = status === "Completed" ? "completed"
+          : status === "In Progress" ? "in-progress"
+            : "todo";
+        await taskService.updateTask(id, { status: backendStatus });
+      } catch (err) {
+        console.error("Failed to adjust task status:", err);
+      }
     },
-    [todos],
+    [todos, updateTodos, onTodoChange],
   );
 
   const handleDeleteTodo = useCallback(
-    (id) => {
+    async (id) => {
       const updated = todos.filter((t) => t.id !== id);
       updateTodos(updated);
       onTodoChange();
+
+      try {
+        await taskService.deleteTask(id);
+      } catch (err) {
+        console.error("Failed to delete task in DB:", err);
+      }
     },
-    [todos],
+    [todos, updateTodos, onTodoChange],
   );
 
   useEffect(() => {
@@ -409,13 +487,12 @@ const FocusSession = () => {
             className="fixed bottom-6 right-6 md:bottom-10 md:right-10 z-[100]"
           >
             <div
-              className={`flex items-center gap-3 px-4 py-2.5 rounded-2xl shadow-2xl border backdrop-blur-xl transition-all duration-500 ${
-                saveStatus === "saving"
-                  ? "bg-blue-500/10 border-blue-500/20 text-blue-400"
-                  : saveStatus === "error"
-                    ? "bg-red-500/10 border-red-500/20 text-red-400"
-                    : "bg-button-success/10 border-button-success/20 text-button-success"
-              }`}
+              className={`flex items-center gap-3 px-4 py-2.5 rounded-2xl shadow-2xl border backdrop-blur-xl transition-all duration-500 ${saveStatus === "saving"
+                ? "bg-blue-500/10 border-blue-500/20 text-blue-400"
+                : saveStatus === "error"
+                  ? "bg-red-500/10 border-red-500/20 text-red-400"
+                  : "bg-button-success/10 border-button-success/20 text-button-success"
+                }`}
             >
               {saveStatus === "saving" && (
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -535,6 +612,7 @@ const FocusSession = () => {
                     setSessionTitle={setSessionTitle}
                     sessionPlannedDuration={sessionData.plannedDuration}
                     setSessionPlannedDuration={setSessionPlannedDuration}
+                    stopSession={stopSession}
                   />
                 </div>
               </motion.div>
@@ -650,11 +728,11 @@ const FocusSession = () => {
               isMobile
                 ? { inset: 0, width: "100%", height: "100%" }
                 : {
-                    left: "100px",
-                    top: "150px",
-                    width: "420px",
-                    height: "35vh",
-                  }
+                  left: "100px",
+                  top: "150px",
+                  width: "420px",
+                  height: "35vh",
+                }
             }
             className="absolute z-50 flex flex-col bg-card-background border border-card-border md:rounded-3xl shadow-2xl overflow-hidden"
           >
@@ -691,11 +769,11 @@ const FocusSession = () => {
               isMobile
                 ? { inset: 0, width: "100%", height: "100%" }
                 : {
-                    left: "calc(50% - 200px)",
-                    top: "20vh",
-                    width: "400px",
-                    height: "65vh",
-                  }
+                  left: "calc(50% - 200px)",
+                  top: "20vh",
+                  width: "400px",
+                  height: "65vh",
+                }
             }
             className="absolute z-50 flex flex-col bg-card-background border border-card-border md:rounded-3xl shadow-2xl overflow-hidden"
           >
@@ -733,10 +811,10 @@ const FocusSession = () => {
       <AnimatePresence>
         {showQuotes && (
           <motion.div
-            drag={!isMobile} 
+            drag={!isMobile}
             dragConstraints={containerRef}
             dragMomentum={false}
-            
+
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 30 }}

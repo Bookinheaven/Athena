@@ -18,7 +18,7 @@ class GoalService extends RequestService {
   }
 
   deleteGoal(goalId, payload) {
-    return this.request(`/notes/${goalId}`, { method: "DELETE", body: payload })
+    return this.request(`/goal/${goalId}`, { method: "DELETE", body: payload })
   }
 }
 

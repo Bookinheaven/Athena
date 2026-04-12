@@ -25,6 +25,9 @@ export const useFocusSessionInit = ({
     updateTodos,
     createNote,
     setNewSession,
+
+    // planner flag 
+    isPlanner
 }) => {
     // Load settings
     useEffect(() => {
@@ -58,28 +61,29 @@ export const useFocusSessionInit = ({
             dispatch,
             setSessionTitle,
             setSessionPlannedDuration,
+            isPlanner,
         });
     }, []);
 
     useEffect(() => {
         const handleNewSession = async () => {
-        if (!newSession) return;
-        
-        resetSession();
-        setSessionTitle("Untitled Work");
-        updateTodos([]);
-        
-        const note = await createNote({
-            title: "",
-            content: "<p></p>",
-            task: null,
-        });
+            if (!newSession) return;
+            
+            resetSession();
+            setSessionTitle("Untitled Work");
+            updateTodos([]);
+            
+            const note = await createNote({
+                title: "",
+                content: "<p></p>",
+                task: null,
+            });
 
-        if (!note) {
-            console.warn("Initial note creation failed");
-        }
-        
-        setNewSession(false);
+            if (!note) {
+                console.warn("Initial note creation failed");
+            }
+            
+            setNewSession(false);
         };
         handleNewSession();
     }, [newSession]);

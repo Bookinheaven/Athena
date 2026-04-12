@@ -23,6 +23,7 @@ import UserLayout from "./pages/layouts/UserLayout";
 import AdminLayout from "./pages/layouts/AdminLayout";
 import UserDashboard from "./pages/user/dashboard/UserDashboard";
 import AdminDashboard from "./pages/admin/dashboard/AdminDashboard";
+import SessionHistory from "./pages/user/sessions/SessionHistory";
 import RoleRoute from "./components/RouteRole";
 
 function App() {
@@ -45,6 +46,7 @@ function App() {
                 <Route path="/focus-page" element={<FocusSession />} />
                 <Route path="/planner" element={<Planner />} />
                 <Route path="/profile" element={<Profile />} />
+                <Route path="/sessions" element={<SessionHistory />} />
               </Route>
               <Route element={<RoleRoute allowedRoles={["admin"]} />}>
                 <Route element={<AdminLayout />}>

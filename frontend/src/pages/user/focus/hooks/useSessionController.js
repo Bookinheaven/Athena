@@ -10,6 +10,7 @@ export const useSessionController = ({
   saveFunction,
   autoStartBreaks,
   todos,
+  sessionStats,
 }) => {
   const completedIndexRef = useRef(null);
   const hasStartedSessionRef = useRef(false);
@@ -98,11 +99,19 @@ export const useSessionController = ({
             sessionId,
             todos: todos,
           };
+        case "stop":
+          return {
+            sessionId,
+            status: "skipped",
+            duration: elapsed,
+            sessionStats,
+          };
         case "finish":
           return {
             sessionId,
             status: "completed",
             duration: elapsed,
+            sessionStats,
           };
         default:
           return null;
