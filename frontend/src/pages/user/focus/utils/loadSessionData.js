@@ -7,6 +7,7 @@ export const loadSessionData = async ({
   dispatch,
   setSessionTitle,
   setSessionPlannedDuration,
+  isPlanner
 }) => {
   try {
     const backendSession = await sessionService.getActiveSession();
@@ -38,14 +39,13 @@ export const loadSessionData = async ({
         taskIds: backendSession.taskIds || [],
         sessionType: backendSession.sessionType || "quick",
       });
-
       dispatch({
         type: "LOAD",
         payload: {
           segments,
           segmentIndex: currentIndex,
           totalSegments: segments?.length,
-          status: currentSegment?.completedAt ? "ready" : "paused",
+          status: isPlanner ? "ready" : currentSegment?.completedAt ? "ready" : "paused",
           isDone: false,
         },
       });
@@ -53,6 +53,7 @@ export const loadSessionData = async ({
       setSessionData(initialSession());
     }
   } catch (err) {
+    console.error("Failed to load session data:", err);
     setSessionData(initialSession());
   } finally {
     setIsLoading(false);

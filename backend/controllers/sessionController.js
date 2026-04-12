@@ -74,7 +74,7 @@ class SessionController {
   async getSessions(req, res) {
     try {
       const userId = req.user._id;
-      const sessions = await SessionService.activeSessions(userId);
+      const sessions = await SessionService.sessions(userId);
       res.status(200).json(sessions);
     } catch (error) {
       console.error("Error in getSessions:", error);

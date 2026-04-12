@@ -41,6 +41,10 @@ const goalSchema = new mongoose.Schema(
       default: "#6366f1",
     },
 
+    startDate: {
+      type: Date,
+    },
+
     dueDate: {
       type: Date,
     },

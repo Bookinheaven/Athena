@@ -16,6 +16,7 @@ class SessionService {
       {
         $set: {
           status: "completed",
+          completionType: "abandoned",
           endedAt: new Date(),
         },
       },
@@ -76,9 +77,21 @@ class SessionService {
     if (Array.isArray(todos)) {
       updateData.todos = todos;
     }
+    if (status === "skipped"){
+      updateData.status = "completed";
+      updateData.completionType = "skipped";
+      updateData.endedAt = new Date();
+      if (payload.sessionStats) {
+        updateData.sessionStats = payload.sessionStats;
+      }
+    }
     if (status === "completed") {
       updateData.status = "completed";
+      updateData.completionType = "completed";
       updateData.endedAt = new Date();
+      if (payload.sessionStats) {
+        updateData.sessionStats = payload.sessionStats;
+      }
     }
     const updatedSession = await Session.findOneAndUpdate(
       { sessionId, userId },

@@ -166,40 +166,36 @@ const Notes = ({
     }
   }, [currentNote?.id, editor]);
 
-  useEffect(() => {
+  const handlePaste = (event) => {
     if (!editor) return;
-    const insertLocalImage = (file) => {
-      if (!file || !file.type.startsWith("image")) return false;
+    const items = event.clipboardData?.items;
+    if (!items) return;
+    for (let item of items) {
+      const file = item.getAsFile();
+      if (file && file.type.startsWith("image")) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          editor.chain().focus().setImage({ src: e.target.result }).run();
+        };
+        reader.readAsDataURL(file);
+        event.preventDefault();
+        return;
+      }
+    }
+  };
+
+  const handleDrop = (event) => {
+    if (!editor) return;
+    const file = event.dataTransfer?.files?.[0];
+    if (file && file.type.startsWith("image")) {
       const reader = new FileReader();
       reader.onload = (e) => {
         editor.chain().focus().setImage({ src: e.target.result }).run();
       };
       reader.readAsDataURL(file);
-      return true;
-    };
-    const handlePaste = (event) => {
-      const items = event.clipboardData?.items;
-      if (!items) return;
-      for (let item of items) {
-        if (insertLocalImage(item.getAsFile())) {
-          event.preventDefault();
-          break;
-        }
-      }
-    };
-    const handleDrop = (event) => {
-      const file = event.dataTransfer?.files?.[0];
-      if (insertLocalImage(file)) event.preventDefault();
-    };
-    const dom = editor?.view?.dom;
-    if (!dom) return;
-    dom.addEventListener("paste", handlePaste);
-    dom.addEventListener("drop", handleDrop);
-    return () => {
-      dom.removeEventListener("paste", handlePaste);
-      dom.removeEventListener("drop", handleDrop);
-    };
-  }, [editor]);
+      event.preventDefault();
+    }
+  };
 
   const handleCreateNote = async () => {
     if (editingId) {
@@ -335,7 +331,11 @@ const Notes = ({
               </div>
             </div>
             <MenuBar editor={editor} />
-            <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar cursor-text min-h-0 border-t border-border-secondary/10 pt-4">
+            <div 
+              className="flex-1 overflow-y-auto pr-2 custom-scrollbar cursor-text min-h-0 border-t border-border-secondary/10 pt-4"
+              onPaste={handlePaste}
+              onDrop={handleDrop}
+            >
               <EditorContent editor={editor} className="min-h-full pb-10" />
             </div>
           </div>
