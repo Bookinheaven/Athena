@@ -20,9 +20,7 @@ const SessionItem = ({ session }) => {
 
   return (
     <div className="group flex flex-col p-4 rounded-xl transition-all duration-300 bg-background-secondary/50 border border-border-secondary hover:bg-background-secondary hover:border-button-primary hover:shadow-md cursor-pointer">
-      {/* Tighter margin bottom (mb-3 instead of mb-4) */}
       <div className="flex items-start justify-between mb-3">
-        {/* Smaller icon container (w-10 h-10 instead of w-12 h-12) */}
         <div
           className="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center shadow-sm"
           style={{
@@ -38,7 +36,6 @@ const SessionItem = ({ session }) => {
           )}
         </div>
         
-        {/* Slightly smaller text and padding for the date badge */}
         <span className="text-[11px] px-2 py-1 rounded font-medium bg-card-background border border-border-secondary text-text-muted group-hover:border-border-primary transition-colors">
           {formatDate(session.createdAt)}
         </span>

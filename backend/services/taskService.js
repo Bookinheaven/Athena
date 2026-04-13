@@ -18,12 +18,12 @@ class TaskService {
   async getTasks(userId) {
     const today = getStartOfDay()
 
-    const tomorrow = new Date(today);
-    tomorrow.setDate(today.getDate() + 1);
+    // const tomorrow = new Date(today);
+    // tomorrow.setDate(today.getDate() + 1);
 
     const tasks = await Task.find({
       user: userId,
-      dueDate: { $gte: today, $lt: tomorrow }
+      // dueDate: { $gte: today, $lt: tomorrow }
     }).sort({ order: 1 });
     return tasks;
   }

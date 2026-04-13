@@ -31,12 +31,12 @@ const STATUS_CONFIG = {
     border: "border-emerald-300 dark:border-emerald-500/30",
     label: "Completed",
   },
-  "Skipped": {
+  "Cancelled": {
     icon: XCircle,
     color: "text-gray-400",
     bg: "bg-gray-50 dark:bg-gray-900/40",
     border: "border-gray-200 dark:border-gray-700",
-    label: "Skipped",
+    label: "Cancelled",
   },
 };
 
@@ -59,7 +59,7 @@ const TodoItem = ({ todo, onUpdateStatus, onDelete }) => {
         <div className="flex items-center gap-3 flex-1 overflow-hidden">
           <StatusIcon className={`w-5 h-5 flex-shrink-0 ${statusConfig.color}`} />
           <p className={`font-medium truncate transition-colors duration-300 ${
-            todo.status === "Completed" || todo.status === "Skipped" 
+            todo.status === "Completed" || todo.status === "Cancelled" 
               ? "text-text-muted line-through" 
               : "text-text-primary"
           }`}>
@@ -148,9 +148,9 @@ export const TodoList = ({
   const stats = {
     total: todos.length,
     completed: todos.filter((t) => t.status === "Completed").length,
-    skipped: todos.filter((t) => t.status === "Skipped").length,
+    cancelled: todos.filter((t) => t.status === "Cancelled").length,
   };
-  const progressCount = stats.completed + stats.skipped;
+  const progressCount = stats.completed + stats.cancelled;
   const progressPercent = stats.total > 0 ? Math.round((progressCount / stats.total) * 100) : 0;
 
   return (
@@ -169,7 +169,6 @@ export const TodoList = ({
           </button>
         </div>
 
-        {/* Sleek Progress Bar */}
         {stats.total > 0 && (
           <div className="flex items-center gap-3">
             <div className="flex-1 h-1.5 bg-background-secondary rounded-full overflow-hidden">

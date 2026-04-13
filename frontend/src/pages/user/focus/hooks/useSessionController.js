@@ -11,6 +11,7 @@ export const useSessionController = ({
   autoStartBreaks,
   todos,
   sessionStats,
+  setSessionStats,
 }) => {
   const completedIndexRef = useRef(null);
   const hasStartedSessionRef = useRef(false);
@@ -159,6 +160,9 @@ export const useSessionController = ({
         isRunningRef.current = false;
         pause();
         markDirtyRef.current("progress");
+        if (setSessionStats) {
+          setSessionStats(prev => [{...prev[0], pauseCount: prev[0].pauseCount + 1}]);
+        }
       }
     }
 
@@ -189,6 +193,18 @@ export const useSessionController = ({
     ) {
       completedIndexRef.current = segmentIndex;
       markDirtyRef.current("segment_complete");
+
+      if (setSessionStats) {
+        const current = segmentsRef.current?.[segmentIndex];
+        if (current) {
+          if (current.type === "break") {
+            setSessionStats(prev => [{...prev[0], breakSegmentsCompleted: prev[0].breakSegmentsCompleted + 1}]);
+          } else {
+            setSessionStats(prev => [{...prev[0], focusSegmentsCompleted: prev[0].focusSegmentsCompleted + 1}]);
+          }
+        }
+      }
+
       forceSaveRef.current().finally(() => {
         dispatch({ type: "TIME_UP" });
       });

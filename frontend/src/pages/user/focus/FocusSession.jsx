@@ -73,7 +73,7 @@ const FocusSession = () => {
     "sessionPlannedDuration",
     25 * 60,
   );
-  const { notes, setNotes, createNote, updateNote, deleteNote } = useNotes();
+  const { notes, createNote, updateNote, deleteNote } = useNotes();
 
   const [newTodo, setNewTodo] = useState("");
   const [sessionTitle, setSessionTitle] = useState("Untitled Work");
@@ -98,7 +98,7 @@ const FocusSession = () => {
     );
     return {
       sessionId: uuidv4(),
-      title: plannerData?.title || "Untitled Work",
+      title: plannerData?.title ? `${plannerData?.title} Session` : "Untitled Work",
       segmentIndex: 0,
       totalBreaks: segments.filter((s) => s.type === "break").length,
       breakDuration: safeBreak,
@@ -111,11 +111,11 @@ const FocusSession = () => {
       segments,
       taskIds: plannerData?.taskIds || [],
       sessionType: plannerData?.taskIds ? "task" : "quick",
-      todos: plannerData?.title
+      todos: plannerData?.title 
         ? [
           {
             id: Date.now(),
-            title: plannerData.title,
+            title: `${plannerData?.title} Main Task`,
             status: "Not Started",
             createdAt: new Date().toISOString(),
           },
@@ -180,6 +180,7 @@ const FocusSession = () => {
     soundOnTransition: settings.soundOnTransition,
     todos: sessionData.todos,
     sessionStats,
+    setSessionStats,
   });
   const isRunning = machineState.status === "running";
 
@@ -194,6 +195,7 @@ const FocusSession = () => {
     }
     const fresh = initialSession();
     setSessionData(fresh);
+    setSessionTitle(fresh.title || "Untitled Work");
     setSessionReview({ mood: null, focus: null, distractions: "" });
     dispatch({ type: "RESET" });
     onReset();
@@ -210,6 +212,7 @@ const FocusSession = () => {
     }
     const fresh = initialSession();
     setSessionData(fresh);
+    setSessionTitle(fresh.title || "Untitled Work");
     setSessionReview({ mood: null, focus: null, distractions: "" });
     dispatch({ type: "STOP" });
     onReset();
@@ -283,7 +286,8 @@ const FocusSession = () => {
           title: task.title,
           status: task.status === "completed" ? "Completed"
             : task.status === "in-progress" ? "In Progress"
-              : "Not Started",
+              : task.status === "cancelled" ? "Cancelled"
+                : "Not Started",
           createdAt: task.createdAt
         }));
         updateTodos(mappedTodos);
@@ -325,9 +329,9 @@ const FocusSession = () => {
     [setSessionReview],
   );
 
-  useEffect(() => {
-    console.log(machineState)
-  }, [machineState])
+  // useEffect(() => {
+  //   console.log(machineState)
+  // }, [machineState])
 
   const handleAddTodo = useCallback(async () => {
     if (!newTodo.trim()) return;
@@ -376,7 +380,8 @@ const FocusSession = () => {
       try {
         const backendStatus = status === "Completed" ? "completed"
           : status === "In Progress" ? "in-progress"
-            : "todo";
+            : status === "Cancelled" ? "cancelled"
+              : "todo";
         await taskService.updateTask(id, { status: backendStatus });
       } catch (err) {
         console.error("Failed to adjust task status:", err);
@@ -518,7 +523,7 @@ const FocusSession = () => {
         style={
           isMobile
             ? { left: "50%", x: "-50%", top: "2vh" }
-            : { left: "calc(50% - 175px)", top: "3vh" }
+            : { left: "calc(50% - 300px)", top: "3vh" }
         }
         className="absolute z-40 flex flex-col items-center shadow-2xl rounded-full border border-border-primary/40 bg-card-background/80 backdrop-blur-xl w-fit min-w-[320px]"
       >
@@ -593,7 +598,7 @@ const FocusSession = () => {
                     >
                       <div className="w-2 h-2 rounded-full bg-button-primary animate-pulse shadow-[0_0_10px_rgba(124,58,237,0.5)]" />
                       <span className="text-[11px] font-black uppercase tracking-[0.2em] text-button-primary/90">
-                        Current Focus
+                        Current Task
                       </span>
                       <div className="w-px h-3 bg-white/20" />
                       <span className="text-sm font-bold text-text-primary truncate max-w-[250px]">
