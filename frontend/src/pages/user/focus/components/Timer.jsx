@@ -209,8 +209,8 @@ export const Timer = ({
               cx="50"
               cy="50"
               r="45"
-              className="stroke-border-secondary opacity-20"
-              strokeWidth="4"
+              className="stroke-stroke-circle-mutted/40"
+              strokeWidth="5"
               fill="none"
             />
             <circle
@@ -218,9 +218,11 @@ export const Timer = ({
               cy="50"
               r="45"
               className={
-                currentSegment?.type === "break" ? "stroke-button-success" : "stroke-button-primary"
+                currentSegment?.type === "break"
+                  ? "stroke-button-success"
+                  : "stroke-stroke-circle"
               }
-              strokeWidth="4"
+              strokeWidth="5"
               fill="none"
               strokeDasharray={CIRCUMFERENCE}
               strokeDashoffset={progress}

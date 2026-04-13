@@ -30,11 +30,10 @@ const MenuBar = ({ editor }) => {
     <button
       onClick={onClick}
       disabled={disabled}
-      className={`p-1.5 rounded-lg transition-all duration-200 ${
-        isActive
-          ? "bg-button-primary/20 text-button-primary shadow-sm"
-          : "text-text-muted hover:bg-background-secondary hover:text-text-primary"
-      }`}
+      className={`p-1.5 rounded-lg transition-all duration-200 ${isActive
+        ? "bg-button-primary/20 text-button-primary shadow-sm"
+        : "text-text-muted hover:bg-background-secondary hover:text-text-primary"
+        }`}
     >
       {children}
     </button>
@@ -101,6 +100,35 @@ const Notes = ({
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const debounceRef = useRef(null);
+  const titleDebounceRef = useRef(null);
+  const [localTitle, setLocalTitle] = useState("");
+
+  const previousEditingId = useRef(editingId);
+  const notesRef = useRef(notes);
+
+  useEffect(() => {
+    notesRef.current = notes;
+  }, [notes]);
+
+  useEffect(() => {
+    const prevId = previousEditingId.current;
+    if (prevId && prevId !== editingId) {
+      const prevNote = notesRef.current.find(n => n.id === prevId);
+      if (prevNote) {
+        const isEmpty =
+          (!prevNote.title || !prevNote.title.trim()) &&
+          (!prevNote.content || prevNote.content === "<p></p>") &&
+          !localTitle.trim();
+        const isCurrentlyEditing = prevId === editingId;
+        if (isEmpty && !isCurrentlyEditing) {
+          deleteNote(prevId);
+          console.log("Deleting note:", prevNote);
+        }
+      }
+    }
+
+    previousEditingId.current = editingId;
+  }, [editingId, deleteNote]);
 
   const selectedTask = useMemo(
     () => todos.find((todo) => String(todo.id) === String(selectedTaskId)),
@@ -108,14 +136,14 @@ const Notes = ({
   );
 
   const filteredNotes = useMemo(() => {
-    let baseNotes = selectedTaskId 
+    let baseNotes = selectedTaskId
       ? notes.filter((n) => String(n.taskId) === String(selectedTaskId))
       : notes.filter((n) => !n.taskId);
 
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      return baseNotes.filter(n => 
-        n.title?.toLowerCase().includes(query) || 
+      return baseNotes.filter(n =>
+        n.title?.toLowerCase().includes(query) ||
         n.content?.toLowerCase().includes(query)
       );
     }
@@ -158,6 +186,10 @@ const Notes = ({
   });
 
   useEffect(() => {
+    setLocalTitle(currentNote?.title || "");
+  }, [currentNote?.id]);
+
+  useEffect(() => {
     if (!editor) return;
     const currentEditorContent = editor.getHTML();
     const newContent = currentNote?.content || "<p></p>";
@@ -165,6 +197,16 @@ const Notes = ({
       editor.commands.setContent(newContent);
     }
   }, [currentNote?.id, editor]);
+
+  const handleTitleChange = (e) => {
+    const newTitle = e.target.value;
+    setLocalTitle(newTitle);
+
+    clearTimeout(titleDebounceRef.current);
+    titleDebounceRef.current = setTimeout(() => {
+      updateNote(editingId, { title: newTitle });
+    }, 600);
+  };
 
   const handlePaste = (event) => {
     if (!editor) return;
@@ -211,7 +253,7 @@ const Notes = ({
     const res = await createNote({
       title: "",
       content: "<p></p>",
-      task: selectedTaskId || null,
+      taskId: selectedTaskId || null,
     });
     if (!res) return;
     setEditingId(res.id);
@@ -259,7 +301,7 @@ const Notes = ({
 
         <div className="flex flex-col gap-3">
           <div className="relative">
-            <button onClick={() => setIsDropdownOpen(!isDropdownOpen)} className="w-full flex items-center justify-between rounded-xl border border-border-secondary px-4 py-3 bg-input-background text-text-primary hover:border-border-primary hover:bg-background-secondary transition-all shadow-sm focus:outline-none focus:ring-2 focus:ring-button-primary/50">
+            <button onClick={() => setIsDropdownOpen(!isDropdownOpen)} className="w-full flex items-center justify-between rounded-xl border border-border-secondary px-4 py-3 bg-input-background text-text-primary hover:border-border-primary hover:bg-background-secondary transition-all shadow-none focus:outline-none focus:ring-2 focus:ring-button-primary/50">
               <div className="flex items-center gap-2 text-sm font-medium truncate">
                 {!selectedTaskId ? (
                   <>
@@ -269,7 +311,7 @@ const Notes = ({
                   </>
                 ) : (
                   <>
-                    <CheckCircle2 size={16} className="text-button-primary" />
+                    <CheckCircle2 size={16} className="text-button-primary shadow-none" />
                     <span className="truncate">{selectedTask?.title || selectedTask?.text}</span>
                     <span className="text-xs text-button-primary bg-button-primary/10 px-1.5 rounded-full">{noteCounts[selectedTaskId] || 0}</span>
                   </>
@@ -282,7 +324,7 @@ const Notes = ({
               <>
                 <div className="fixed inset-0 z-30" onClick={() => setIsDropdownOpen(false)} />
                 <div className="absolute top-full left-0 mt-2 w-full max-h-60 overflow-y-auto custom-scrollbar bg-card-background border border-border-secondary rounded-xl shadow-2xl z-40 py-2">
-                  <button onClick={() => { setSelectedTaskId(null); setEditingId(null); setIsDropdownOpen(false); }} className={`w-full flex items-center justify-between px-4 py-2.5 text-sm transition-colors ${!selectedTaskId ? "bg-background-secondary/80 text-text-primary font-semibold" : "text-text-secondary hover:bg-background-secondary/50 hover:text-text-primary font-medium"}`}>
+                  <button onClick={() => { setSelectedTaskId(null); setEditingId(null); setIsDropdownOpen(false); }} className={`w-full flex items-center justify-between px-4 py-2.5 text-sm transition-colors shadown-none ring-0 ${!selectedTaskId ? "bg-background-secondary/80 text-text-primary font-semibold" : "text-text-secondary hover:bg-background-secondary/50 hover:text-text-primary font-medium"}`}>
                     <div className="flex items-center gap-2"><FolderOpen size={16} className={!selectedTaskId ? "text-button-primary" : "text-text-muted"} /><span>General Scratchpad</span></div>
                     <span className="text-xs text-text-muted bg-background-secondary px-2 py-0.5 rounded-full border border-border-secondary/50">{noteCounts["general"] || 0}</span>
                   </button>
@@ -290,7 +332,7 @@ const Notes = ({
                   {todos.map((todo) => {
                     const isActive = String(todo.id) === String(selectedTaskId);
                     return (
-                      <button key={todo.id} onClick={() => { setSelectedTaskId(todo.id); setEditingId(null); setIsDropdownOpen(false); }} className={`w-full flex items-center justify-between px-4 py-2.5 text-sm transition-colors ${isActive ? "bg-background-secondary/80 text-text-primary font-semibold" : "text-text-secondary hover:bg-background-secondary/50 hover:text-text-primary font-medium"}`}>
+                      <button key={todo.id} onClick={() => { setSelectedTaskId(todo.id); setEditingId(null); setIsDropdownOpen(false); }} className={`w-full flex items-center justify-between px-4 py-2.5 text-sm transition-colors shadown-none ring-0 ${isActive ? "bg-background-secondary/80 text-text-primary font-semibold" : "text-text-secondary hover:bg-background-secondary/50 hover:text-text-primary font-medium"}`}>
                         <div className="flex items-center gap-2 truncate pr-4"><CheckCircle2 size={16} className={isActive ? "text-button-primary" : "text-text-muted"} /><span className="truncate">{todo.title || todo.text}</span></div>
                         <span className="text-xs text-text-muted bg-background-secondary px-2 py-0.5 rounded-full border border-border-secondary/50 shrink-0">{noteCounts[todo.id] || 0}</span>
                       </button>
@@ -324,14 +366,14 @@ const Notes = ({
         {editingId ? (
           <div className="flex flex-col h-full w-full animate-fade-in">
             <div className="flex flex-col gap-1 mb-4">
-              <input placeholder="Note Title..." value={currentNote?.title || ""} onChange={(e) => updateNote(editingId, { title: e.target.value })} className="w-full text-3xl font-black bg-transparent outline-none text-text-primary placeholder:text-text-muted/30 tracking-tight" />
+              <input placeholder="Note Title..." value={localTitle} onChange={handleTitleChange} className="w-full text-3xl font-black bg-transparent outline-none text-text-primary placeholder:text-text-muted/30 tracking-tight" />
               <div className="flex items-center gap-3 text-[10px] font-bold text-text-muted uppercase tracking-widest mt-1 opacity-70">
                 <span className="flex items-center gap-1"><Calendar size={10} /> {new Date(currentNote?.updatedAt || Date.now()).toLocaleDateString()}</span>
-                <span className="flex items-center gap-1"><Clock size={10} /> {new Date(currentNote?.updatedAt || Date.now()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                <span className="flex items-center gap-1"><Clock size={10} /> {new Date(currentNote?.updatedAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
               </div>
             </div>
             <MenuBar editor={editor} />
-            <div 
+            <div
               className="flex-1 overflow-y-auto pr-2 custom-scrollbar cursor-text min-h-0 border-t border-border-secondary/10 pt-4"
               onPaste={handlePaste}
               onDrop={handleDrop}

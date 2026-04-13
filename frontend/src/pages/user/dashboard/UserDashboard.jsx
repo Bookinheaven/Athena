@@ -334,6 +334,50 @@ const Dashboard = () => {
 
             {activeTab === "insights" && (
               <div className="space-y-10">
+                <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="bg-card-background border border-card-border p-6 rounded-3xl shadow-xl flex flex-col gap-3 relative overflow-hidden group hover:border-button-primary/50 transition-colors">
+                    <div className="absolute -top-4 -right-4 p-4 opacity-5 group-hover:opacity-10 transition-opacity"><Zap size={100} /></div>
+                    <h3 className="text-xl font-black flex items-center gap-2 tracking-tight"><Zap className="text-amber-500" size={22} /> Smart Suggestions</h3>
+                    <div className="bg-background-secondary/50 rounded-xl p-4 mt-2 border border-border-secondary/50">
+                      <p className="text-text-secondary font-medium text-sm">Best time for focus: <strong className="text-text-primary">10:00 AM</strong></p>
+                    </div>
+                    <div className="bg-background-secondary/50 rounded-xl p-4 border border-border-secondary/50">
+                      <p className="text-text-secondary font-medium text-sm">You often get distracted by phone after 45 mins. Try taking a break at 30 mins.</p>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-card-background border border-card-border p-6 rounded-3xl shadow-xl flex flex-col gap-3 relative overflow-hidden group hover:border-button-primary/50 transition-colors">
+                    <div className="absolute -top-4 -right-4 p-4 opacity-5 group-hover:opacity-10 transition-opacity"><Brain size={100} /></div>
+                    <h3 className="text-xl font-black flex items-center gap-2 tracking-tight"><Brain className="text-button-primary" size={22} /> AI Insights</h3>
+                    <div className="bg-background-secondary/50 rounded-xl p-4 mt-2 border border-border-secondary/50">
+                      <p className="text-text-secondary font-medium text-sm">You are <strong className="text-button-primary">18% more productive</strong> on high priority tasks.</p>
+                    </div>
+                    <div className="bg-background-secondary/50 rounded-xl p-4 border border-border-secondary/50">
+                      <p className="text-text-secondary font-medium text-sm">Your deep focus is significantly better when you tackle tasks early.</p>
+                    </div>
+                  </div>
+                </section>
+
+                <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="bg-card-background border border-card-border p-6 rounded-3xl shadow-xl flex flex-col gap-5 relative overflow-hidden">
+                    <h3 className="text-xl font-black flex items-center gap-2 tracking-tight"><CheckCircle className="text-emerald-500" size={22} /> Task Insights</h3>
+                    <ul className="space-y-4">
+                      <li className="flex justify-between items-center text-sm border-b border-border-secondary/50 pb-3"><span className="text-text-muted font-bold tracking-tight">Average Task Duration</span><span className="font-bold text-text-primary px-3 py-1 rounded-lg bg-background-secondary">45 mins</span></li>
+                      <li className="flex justify-between items-center text-sm border-b border-border-secondary/50 pb-3"><span className="text-text-muted font-bold tracking-tight">Completion Rate</span><span className="font-bold text-emerald-500 px-3 py-1 rounded-lg bg-emerald-500/10">82%</span></li>
+                      <li className="flex justify-between items-center text-sm"><span className="text-text-muted font-bold tracking-tight">Tasks Finished This Week</span><span className="font-bold text-text-primary px-3 py-1 rounded-lg bg-background-secondary">12</span></li>
+                    </ul>
+                  </div>
+
+                  <div className="bg-card-background border border-card-border p-6 rounded-3xl shadow-xl flex flex-col gap-5 relative overflow-hidden">
+                    <h3 className="text-xl font-black flex items-center gap-2 tracking-tight"><TrendingUp className="text-brand-500" size={22} /> Goal Analytics</h3>
+                    <ul className="space-y-4">
+                      <li className="flex justify-between items-center text-sm border-b border-border-secondary/50 pb-3"><span className="text-text-muted font-bold tracking-tight">Goals Reached This Month</span><span className="font-bold text-text-primary px-3 py-1 rounded-lg bg-background-secondary">3</span></li>
+                      <li className="flex justify-between items-center text-sm border-b border-border-secondary/50 pb-3"><span className="text-text-muted font-bold tracking-tight">Current Progress Velocity</span><span className="font-bold text-brand-500 px-3 py-1 rounded-lg bg-brand-500/10">+15% / week</span></li>
+                      <li className="flex justify-between items-center text-sm"><span className="text-text-muted font-bold tracking-tight">Avg Time per Goal</span><span className="font-bold text-text-primary px-3 py-1 rounded-lg bg-background-secondary">14 Days</span></li>
+                    </ul>
+                  </div>
+                </section>
+
                 <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   <Suspense fallback={<ChartSkeleton />}>
                     <FocusVsBreakChart data={dashboard.focusVsBreakData} />
