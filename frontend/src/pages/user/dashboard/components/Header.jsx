@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import { useMemo } from "react";
 import { Star } from "lucide-react";
 
-export default function Header({ displayName, username, level = 12, xp = 65 }) {
+export default function Header({ displayName, username, level = 0, xp = 10 }) {
   const greeting = useMemo(() => {
     const hour = new Date().getHours();
     if (hour < 12) return "Good morning";
