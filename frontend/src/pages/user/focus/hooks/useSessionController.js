@@ -161,7 +161,10 @@ export const useSessionController = ({
         pause();
         markDirtyRef.current("progress");
         if (setSessionStats) {
-          setSessionStats(prev => [{...prev[0], pauseCount: prev[0].pauseCount + 1}]);
+          setSessionStats(prev => ({ 
+            ...prev, 
+            pauseCount: prev.pauseCount + 1 
+          }));
         }
       }
     }
@@ -198,9 +201,15 @@ export const useSessionController = ({
         const current = segmentsRef.current?.[segmentIndex];
         if (current) {
           if (current.type === "break") {
-            setSessionStats(prev => [{...prev[0], breakSegmentsCompleted: prev[0].breakSegmentsCompleted + 1}]);
+            setSessionStats(prev => ({
+              ...prev,
+              breakSegmentsCompleted: prev.breakSegmentsCompleted + 1
+            }));
           } else {
-            setSessionStats(prev => [{...prev[0], focusSegmentsCompleted: prev[0].focusSegmentsCompleted + 1}]);
+            setSessionStats(prev => ({
+              ...prev,
+              focusSegmentsCompleted: prev.focusSegmentsCompleted + 1
+            }));
           }
         }
       }
