@@ -26,8 +26,7 @@ class SessionController {
         sessionId: req.params.sessionId,
         ...req.body,
       });
-
-      if (session.status === "completed") {
+      if (session.status?.toLowerCase().trim() === "completed") {
         await StreakService.dailyStreakUpdate(userId, session.duration / 60);
         await StreakService.processDailyStreak(userId);
       }

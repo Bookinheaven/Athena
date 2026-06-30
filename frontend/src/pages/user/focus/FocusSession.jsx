@@ -59,7 +59,7 @@ const FocusSession = () => {
     setIsSoundEnabled,
   } = useSessionSettings();
 
-  const [sessionStats, setSessionStats] = useSessionStorage("sessionStats", [
+  const [sessionStats, setSessionStats] = useSessionStorage("sessionStats",
     {
       breakSegmentsCompleted: 0,
       focusSegmentsCompleted: 0,
@@ -67,7 +67,7 @@ const FocusSession = () => {
       pauseCount: 0,
       totalPauseDuration: 0,
     },
-  ]);
+  );
 
   const [sessionPlannedDuration, setSessionPlannedDuration] = useLocalStorage(
     "sessionPlannedDuration",

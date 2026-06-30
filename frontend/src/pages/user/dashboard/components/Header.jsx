@@ -38,7 +38,8 @@ export default function Header({ displayName, username, level = 0, xp = 10 }) {
           </p>
         </div>
 
-        <motion.div
+        {/* Leveling card (LATER) */}
+        {/* <motion.div
           whileHover={{ y: -4, scale: 1.01 }}
           className="relative min-w-[280px] p-4 rounded-[32px] bg-card-background/40 backdrop-blur-xl border border-card-border shadow-2xl shadow-black/10 group cursor-pointer transition-all duration-500 overflow-hidden"
         >
@@ -85,7 +86,7 @@ export default function Header({ displayName, username, level = 0, xp = 10 }) {
           </div>
           
           <div className="absolute inset-px rounded-[31px] border border-white/5 pointer-events-none" />
-        </motion.div>
+        </motion.div> */}
 
       </div>
     </motion.header>
