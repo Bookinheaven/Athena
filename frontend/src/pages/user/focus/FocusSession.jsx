@@ -106,7 +106,22 @@ const FocusSession = () => {
       currentDuration: 0,
       plannedDuration: safeTotalFocus,
       segments,
+<<<<<<< Updated upstream
       todos: [],
+=======
+      taskIds: plannerData?.taskIds || [],
+      sessionType: plannerData?.taskIds ? "task" : "quick",
+      todos: plannerData?.title
+        ? [
+          {
+            id: Date.now(),
+            title: `${plannerData?.title} Main Task`,
+            status: "Not Started",
+            createdAt: new Date().toISOString(),
+          },
+        ]
+        : [],
+>>>>>>> Stashed changes
       timestamp: new Date().toISOString(),
     };
   }, [sessionPlannedDuration, settings.breakDuration, settings.breaksNumber, setSessionReview]);

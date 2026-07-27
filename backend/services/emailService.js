@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import { APP_NAME } from '../config/branding.js';
 
 async function createTransporter() {
   while (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
@@ -32,9 +33,9 @@ class EmailService {
     const transporter = await createTransporter();
 
     const mailOptions = {
-      from: `"Athena" <${process.env.EMAIL_USER}>`,
+      from: `"${APP_NAME}" <${process.env.EMAIL_USER}>`,
       to: email,
-      subject: "Athena – Email Verification",
+      subject: `${APP_NAME} – Email Verification`,
       html: `
         <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; background: #f9fafb;">
           <div style="background: #ffffff; border-radius: 12px; padding: 32px; box-shadow: 0 6px 20px rgba(0,0,0,0.08);">
@@ -58,14 +59,14 @@ class EmailService {
     const transporter = await createTransporter();
 
     const mailOptions = {
-      from: `"Athena" <${process.env.EMAIL_USER}>`,
+      from: `"${APP_NAME}" <${process.env.EMAIL_USER}>`,
       to: email,
-      subject: "Athena – Password Reset Request",
+      subject: `${APP_NAME} – Password Reset Request`,
       html: `
         <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; background: #f9fafb;">
           <div style="background: #ffffff; border-radius: 12px; padding: 32px; box-shadow: 0 6px 20px rgba(0,0,0,0.08);">
             <h2 style="color: #111827;">Hello, ${fullName}</h2>
-            <p style="color: #374151;">We received a request to reset your Athena password.</p>
+            <p style="color: #374151;">We received a request to reset your ${APP_NAME} password.</p>
             <p>Your password reset OTP is:</p>
             <h3 style="color: #dc2626; font-size: 24px;">${otp}</h3>
             <p style="color: #6b7280;">This code will expire in 10 minutes.</p>

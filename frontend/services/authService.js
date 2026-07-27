@@ -30,6 +30,13 @@ class AuthService extends RequestService {
     return response;
   }
 
+  async switchAccount(token) {
+    return this.request("/auth/switch-account", {
+      method: "POST",
+      body: { token },
+    });
+  }
+
   async requestPasswordReset(email) {
     return this.request("/auth/request-password-reset", {
       method: "POST",

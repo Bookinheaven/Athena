@@ -1,4 +1,5 @@
 import { NavLink, useNavigate } from "react-router-dom";
+import { APP_CONFIG } from "@/config/branding";
 import {
   LayoutDashboard,
   Target,
@@ -6,10 +7,14 @@ import {
   User,
   ChevronRight,
   LogOut,
+  Users,
+  Command,
 } from "lucide-react";
 import ThemeToggle from "./ThemeToggle";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { ConfirmModal } from "../../../components/ConfirmModal";
+import AccountSwitcherModal from "@/components/AccountSwitcherModal";
+import { useMultiAccount } from "@contexts/MultiAccountContext";
 import { useState } from "react";
 
 const navItems = [
@@ -20,12 +25,17 @@ const navItems = [
 ];
 
 const Sidebar = ({ expanded, setExpanded }) => {
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
+  const { clearAccountToken } = useMultiAccount();
   const navigate = useNavigate();
-  const [showLogoutModal, setShowLogoutModal] = useState(false); 
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showSwitcherModal, setShowSwitcherModal] = useState(false);
 
   const handleLogoutConfirm = async () => {
     try {
+      if (user?.id) {
+        clearAccountToken(user.id);
+      }
       await logout();
       navigate("/login");
     } catch (error) {
@@ -39,66 +49,65 @@ const Sidebar = ({ expanded, setExpanded }) => {
     <>
       <aside
         className={`
-          fixed left-0 top-0 h-full z-50 flex flex-col
+          relative h-full z-40 flex flex-col shrink-0
           transition-[width] duration-300 ease-in-out will-change-[width] transform-gpu
           ${expanded ? "w-64" : "w-20"}
-          bg-card-background/95 backdrop-blur-xl 
-          border-r border-border-primary/40
-          shadow-xl shadow-black/20
-          overflow-hidden
+          bg-white dark:bg-[#09090b]
+          border-r border-neutral-200 dark:border-neutral-800/80
+          shadow-lg shadow-black/5 dark:shadow-black/40
+          overflow-hidden font-sans select-none
         `}
       >
-        <div className="h-20 flex items-center justify-center border-b border-border-primary/30 relative overflow-hidden shrink-0">
-          <span
-            className={`
-              absolute font-semibold text-lg tracking-wide text-text-primary
-              transition-all duration-300 ease-in-out
-              ${expanded ? "opacity-100 translate-x-0" : "opacity-0 translate-x-4 scale-95"}
-            `}
-          >
-            Athena
-          </span>
-          <span
-            className={`
-              absolute font-bold text-xl text-brand-500
-              transition-all duration-300 ease-in-out
-              ${expanded ? "opacity-0 -translate-x-4 scale-95" : "opacity-100 translate-x-0"}
-            `}
-          >
-            A
-          </span>
+        {/* Top Brand Area */}
+        <div className="h-20 flex items-center px-5 border-b border-neutral-200 dark:border-neutral-800/80 relative overflow-hidden shrink-0">
+          <div className="flex items-center gap-3 min-w-max">
+            <div className="w-9 h-9 rounded-xl bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 font-bold flex items-center justify-center text-sm tracking-tighter shadow-sm shrink-0">
+              {APP_CONFIG.logoLetter}
+            </div>
+            <div
+              className={`
+                flex flex-col transition-all duration-300 ease-in-out
+                ${expanded ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4 pointer-events-none"}
+              `}
+            >
+              <span className="font-semibold text-sm tracking-tight text-neutral-900 dark:text-neutral-100 leading-tight">
+                {APP_CONFIG.name}
+              </span>
+              <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-400 dark:text-neutral-500 leading-tight mt-0.5">
+                Desktop Ed.
+              </span>
+            </div>
+          </div>
         </div>
 
-        <nav className="flex-1 px-4 py-6 space-y-2 flex flex-col justify-center overflow-y-auto custom-scrollbar">
+        {/* Navigation Links */}
+        <nav className="flex-1 px-3 py-6 space-y-1.5 flex flex-col overflow-y-auto custom-scrollbar">
           {navItems.map(({ to, icon: Icon, label }) => (
             <NavLink key={to} to={to} title={!expanded ? label : ""}>
               {({ isActive }) => (
                 <div
                   className={`
-                    group relative flex items-center h-12 rounded-xl px-3
-                    transition-all duration-200
+                    group relative flex items-center h-11 rounded-xl px-3
+                    transition-all duration-200 border cursor-pointer
                     ${isActive
-                        ? "bg-brand-500/10 text-text-primary"
-                        : "text-text-muted hover:text-text-primary hover:bg-brand-500/5"
+                      ? "bg-neutral-100 dark:bg-white/[0.08] text-neutral-900 dark:text-white font-semibold border-neutral-200/80 dark:border-white/10 shadow-2xs"
+                      : "bg-transparent text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-white/[0.04] hover:text-neutral-900 dark:hover:text-neutral-200 font-medium border-transparent"
                     }
                   `}
                 >
-                  {isActive && (
-                    <span className="absolute left-0 top-2 bottom-2 w-[3px] bg-brand-500 rounded-r-full shadow-[0_0_8px_rgba(99,102,241,0.6)]" />
-                  )}
                   <Icon
-                    size={24}
+                    size={20}
                     className={`
-                      flex-shrink-0 transition-transform duration-300 ease-in-out
-                      ${isActive ? "text-brand-500 scale-110" : "group-hover:scale-110"}
+                      flex-shrink-0 transition-transform duration-200
+                      ${isActive ? "text-neutral-900 dark:text-white" : "text-neutral-500 dark:text-neutral-400 group-hover:text-neutral-800 dark:group-hover:text-neutral-200"}
                     `}
                   />
 
                   <span
                     className={`
-                      whitespace-nowrap text-sm font-medium
+                      whitespace-nowrap text-xs font-medium ml-3.5
                       transition-all duration-300 ease-in-out overflow-hidden
-                      ${expanded ? "max-w-[130px] opacity-100 translate-x-3" : "max-w-0 opacity-0 translate-x-0"}
+                      ${expanded ? "max-w-[140px] opacity-100 translate-x-0" : "max-w-0 opacity-0 -translate-x-2"}
                     `}
                   >
                     {label}
@@ -109,27 +118,81 @@ const Sidebar = ({ expanded, setExpanded }) => {
           ))}
         </nav>
 
-        <div className="mt-auto flex flex-col items-start justify-center p-4 gap-3 shrink-0">
+        {/* Bottom Action Controls */}
+        <div className="mt-auto flex flex-col items-start justify-center p-3 gap-1.5 shrink-0 border-t border-neutral-200/60 dark:border-neutral-800/60 bg-neutral-50/50 dark:bg-white/[0.01]">
+          <button
+            onClick={() => setShowSwitcherModal(true)}
+            title={!expanded ? "Switch Workspace Account" : ""}
+            className={`
+              relative flex items-center h-11 rounded-xl px-3
+              transition-all duration-200 border border-transparent
+              text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-white/[0.06] hover:text-neutral-900 dark:hover:text-white
+              focus:outline-none overflow-hidden cursor-pointer
+              ${expanded ? "w-full" : "w-11"}
+            `}
+          >
+            <Users size={20} className="flex-shrink-0 text-neutral-500 dark:text-neutral-400" />
+
+            <span
+              className={`
+                whitespace-nowrap text-xs font-medium ml-3.5
+                transition-all duration-300 ease-in-out overflow-hidden
+                ${expanded ? "max-w-[130px] opacity-100 translate-x-0" : "max-w-0 opacity-0 -translate-x-2"}
+              `}
+            >
+              Accounts
+            </span>
+          </button>
+
+          <button
+            onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true, bubbles: true }))}
+            title={!expanded ? "Command Palette (⌘K)" : ""}
+            className={`
+              relative flex items-center h-11 rounded-xl px-3
+              transition-all duration-200 border border-transparent
+              text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-white/[0.06] hover:text-neutral-900 dark:hover:text-white
+              focus:outline-none overflow-hidden cursor-pointer
+              ${expanded ? "w-full" : "w-11"}
+            `}
+          >
+            <Command size={20} className="flex-shrink-0 text-neutral-500 dark:text-neutral-400" />
+
+            <span
+              className={`
+                whitespace-nowrap text-xs font-medium ml-3.5
+                transition-all duration-300 ease-in-out overflow-hidden
+                ${expanded ? "max-w-[130px] opacity-100 translate-x-0" : "max-w-0 opacity-0 -translate-x-2"}
+              `}
+            >
+              Commands
+            </span>
+            {expanded && (
+              <span className="ml-auto text-[10px] font-mono bg-neutral-200/80 dark:bg-white/[0.08] border border-neutral-300/60 dark:border-white/10 px-1.5 py-0.5 rounded text-neutral-600 dark:text-neutral-400">
+                ⌘K
+              </span>
+            )}
+          </button>
+
           <ThemeToggle expanded={expanded} />
-          
+
           <button
             onClick={() => setShowLogoutModal(true)}
             title={!expanded ? "Logout" : ""}
             className={`
-              relative flex items-center h-12 rounded-xl px-3
-              transition-all duration-200
-              bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white 
-              focus:outline-none overflow-hidden
-              ${expanded ? "w-full" : "w-12"}
+              relative flex items-center h-11 rounded-xl px-3
+              transition-all duration-200 border border-transparent
+              text-neutral-500 dark:text-neutral-400 hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400 hover:border-red-500/20
+              focus:outline-none overflow-hidden cursor-pointer
+              ${expanded ? "w-full" : "w-11"}
             `}
           >
-            <LogOut size={24} className="flex-shrink-0 transition-transform duration-300 hover:scale-110" />
-            
+            <LogOut size={20} className="flex-shrink-0" />
+
             <span
               className={`
-                whitespace-nowrap text-sm font-medium
+                whitespace-nowrap text-xs font-medium ml-3.5
                 transition-all duration-300 ease-in-out overflow-hidden
-                ${expanded ? "max-w-[100px] opacity-100 translate-x-3" : "max-w-0 opacity-0 translate-x-0"}
+                ${expanded ? "max-w-[100px] opacity-100 translate-x-0" : "max-w-0 opacity-0 -translate-x-2"}
               `}
             >
               Logout
@@ -137,19 +200,20 @@ const Sidebar = ({ expanded, setExpanded }) => {
           </button>
         </div>
 
-        <div className="h-16 w-full border-t border-border-primary/40 shrink-0">
+        {/* Collapse / Expand Trigger */}
+        <div className="h-14 w-full border-t border-neutral-200 dark:border-neutral-800/80 shrink-0 bg-white dark:bg-[#09090b]">
           <button
             onClick={() => setExpanded((prev) => !prev)}
             className="
               w-full h-full flex items-center justify-center
-              text-text-muted hover:text-text-primary hover:bg-brand-500/5
-              transition-colors duration-200 focus:outline-none
+              text-neutral-400 dark:text-neutral-500 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-white/[0.04]
+              transition-colors duration-200 focus:outline-none cursor-pointer
             "
           >
             <ChevronRight
-              className={`w-6 h-6 transition-transform duration-500 transform-gpu ${
-                expanded ? "rotate-180" : ""
-              }`}
+              size={18}
+              className={`transition-transform duration-300 transform-gpu ${expanded ? "rotate-180" : ""
+                }`}
             />
           </button>
         </div>
@@ -157,11 +221,16 @@ const Sidebar = ({ expanded, setExpanded }) => {
 
       <ConfirmModal
         isOpen={showLogoutModal}
-        title="Logout Athena"
+        title={`Logout ${APP_CONFIG.shortName}`}
         message="Are you sure you want to log out? Any unsaved focus session progress might be lost."
         onConfirm={handleLogoutConfirm}
         onCancel={() => setShowLogoutModal(false)}
         type="danger"
+      />
+
+      <AccountSwitcherModal
+        isOpen={showSwitcherModal}
+        onClose={() => setShowSwitcherModal(false)}
       />
     </>
   );

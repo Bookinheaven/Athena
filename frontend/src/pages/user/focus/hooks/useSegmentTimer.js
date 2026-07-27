@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useRef } from "react"
+import { useEffect, useMemo, useRef } from "react"
 import { useTimerEngine } from "./useTimerEngine";
 import { recoverElapsed } from "../utils/recoverSession";
 

@@ -75,7 +75,7 @@ export default function HeaderNav({
   }, []);
 
   useEffect(() => {
-    updateStreak(); 
+    updateStreak();
     const streakInterval = setInterval(updateStreak, 30000);
     return () => clearInterval(streakInterval);
   }, [updateStreak]);
@@ -101,10 +101,9 @@ export default function HeaderNav({
           onClick={toggleDeepFocus}
           className={`
             p-2 rounded-full transition-all duration-300
-            ${
-              isDeepFocus
-                ? "text-button-primary bg-button-primary/15 hover:bg-button-primary/25"
-                : "text-text-muted hover:text-button-primary hover:bg-button-primary/10"
+            ${isDeepFocus
+              ? "text-button-primary bg-button-primary/15 hover:bg-button-primary/25"
+              : "text-text-muted hover:text-button-primary hover:bg-button-primary/10"
             }
           `}
           title={isDeepFocus ? "Exit Deep Focus" : "Enter Deep Focus"}
@@ -156,13 +155,12 @@ export default function HeaderNav({
 
         <button
           disabled={!isRunning}
-          className={`p-2 rounded-full transition-all duration-300 ${
-            !isRunning
+          className={`p-2 rounded-full transition-all duration-300 ${!isRunning
               ? "opacity-40 cursor-not-allowed text-text-muted"
               : activePanels.todos
                 ? "bg-button-primary text-button-primary-text shadow-md scale-105"
                 : "text-text-muted hover:bg-background-secondary hover:text-text-primary"
-          }`}
+            }`}
           title="Tasks"
           onClick={() => handlePanelToggle("todos")}
         >
@@ -171,13 +169,12 @@ export default function HeaderNav({
 
         <button
           disabled={!isRunning}
-          className={`p-2 rounded-full transition-all duration-300 ${
-            !isRunning
+          className={`p-2 rounded-full transition-all duration-300 ${!isRunning
               ? "opacity-40 cursor-not-allowed text-text-muted"
               : activePanels.notes
                 ? "bg-button-primary text-button-primary-text shadow-md scale-105"
                 : "text-text-muted hover:bg-background-secondary hover:text-text-primary"
-          }`}
+            }`}
           title="Notes"
           onClick={() => handlePanelToggle("notes")}
         >
@@ -186,13 +183,12 @@ export default function HeaderNav({
 
         <button
           disabled={!isRunning}
-          className={`p-2 rounded-full transition-all duration-300 ${
-            !isRunning
+          className={`p-2 rounded-full transition-all duration-300 ${!isRunning
               ? "opacity-40 cursor-not-allowed text-text-muted"
               : activePanels.progress
                 ? "bg-button-primary text-button-primary-text shadow-md scale-105"
                 : "text-text-muted hover:bg-background-secondary hover:text-text-primary"
-          }`}
+            }`}
           title="Progress"
           onClick={() => handlePanelToggle("progress")}
         >
@@ -203,13 +199,12 @@ export default function HeaderNav({
 
         <button
           disabled={!isIdle}
-          className={`p-2 rounded-full transition-all duration-300 ${
-            !isIdle
+          className={`p-2 rounded-full transition-all duration-300 ${!isIdle
               ? "opacity-40 cursor-not-allowed text-text-muted"
               : activePanels.settings
                 ? "bg-button-primary text-button-primary-text shadow-md scale-105"
                 : "text-text-muted hover:text-text-primary hover:bg-background-secondary"
-          }`}
+            }`}
           title="Focus Settings"
           onClick={() => handlePanelToggle("settings")}
         >

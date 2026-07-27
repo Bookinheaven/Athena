@@ -160,6 +160,8 @@ export const Timer = ({
     [],
   );
 
+  if (!currentSegment) return null;
+
   const completedFocusSegments = totalFocusSegments - remainingFocusSegments;
   const completedBreakSegments = totalBreakSegments - breaksLeft;
 

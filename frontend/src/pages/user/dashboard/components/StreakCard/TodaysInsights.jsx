@@ -1,93 +1,83 @@
 import {
-  Timer,
-  Layers,
-  Zap,
-  AlertTriangle,
+    Timer,
+    Layers,
+    Zap,
+    AlertTriangle,
 } from "lucide-react";
 
 export default function TodaysInsights({
-  sessions = 0,
-  focusBlocks = 0,
-  longestFocus = "—",
-  distractions = "—",
+    sessions = 0,
+    focusBlocks = 0,
+    longestFocus = "—",
+    distractions = "—",
 }) {
-  // distractions freq and low hight should be set 
-  return (
-    <div
-      className="
-        rounded-xl p-6
-        bg-card-background
-        border border-card-border/60
-        hover:border-orange-400/40
-        shadow-sm
-        transition-colors
-      "
-    >
-      <div className="mb-4">
-        <p className="text-sm font-semibold uppercase tracking-wide text-text-secondary">
-          Today Insights
-        </p>
-        <p className="text-xs text-text-secondary/70">
-          Your activity so far today
-        </p>
-      </div>
+    return (
+        <div className="rounded-2xl p-6 bg-card-background border border-card-border hover:border-button-primary/50 shadow-sm transition-colors flex flex-col justify-between">
+            <div className="mb-6 border-b border-border-primary pb-4">
+                <p className="text-xs font-mono uppercase tracking-wider text-text-muted font-bold">
+                    Today's Insights
+                </p>
+                <p className="text-sm text-text-secondary mt-1">
+                    Your real-time focus activity metrics
+                </p>
+            </div>
 
-      <div className="flex flex-col gap-4">
-        <InsightRow
-          icon={Timer}
-          label="Sessions"
-          value={sessions}
-        />
+            <div className="flex flex-col gap-4">
+                <InsightRow
+                    icon={Timer}
+                    label="Completed Sessions"
+                    value={sessions}
+                />
 
-        <InsightRow
-          icon={Layers}
-          label="Focus blocks"
-          value={focusBlocks}
-        />
+                <InsightRow
+                    icon={Layers}
+                    label="Focus Blocks"
+                    value={focusBlocks}
+                />
 
-        <InsightRow
-          icon={Zap}
-          label="Longest focus"
-          value={longestFocus}
-        />
+                <InsightRow
+                    icon={Zap}
+                    label="Longest Focus"
+                    value={longestFocus}
+                />
 
-        <InsightRow
-          icon={AlertTriangle}
-          label="Distractions"
-          value={distractions != null ? distractions : "-"}
-          valueClass={
-            distractions === "Low"
-              ? "text-green-400"
-              : distractions === "Medium"
-                ? "text-yellow-400"
-                : "text-red-400"
-          }
-        />
-      </div>
-    </div>
-  );
+                <InsightRow
+                    icon={AlertTriangle}
+                    label="Distractions"
+                    value={distractions != null ? distractions : "-"}
+                    valueClass={
+                        distractions === "Low"
+                            ? "text-emerald-500 font-bold"
+                            : distractions === "Medium"
+                                ? "text-amber-500 font-bold"
+                                : "text-rose-500 font-bold"
+                    }
+                />
+            </div>
+        </div>
+    );
 }
 
 function InsightRow({
-  icon: Icon,
-  label,
-  value,
-  valueClass = "text-white",
+    icon: Icon,
+    label,
+    value,
+    valueClass = "text-text-primary",
 }) {
-  return (
-    <div className="flex items-center justify-between">
-      <div className="flex items-center gap-3">
-        <div className="p-2 rounded-lg bg-button-primary/10 text-button-primary">
-          <Icon size={18} />
-        </div>
-        <span className="text-neutral-400 text-base">
-          {label}
-        </span>
-      </div>
+    return (
+        <div className="flex items-center justify-between p-2 rounded-xl hover:bg-background-secondary transition-colors">
+            <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-button-primary/10 text-button-primary border border-button-primary/20 shadow-xs">
+                    <Icon size={16} />
+                </div>
+                <span className="text-text-secondary text-sm font-medium font-sans">
+                    {label}
+                </span>
+            </div>
 
-      <span className={`font-semibold text-lg ${valueClass}`}>
-        {value}
-      </span>
-    </div>
-  );
+            <span className={`font-mono font-bold text-base ${valueClass}`}>
+                {value}
+            </span>
+        </div>
+    );
 }

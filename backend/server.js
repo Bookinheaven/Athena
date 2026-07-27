@@ -6,6 +6,7 @@ import cookieParser from "cookie-parser";
 import rateLimit from "express-rate-limit";
 import cors from "cors";
 import http from "http";
+import { APP_NAME } from "./config/branding.js";
 
 // Routers
 import authRoutes from "./routes/authRoutes.js";
@@ -80,7 +81,7 @@ app.use(cookieParser());
 app.get("/health", (req, res) => {
   res.json({
     success: true,
-    message: "Athena API is running!",
+    message: `${APP_NAME} API is running!`,
     timestamp: new Date().toISOString(),
   });
 });
@@ -129,7 +130,7 @@ const startServer = async () => {
 
   server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
-    console.log(`Athena Backend ready!`);
+    console.log(`${APP_NAME} Backend ready!`);
     console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
   });
   process.on("SIGINT", async () => {

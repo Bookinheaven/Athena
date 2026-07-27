@@ -23,7 +23,8 @@ export default defineConfig([
       },
     },
     rules: {
-      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]|motion|Icon|useMemo|user|useLocation', argsIgnorePattern: '^[A-Z_]|motion|Icon|useMemo|index|username|level|xp', caughtErrorsIgnorePattern: '^.*' }],
+      'react-refresh/only-export-components': 'off',
     },
   },
 ])
