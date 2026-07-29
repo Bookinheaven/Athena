@@ -11,7 +11,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => {
       ipcRenderer.removeListener('window-maximized-change', handler);
     };
-  }
+  },
+  
+  // Workspace Native API
+  showOpenDialog: (options) => ipcRenderer.invoke('dialog:showOpenDialog', options),
+  openPath: (fullPath) => ipcRenderer.invoke('shell:openPath', fullPath),
+  openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url)
 });
 
 // Apply desktop styling marker as soon as DOM is ready

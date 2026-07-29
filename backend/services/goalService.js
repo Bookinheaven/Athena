@@ -1,6 +1,5 @@
 import Goal from "../models/goalModel.js"
 
-
 class GoalService {
     async createGoal(userId, data) {
         const goal = await Goal.create({
@@ -15,7 +14,7 @@ class GoalService {
     }
 
     async getGoalById(userId, goalId) {
-        return Goal.fineOne({ user: userId, _id: goalId })
+        return Goal.findOne({ user: userId, _id: goalId })
     }
 
     async updateGoal(userId, goalId, data) {
@@ -32,7 +31,8 @@ class GoalService {
     }
 
     async recalculateProgress(goalId){
-         const tasks = await Task.find({ goal: goalId });
+        const Task = (await import("../models/taskModel.js")).default;
+        const tasks = await Task.find({ goal: goalId });
         if (!tasks.length) {
             await Goal.findByIdAndUpdate(goalId, { progress: 0 });
             return;
@@ -46,4 +46,4 @@ class GoalService {
     }
 }
 
-export default GoalService;
+export default new GoalService();

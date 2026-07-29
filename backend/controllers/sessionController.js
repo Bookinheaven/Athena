@@ -26,8 +26,7 @@ class SessionController {
         sessionId: req.params.sessionId,
         ...req.body,
       });
-
-      if (session.status === "completed") {
+      if (session.status?.toLowerCase().trim() === "completed") {
         await StreakService.dailyStreakUpdate(userId, session.duration / 60);
         await StreakService.processDailyStreak(userId);
       }
@@ -74,7 +73,7 @@ class SessionController {
   async getSessions(req, res) {
     try {
       const userId = req.user._id;
-      const sessions = await SessionService.activeSessions(userId);
+      const sessions = await SessionService.sessions(userId);
       res.status(200).json(sessions);
     } catch (error) {
       console.error("Error in getSessions:", error);

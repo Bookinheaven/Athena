@@ -56,14 +56,14 @@ class AuthService {
 
     return { message: 'Registration successful. Please check your email for verification code.' };
   }
-  
+
   static async resendCode(userData) {
     const { email, fullName } = userData;
 
     const otp = this.generateOTP();
     const otpExpires = new Date(Date.now() + 10 * 60 * 1000);
 
-    const user = await User.findOne({email});
+    const user = await User.findOne({ email });
     user.isEmailVerified = false;
     user.emailVerificationOTP = otp;
     user.emailVerificationExpires = otpExpires
@@ -76,7 +76,7 @@ class AuthService {
       console.warn(error)
     }
     return { message: 'Please check your email for verification code.' };
-  
+
   }
 
   static async verifyEmail(email, otp) {
@@ -111,7 +111,7 @@ class AuthService {
     }
 
     if (!user.isEmailVerified) {
-      return { success:false, message: 'Please verify your email before logging in', userData: {fullName: user.fullName, email: user.email} };
+      return { success: false, message: 'Please verify your email before logging in', userData: { fullName: user.fullName, email: user.email } };
     }
 
     user.lastLogin = new Date();
@@ -142,7 +142,7 @@ class AuthService {
     }
 
     const otp = this.generateOTP();
-    const otpExpires = new Date(Date.now() + 10 * 60 * 1000); 
+    const otpExpires = new Date(Date.now() + 10 * 60 * 1000);
 
     user.passwordResetOTP = otp;
     user.passwordResetExpires = otpExpires;

@@ -8,6 +8,7 @@ import {
   Clock,
   Target,
   Coffee,
+  StopCircle,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { EditableTitle } from "./EditableTitle";
@@ -23,6 +24,7 @@ export const Timer = ({
   setSessionTitle,
   sessionPlannedDuration,
   setSessionPlannedDuration,
+  stopSession
 }) => {
   const { timeLeft, elapsed, status, isRunning } = timer;
   const {
@@ -35,32 +37,32 @@ export const Timer = ({
     remainingFocusSegments,
   } = session;
 
-  const { start, pause, reset, setNewSession, onTitleSet } = controls;
-  
-  if (!currentSegment) return null; // loading kinda thing later
+  const { start, pause, reset, setNewSession, onTitleSet, setPauseReason } = controls;
 
   const [customMinutes, setCustomMinutes] = useState(25);
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [sessionType, setSessionType] = useState("");
+  const [activeReason, setActiveReason] = useState("Manual Pause");
+
+  const pauseReasons = [
+    { id: "Meeting", icon: "👥" },
+    { id: "Phone Call", icon: "📞" },
+    { id: "Emergency", icon: "🚨" },
+    { id: "Lunch", icon: "🍱" },
+    { id: "Break", icon: "☕" },
+    { id: "Custom", icon: "✏️" },
+  ];
 
   const timeoutRef = useRef(null);
   const intervalRef = useRef(null);
-  const focusEndSound = useRef(null);
-  const breakEndSound = useRef(null);
-
-  // useEffect(() => {
-  //   focusEndSound.current = new Audio("/focus_ended.mp3");
-  //   breakEndSound.current = new Audio("/break_ended.mp3");
-  //   if (currentSegment && currentSegment.duration > 0) {
-  //     setPaused(true);
-  //   }
-  // }, []);  
 
   const notify = useCallback((msg, type = "success") => {
     if (type === "success") toast.success(msg);
     else if (type === "error") toast.error(msg);
     else toast(msg);
   }, []);
+
+  if (!currentSegment) return null;
 
   const durations = [
     { label: "15m", value: 15 * 60, type: "Short" },
@@ -92,7 +94,7 @@ export const Timer = ({
     const remaining = Math.max(total - elapsed, 0);
     return CIRCUMFERENCE * (remaining / total);
   }, [elapsed, currentSegment?.totalDuration]);
-  
+
   const handleDecrement = useCallback(
     () => setCustomMinutes((p) => Math.max(10, p - 1)),
     [],
@@ -143,11 +145,9 @@ export const Timer = ({
   useEffect(() => {
     if (timeLeft <= 0 && isRunning) {
       if (currentSegment?.type === "break") {
-        // breakEndSound.current?.play().catch(console.error);
-        notify("☕ Break ended! Time to focus again!");
+        notify("Break ended! Time to focus again.");
       } else {
-        // focusEndSound.current?.play().catch(console.error);
-        notify("🎯 Focus session complete!");
+        notify("Focus session complete!");
       }
     }
   }, [timeLeft, isRunning, currentSegment, notify]);
@@ -166,7 +166,7 @@ export const Timer = ({
   const completedBreakSegments = totalBreakSegments - breaksLeft;
 
   return (
-    <div className="lg:min-w-lg lg:max-w-md md:min-w-lg min-w-full p-8  shadow-2xl w-full h-full bg-card-background border border-card-border relative flex flex-col">
+    <div className="w-full h-full relative flex flex-col items-center bg-transparent">
       <div className="text-center mb-6 pt-4 h-10 flex items-center justify-center">
         <EditableTitle
           title={sessionTitle}
@@ -182,17 +182,15 @@ export const Timer = ({
             return (
               <div
                 key={i}
-                className={`rounded-full transition-all duration-300 ${
-                  active ? "w-3 h-3 shadow-md" : "w-2 h-2"
-                } ${
-                  done
+                className={`rounded-full transition-all duration-300 ${active ? "w-3 h-3 shadow-md" : "w-2 h-2"
+                  } ${done
                     ? "bg-text-muted opacity-30"
                     : active
                       ? currentSegment?.type === "break"
                         ? "bg-button-success"
                         : "bg-button-primary animate-pulse"
                       : "bg-border-secondary opacity-50"
-                }`}
+                  }`}
               />
             );
           })}
@@ -201,14 +199,13 @@ export const Timer = ({
 
       <div className="text-center mb-6 pt-4 h-10 flex items-center justify-center">
         <span
-          className={`group inline-flex items-center gap-2 px-6 py-2 rounded-full text-sm font-medium border transition-colors ${
-            currentSegment?.type === "break"
-              ? "bg-success-bg text-success-text border-button-success"
-              : "bg-background-secondary text-text-accent border-button-primary hover:bg-card-border cursor-pointer"
-          }`}
+          className={`group inline-flex items-center gap-2 px-6 py-2 rounded-full text-sm font-semibold border transition-all shadow-sm ${currentSegment?.type === "break"
+            ? "bg-success-bg/50 backdrop-blur-md text-success-text border-button-success/30"
+            : "bg-button-primary/10 backdrop-blur-md text-button-primary border-button-primary/30 hover:bg-button-primary/20 cursor-pointer"
+            }`}
           title={currentSegment?.type === "break" ? "" : "Click to edit title"}
         >
-          {currentSegment?.type === "break" ? "☕ Break Time" : `🎯 ${sessionType || "Focus Session"}`}
+          {currentSegment?.type === "break" ? "Break Time" : sessionType || "Focus Session"}
         </span>
       </div>
 
@@ -222,8 +219,8 @@ export const Timer = ({
               cx="50"
               cy="50"
               r="45"
-              className="stroke-border-secondary opacity-20"
-              strokeWidth="4"
+              className="stroke-stroke-circle-mutted/40"
+              strokeWidth="5"
               fill="none"
             />
             <circle
@@ -231,21 +228,25 @@ export const Timer = ({
               cy="50"
               r="45"
               className={
-                currentSegment?.type === "break" ? "stroke-button-success" : "stroke-button-primary"
+                `transition-all duration-300 drop-shadow-[0_0_15px_rgba(124,58,237,0.3)] ${
+                  currentSegment?.type === "break"
+                    ? "stroke-button-success"
+                    : "stroke-button-primary"
+                }`
               }
-              strokeWidth="4"
+              strokeWidth="5"
               fill="none"
               strokeDasharray={CIRCUMFERENCE}
               strokeDashoffset={progress}
               strokeLinecap="round"
-              style={{ transition: "stroke-dashoffset 0.3s linear" }}
+              style={{ transition: "stroke-dashoffset 0.3s linear, stroke 0.3s ease" }}
             />
           </svg>
-          <div className="text-center w-full">
+          <div className="text-center w-full relative z-10">
             <div
-              className={`font-bold text-text-primary ${getTimeSizeClass(
-                activeTime,
-              )}`}
+              className={`font-black tracking-tighter tabular-nums drop-shadow-sm ${
+                currentSegment?.type === "break" ? "text-success-text" : "text-text-primary"
+              } ${getTimeSizeClass(activeTime)}`}
             >
               {formatTime(activeTime)}
             </div>
@@ -278,7 +279,7 @@ export const Timer = ({
         </div>
       </div>
 
-      {!isRunning && currentSegment?.type !== "break" && elapsed === 0 && completedFocusSegments === 0 && (
+      {!isRunning && elapsed === 0 && completedFocusSegments === 0 && status === "idle" && (
         <div className="mt-6 space-y-4">
           <div className="flex gap-2 justify-center flex-wrap">
             {durations.map((opt) => (
@@ -290,22 +291,20 @@ export const Timer = ({
                   setSessionPlannedDuration(opt.value);
                   setNewSession();
                 }}
-                className={`px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 border border-card-border ${
-                  sessionPlannedDuration === opt.value && !showCustomInput
-                    ? "bg-button-primary text-button-primary-text scale-105"
-                    : "bg-button-secondary text-button-secondary-text hover:scale-105"
-                }`}
+                className={`px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 border border-card-border ${sessionPlannedDuration === opt.value && !showCustomInput
+                  ? "bg-button-primary text-button-primary-text scale-105"
+                  : "bg-button-secondary text-button-secondary-text hover:scale-105"
+                  }`}
               >
                 {opt.label}
               </button>
             ))}
             <button
               onClick={() => setShowCustomInput(!showCustomInput)}
-              className={`px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 border border-card-border ${
-                showCustomInput
-                  ? "bg-button-primary text-button-primary-text scale-105"
-                  : "bg-button-secondary text-button-secondary-text hover:scale-105"
-              }`}
+              className={`px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 border border-card-border ${showCustomInput
+                ? "bg-button-primary text-button-primary-text scale-105"
+                : "bg-button-secondary text-button-secondary-text hover:scale-105"
+                }`}
             >
               <Clock className="w-4 h-4 inline mr-1" /> Custom
             </button>
@@ -361,21 +360,60 @@ export const Timer = ({
         </div>
       )}
 
-      <div className="flex justify-center gap-4 mt-6">
-        <button
-          onClick={handleStartPause}
-          className="flex items-center gap-2 px-8 py-3.5 rounded-xl bg-button-primary text-button-primary-text shadow-lg transition-all duration-300 hover:scale-105 active:scale-95"
-        >
-          {status === "running" ? (<Pause className="w-5 h-5" />) : (<Play className="w-5 h-5" />)}
-          {status === "running" ? "Pause" : status === "paused" ? "Resume" : "Start"}
-        </button>
-        <button
-          onClick={() => setNewSession()}
-          className="flex items-center gap-2 px-6 py-3.5 rounded-xl bg-button-secondary text-button-secondary-text border border-card-border transition-all duration-300 hover:scale-105 active:scale-95"
-        >
-          <RotateCcw className="w-5 h-5" />
-        </button>
+      <div className="flex items-center justify-center mt-8">
+        <div className="flex items-center gap-2 p-2 rounded-full bg-background-secondary/40 backdrop-blur-xl border border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.12)]">
+          <button
+            onClick={handleStartPause}
+            className="flex items-center justify-center gap-2 px-8 py-3 rounded-full bg-button-primary text-button-primary-text shadow-md transition-all duration-300 hover:opacity-90 active:scale-95 font-bold tracking-wide"
+          >
+            {status === "running" ? (<Pause className="w-5 h-5" fill="currentColor" />) : (<Play className="w-5 h-5" fill="currentColor" />)}
+            {status === "running" ? "Pause" : status === "paused" ? "Resume" : "Start"}
+          </button>
+          {(status === "running" || status === "paused") && (
+            <button
+              onClick={stopSession}
+              className="flex items-center justify-center w-12 h-12 rounded-full bg-card-background/50 hover:bg-background-secondary text-text-secondary hover:text-red-500 transition-all duration-300 active:scale-95 group border border-transparent hover:border-red-500/30"
+              title="Stop Session"
+            >
+              <StopCircle className="w-5 h-5 group-hover:scale-110 transition-transform" />
+            </button>
+          )}
+          <button
+            onClick={() => setNewSession()}
+            className="flex items-center justify-center w-12 h-12 rounded-full bg-card-background/50 hover:bg-background-secondary text-text-secondary transition-all duration-300 active:scale-95 group border border-transparent hover:border-border-primary/30"
+            title="Reset Session"
+          >
+            <RotateCcw className="w-5 h-5 group-hover:-rotate-90 transition-transform duration-500" />
+          </button>
+        </div>
       </div>
+
+      {status === "paused" && (
+        <div className="mt-6 w-full max-w-sm px-4">
+          <p className="text-xs text-text-secondary text-center mb-3 font-semibold uppercase tracking-wider">
+            Pause Reason
+          </p>
+          <div className="flex flex-wrap justify-center gap-2">
+            {pauseReasons.map((r) => (
+              <button
+                key={r.id}
+                onClick={() => {
+                  setActiveReason(r.id);
+                  if (setPauseReason) setPauseReason(r.id);
+                }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 border ${
+                  activeReason === r.id
+                    ? "bg-button-primary text-button-primary-text border-button-primary shadow-md scale-105"
+                    : "bg-background-secondary text-text-secondary border-card-border hover:border-button-primary/40 hover:text-text-primary"
+                }`}
+              >
+                <span>{r.icon}</span>
+                {r.id}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="mt-6 text-center text-xs text-text-muted">
         <kbd className="px-2 py-1 rounded bg-background-secondary text-text-secondary">

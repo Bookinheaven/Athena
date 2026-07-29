@@ -2,7 +2,7 @@ import Session from "../models/sessionModel.js";
 
 class SessionService {
   async start(userId, payload) {
-    const { sessionId, title, sessionSegments, plannedDuration, taskId, totalBreakMinutes, totalFocusMinutes } = payload;
+    const { sessionId, title, sessionSegments, plannedDuration, taskIds, totalBreakMinutes, totalFocusMinutes, pauseEvents } = payload;
     if (!sessionId || !sessionSegments?.length) {
       throw new Error("Invalid session payload");
     }
@@ -16,6 +16,7 @@ class SessionService {
       {
         $set: {
           status: "completed",
+          completionType: "abandoned",
           endedAt: new Date(),
         },
       },
@@ -28,14 +29,15 @@ class SessionService {
           userId,
           sessionId,
           title: title || "Untitled Work",
-          taskId: taskId || null,
+          taskIds: taskIds || [],
           sessionType: payload.sessionType || "quick",
           status: "active",
           startedAt: new Date(),
           sessionSegments,
           plannedDuration,
           totalBreakMinutes,
-          totalFocusMinutes
+          totalFocusMinutes,
+          pauseEvents: pauseEvents || []
         },
       },
       { upsert: true, new: true },
@@ -49,7 +51,7 @@ class SessionService {
   }
 
   async update(userId, payload) {
-    const { sessionId, segment, title, status, todos } = payload;
+    const { sessionId, segment, title, status, todos, pauseEvents } = payload;
     if (!sessionId) {
       throw new Error("Session id required");
     }
@@ -59,7 +61,8 @@ class SessionService {
     }
     const updateData = {};
     if (segment) {
-      const existing = session.sessionSegments[segment.segmentIndex];
+      const existing = session.sessionSegments?.[segment.segmentIndex];
+      if (!existing) return session;
       const total = existing?.totalDuration || 0;
       if (segment.duration !== undefined) {
         updateData[`sessionSegments.${segment.segmentIndex}.duration`] = Math.max(existing?.duration || 0, segment.duration);
@@ -72,14 +75,28 @@ class SessionService {
     if (title) {
       updateData.title = title;
     }
-    if (todos) {
+    if (Array.isArray(todos)) {
       updateData.todos = todos;
+    }
+    if (pauseEvents && Array.isArray(pauseEvents)) {
+      updateData.pauseEvents = pauseEvents;
+    }
+    if (status === "skipped"){
+      updateData.status = "completed";
+      updateData.completionType = "skipped";
+      updateData.endedAt = new Date();
+      if (payload.sessionStats) {
+        updateData.sessionStats = payload.sessionStats;
+      }
     }
     if (status === "completed") {
       updateData.status = "completed";
+      updateData.completionType = "completed";
       updateData.endedAt = new Date();
+      if (payload.sessionStats) {
+        updateData.sessionStats = payload.sessionStats;
+      }
     }
-
     const updatedSession = await Session.findOneAndUpdate(
       { sessionId, userId },
       { $set: updateData },
@@ -124,7 +141,7 @@ class SessionService {
     if (!userId) {
       throw new Error("User not found.");
     }
-    const session = await Session.find({ userId }).sort({ timestamp: -1 });
+    const session = await Session.find({ userId }).sort({ createdAt: -1 });
     return session;
   }
 

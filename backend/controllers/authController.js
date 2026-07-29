@@ -15,7 +15,7 @@ class AuthController {
           errors: errors.array()
         });
       }
-      
+
       const result = await AuthService.registerUser(req.body);
       res.status(201).json({
         success: true,
@@ -135,14 +135,14 @@ class AuthController {
   // Get current user
   static async getCurrentUser(req, res) {
     try {
-        const token = req.cookies.token;
-        if (!token) return res.status(404).json({
+      const token = req.cookies.token;
+      if (!token) return res.status(404).json({
         success: false,
         message: error.message
       });
 
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      const user = (decoded) ? await AuthService.getUserById(decoded.userId): await AuthService.getUserById(req.user?._id);
+      const user = (decoded) ? await AuthService.getUserById(decoded.userId) : await AuthService.getUserById(req.user?._id);
       res.json({
         success: true,
         user

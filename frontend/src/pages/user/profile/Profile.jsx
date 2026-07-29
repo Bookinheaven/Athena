@@ -1,12 +1,3 @@
-<<<<<<< Updated upstream
-export default function Profile() {
-    return (
-        <>
-            <h1>Profile</h1>
-        </>
-    )
-}
-=======
 import { useAuth } from "../../../../contexts/AuthContext";
 import { useTheme } from "../../../../contexts/ThemeContext";
 import {
@@ -48,7 +39,7 @@ export default function Profile() {
   return (
     <div className="min-h-screen bg-neutral-50/50 dark:bg-[#09090b] py-10 px-4 sm:px-6 lg:px-8 font-sans select-none">
       <div className="max-w-4xl mx-auto space-y-6">
-        
+
         {/* 1. Profile Header Card */}
         <div className="rounded-2xl border border-neutral-200 dark:border-white/10 bg-white dark:bg-[#121216] p-6 sm:p-8 shadow-sm">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
@@ -194,11 +185,10 @@ export default function Profile() {
                 <div
                   key={item.id}
                   onClick={() => setTheme(item.id)}
-                  className={`group relative p-4 rounded-xl border transition-all duration-200 cursor-pointer flex flex-col justify-between gap-4 ${
-                    isSelected
-                      ? "bg-neutral-50 dark:bg-white/[0.04] border-neutral-900 dark:border-white shadow-sm scale-[1.01]"
-                      : "bg-white dark:bg-[#121216] border-neutral-200 dark:border-white/10 hover:border-neutral-400 dark:hover:border-white/30"
-                  }`}
+                  className={`group relative p-4 rounded-xl border transition-all duration-200 cursor-pointer flex flex-col justify-between gap-4 ${isSelected
+                    ? "bg-neutral-50 dark:bg-white/[0.04] border-neutral-900 dark:border-white shadow-sm scale-[1.01]"
+                    : "bg-white dark:bg-[#121216] border-neutral-200 dark:border-white/10 hover:border-neutral-400 dark:hover:border-white/30"
+                    }`}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-2.5">
@@ -228,11 +218,10 @@ export default function Profile() {
                       </div>
                     </div>
                     <div
-                      className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 transition-all ${
-                        isSelected
-                          ? "bg-neutral-900 dark:bg-white border-neutral-900 dark:border-white text-white dark:text-neutral-900"
-                          : "border-neutral-300 dark:border-neutral-700 group-hover:border-neutral-400 dark:group-hover:border-neutral-500"
-                      }`}
+                      className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 transition-all ${isSelected
+                        ? "bg-neutral-900 dark:bg-white border-neutral-900 dark:border-white text-white dark:text-neutral-900"
+                        : "border-neutral-300 dark:border-neutral-700 group-hover:border-neutral-400 dark:group-hover:border-neutral-500"
+                        }`}
                     >
                       {isSelected && <Check size={12} className="stroke-[3px]" />}
                     </div>
@@ -275,11 +264,10 @@ function StatusCard({ title, value, success }) {
       </span>
 
       <span
-        className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-mono font-medium ${
-          success
-            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
-            : "bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20"
-        }`}
+        className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-mono font-medium ${success
+          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+          : "bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20"
+          }`}
       >
         {success ? (
           <CheckCircle2 size={13} className="text-emerald-500" />
@@ -291,4 +279,3 @@ function StatusCard({ title, value, success }) {
     </div>
   );
 }
->>>>>>> Stashed changes

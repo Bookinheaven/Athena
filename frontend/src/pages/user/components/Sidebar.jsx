@@ -9,8 +9,9 @@ import {
   LogOut,
   Users,
   Command,
+  Palette,
 } from "lucide-react";
-import ThemeToggle from "./ThemeToggle";
+import { useTheme } from "@contexts/ThemeContext";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { ConfirmModal } from "../../../components/ConfirmModal";
 import AccountSwitcherModal from "@/components/AccountSwitcherModal";
@@ -26,6 +27,7 @@ const navItems = [
 
 const Sidebar = ({ expanded, setExpanded }) => {
   const { user, logout } = useAuth();
+  const { setShowThemeModal } = useTheme();
   const { clearAccountToken } = useMultiAccount();
   const navigate = useNavigate();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
@@ -52,16 +54,16 @@ const Sidebar = ({ expanded, setExpanded }) => {
           relative h-full z-40 flex flex-col shrink-0
           transition-[width] duration-300 ease-in-out will-change-[width] transform-gpu
           ${expanded ? "w-64" : "w-20"}
-          bg-white dark:bg-[#09090b]
-          border-r border-neutral-200 dark:border-neutral-800/80
-          shadow-lg shadow-black/5 dark:shadow-black/40
+          bg-background-primary
+          border-r border-border-secondary
+          shadow-lg
           overflow-hidden font-sans select-none
         `}
       >
         {/* Top Brand Area */}
-        <div className="h-20 flex items-center px-5 border-b border-neutral-200 dark:border-neutral-800/80 relative overflow-hidden shrink-0">
+        <div className="h-20 flex items-center px-5 border-b border-border-secondary relative overflow-hidden shrink-0">
           <div className="flex items-center gap-3 min-w-max">
-            <div className="w-9 h-9 rounded-xl bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 font-bold flex items-center justify-center text-sm tracking-tighter shadow-sm shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-button-primary text-button-primary-text font-bold flex items-center justify-center text-sm tracking-tighter shadow-sm shrink-0">
               {APP_CONFIG.logoLetter}
             </div>
             <div
@@ -70,10 +72,10 @@ const Sidebar = ({ expanded, setExpanded }) => {
                 ${expanded ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4 pointer-events-none"}
               `}
             >
-              <span className="font-semibold text-sm tracking-tight text-neutral-900 dark:text-neutral-100 leading-tight">
+              <span className="font-semibold text-sm tracking-tight text-text-primary leading-tight">
                 {APP_CONFIG.name}
               </span>
-              <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-400 dark:text-neutral-500 leading-tight mt-0.5">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-text-muted leading-tight mt-0.5">
                 Desktop Ed.
               </span>
             </div>
@@ -90,8 +92,8 @@ const Sidebar = ({ expanded, setExpanded }) => {
                     group relative flex items-center h-11 rounded-xl px-3
                     transition-all duration-200 border cursor-pointer
                     ${isActive
-                      ? "bg-neutral-100 dark:bg-white/[0.08] text-neutral-900 dark:text-white font-semibold border-neutral-200/80 dark:border-white/10 shadow-2xs"
-                      : "bg-transparent text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-white/[0.04] hover:text-neutral-900 dark:hover:text-neutral-200 font-medium border-transparent"
+                      ? "bg-button-primary/10 text-button-primary font-semibold border-button-primary/20 shadow-sm"
+                      : "bg-transparent text-text-muted hover:bg-background-secondary hover:text-text-primary font-medium border-transparent"
                     }
                   `}
                 >
@@ -173,7 +175,29 @@ const Sidebar = ({ expanded, setExpanded }) => {
             )}
           </button>
 
-          <ThemeToggle expanded={expanded} />
+          <button
+            onClick={() => setShowThemeModal(true)}
+            title={!expanded ? "Appearance & Themes" : ""}
+            className={`
+              relative flex items-center h-11 rounded-xl px-3
+              transition-all duration-200 border border-transparent
+              text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-white/[0.06] hover:text-neutral-900 dark:hover:text-white
+              focus:outline-none overflow-hidden cursor-pointer
+              ${expanded ? "w-full" : "w-11"}
+            `}
+          >
+            <Palette size={20} className="flex-shrink-0 text-neutral-500 dark:text-neutral-400" />
+
+            <span
+              className={`
+                whitespace-nowrap text-xs font-medium ml-3.5
+                transition-all duration-300 ease-in-out overflow-hidden
+                ${expanded ? "max-w-[130px] opacity-100 translate-x-0" : "max-w-0 opacity-0 -translate-x-2"}
+              `}
+            >
+              Themes
+            </span>
+          </button>
 
           <button
             onClick={() => setShowLogoutModal(true)}

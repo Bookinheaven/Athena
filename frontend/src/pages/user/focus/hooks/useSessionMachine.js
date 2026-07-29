@@ -1,6 +1,7 @@
 import { useReducer } from "react";
 
 const reducer = (state, action) => {
+  console.log(action)
   switch (action.type) {
     case "INIT":
       return {
@@ -28,6 +29,13 @@ const reducer = (state, action) => {
     case "TIME_UP":
       return { ...state, status: "transition" };
     case "RESET":
+      return {
+        segmentIndex: 0,
+        status: "idle",
+        isDone: false,
+        totalSegments: state.totalSegments,
+      };
+    case "STOP":
       return {
         segmentIndex: 0,
         status: "idle",

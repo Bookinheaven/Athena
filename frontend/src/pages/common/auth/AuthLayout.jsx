@@ -9,13 +9,13 @@ const AuthLayout = () => {
 
   return (
     <div className="min-h-full h-full w-full grid grid-cols-1 lg:grid-cols-12 bg-white dark:bg-[#0c0c0e] font-sans selection:bg-neutral-900 selection:text-white dark:selection:bg-white dark:selection:text-neutral-900">
-      
+
       {/* Left Column: Architectural Showcase & System Status (Hidden on Mobile, Visible on Desktop) */}
       <div className="hidden lg:flex lg:col-span-5 xl:col-span-6 flex-col justify-between p-10 xl:p-14 bg-[#09090b] text-white border-r border-neutral-800/80 relative overflow-hidden select-none">
-        
+
         {/* Minimalist Geometric Grid Canvas */}
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff05_1px,transparent_1px),linear-gradient(to_bottom,#ffffff05_1px,transparent_1px)] bg-[size:32px_32px] pointer-events-none" />
-        
+
         {/* Top Brand Monogram */}
         <div className="relative z-10 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -44,11 +44,11 @@ const AuthLayout = () => {
             <span className="text-neutral-600">|</span>
             <span>Command Palette</span>
           </div>
-          
+
           <h1 className="text-3xl xl:text-4xl font-semibold tracking-tight text-white leading-[1.15]">
             {APP_CONFIG.tagline}
           </h1>
-          
+
           <p className="mt-4 text-sm leading-relaxed text-neutral-400">
             {APP_CONFIG.description}
           </p>
@@ -77,7 +77,6 @@ const AuthLayout = () => {
 
       {/* Right Column: Form Workspace Area */}
       <div className="relative flex-1 lg:col-span-7 xl:col-span-6 flex flex-col justify-between p-6 sm:p-10 lg:p-14 min-h-full h-full overflow-y-auto bg-white dark:bg-[#0c0c0e]">
-        
         {/* Mobile Header / Top Workspace Bar */}
         <header className="w-full flex items-center justify-between select-none z-20">
           <div className="flex items-center gap-2.5 lg:hidden">

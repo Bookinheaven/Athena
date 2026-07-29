@@ -12,31 +12,31 @@ import {
 const STATUS_CONFIG = {
   "Not Started": {
     icon: Circle,
-    color: "text-gray-500",
-    bg: "bg-gray-100 dark:bg-gray-800/50",
-    border: "border-gray-300 dark:border-gray-600",
+    color: "text-text-muted",
+    bg: "bg-background-secondary/20",
+    border: "border-border-primary/20",
     label: "Not Started",
   },
   "In Progress": {
     icon: Clock,
-    color: "text-amber-500",
-    bg: "bg-amber-50 dark:bg-amber-500/10",
-    border: "border-amber-300 dark:border-amber-500/30",
+    color: "text-button-primary",
+    bg: "bg-button-primary/5",
+    border: "border-button-primary/20",
     label: "In Progress",
   },
   "Completed": {
     icon: CheckCircle2,
-    color: "text-emerald-500",
-    bg: "bg-emerald-50 dark:bg-emerald-500/10",
-    border: "border-emerald-300 dark:border-emerald-500/30",
+    color: "text-button-success",
+    bg: "bg-success-bg/10",
+    border: "border-button-success/20",
     label: "Completed",
   },
-  "Skipped": {
+  "Cancelled": {
     icon: XCircle,
-    color: "text-gray-400",
-    bg: "bg-gray-50 dark:bg-gray-900/40",
-    border: "border-gray-200 dark:border-gray-700",
-    label: "Skipped",
+    color: "text-text-muted opacity-50",
+    bg: "bg-background-secondary/10",
+    border: "border-border-secondary/10",
+    label: "Cancelled",
   },
 };
 
@@ -59,7 +59,7 @@ const TodoItem = ({ todo, onUpdateStatus, onDelete }) => {
         <div className="flex items-center gap-3 flex-1 overflow-hidden">
           <StatusIcon className={`w-5 h-5 flex-shrink-0 ${statusConfig.color}`} />
           <p className={`font-medium truncate transition-colors duration-300 ${
-            todo.status === "Completed" || todo.status === "Skipped" 
+            todo.status === "Completed" || todo.status === "Cancelled" 
               ? "text-text-muted line-through" 
               : "text-text-primary"
           }`}>
@@ -148,28 +148,24 @@ export const TodoList = ({
   const stats = {
     total: todos.length,
     completed: todos.filter((t) => t.status === "Completed").length,
-    skipped: todos.filter((t) => t.status === "Skipped").length,
+    cancelled: todos.filter((t) => t.status === "Cancelled").length,
   };
-  const progressCount = stats.completed + stats.skipped;
+  const progressCount = stats.completed + stats.cancelled;
   const progressPercent = stats.total > 0 ? Math.round((progressCount / stats.total) * 100) : 0;
 
   return (
     <div className="flex flex-col h-full w-full bg-transparent">
       
-      <div className="px-5 py-4 border-b border-border-secondary shrink-0">
+      <div className="px-5 py-4 border-b border-white/5 bg-background-primary/30 backdrop-blur-md shrink-0">
         <div className="flex justify-between items-center mb-3">
-          <h3 className="text-base font-semibold text-text-primary flex items-center gap-2">
-            Tasks 
-            <span className="bg-background-secondary text-text-muted text-xs px-2 py-0.5 rounded-full font-medium">
-              {stats.total}
-            </span>
+          <h3 className="text-sm font-black tracking-wide text-text-primary flex items-center gap-2">
+            Task List
           </h3>
-          <button onClick={onClose} className="p-1 hover:bg-background-secondary rounded-md transition text-text-muted hover:text-text-primary">
+          <button onClick={onClose} className="p-1.5 rounded-full text-text-muted hover:text-text-primary hover:bg-background-secondary transition-colors active:scale-95">
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Sleek Progress Bar */}
         {stats.total > 0 && (
           <div className="flex items-center gap-3">
             <div className="flex-1 h-1.5 bg-background-secondary rounded-full overflow-hidden">

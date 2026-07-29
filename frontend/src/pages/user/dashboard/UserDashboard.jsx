@@ -334,8 +334,6 @@ const Dashboard = () => {
 
             {activeTab === "insights" && (
               <div className="space-y-10">
-<<<<<<< Updated upstream
-=======
                 <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="bg-card-background border border-card-border p-6 rounded-3xl shadow-xl flex flex-col gap-3 relative overflow-hidden group hover:border-button-primary/50 transition-colors">
                     <div className="absolute -top-4 -right-4 p-4 opacity-5 group-hover:opacity-10 transition-opacity"><Zap size={100} /></div>
@@ -347,7 +345,7 @@ const Dashboard = () => {
                       <p className="text-text-secondary font-medium text-sm">You often get distracted by phone after 45 mins. Try taking a break at 30 mins.</p>
                     </div>
                   </div>
-
+                  
                   <div className="bg-card-background border border-card-border p-6 rounded-3xl shadow-xl flex flex-col gap-3 relative overflow-hidden group hover:border-button-primary/50 transition-colors">
                     <div className="absolute -top-4 -right-4 p-4 opacity-5 group-hover:opacity-10 transition-opacity"><Brain size={100} /></div>
                     <h3 className="text-xl font-black flex items-center gap-2 tracking-tight"><Brain className="text-button-primary" size={22} /> AI Insights</h3>
@@ -380,7 +378,6 @@ const Dashboard = () => {
                   </div>
                 </section>
 
->>>>>>> Stashed changes
                 <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   <Suspense fallback={<ChartSkeleton />}>
                     <FocusVsBreakChart data={dashboard.focusVsBreakData} />

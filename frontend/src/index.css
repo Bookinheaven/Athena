@@ -179,15 +179,12 @@
     @apply box-border transition-colors duration-300;
   }
 
-<<<<<<< Updated upstream
-=======
   html,
   body,
   #root {
     height: 100%;
   }
 
->>>>>>> Stashed changes
   body {
     background-color: var(--color-background-color);
     color: var(--color-text-primary);

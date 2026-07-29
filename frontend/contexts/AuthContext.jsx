@@ -29,7 +29,7 @@ export const AuthProvider = ({ children }) => {
     };
     checkAuth();
   }, []);
-  
+
 
   const login = async (credentials) => {
     const userData = await authService.login(credentials);

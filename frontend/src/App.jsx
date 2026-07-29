@@ -17,16 +17,6 @@ import ResetPassword from "@/pages/common/auth/pages/ResetPassword";
 
 import ProtectedRoute from "@/components/ProtectedRoute";
 
-<<<<<<< Updated upstream
-import FocusSession from "./pages/user/focus/FocusSession";
-import Profile from "./pages/user/profile/Profile";
-import Planner from "./pages/user/planner/Planner";
-import UserLayout from "./pages/layouts/UserLayout";
-import AdminLayout from "./pages/layouts/AdminLayout";
-import UserDashboard from "./pages/user/dashboard/UserDashboard";
-import AdminDashboard from "./pages/admin/dashboard/AdminDashboard";
-import RoleRoute from "./components/RouteRole";
-=======
 import FocusSession from "@/pages/user/focus/FocusSession";
 import Profile from "@/pages/user/profile/Profile";
 import Planner from "@/pages/user/planner/Planner";
@@ -39,39 +29,11 @@ import RoleRoute from "@/components/RouteRole";
 import Titlebar from "@/components/Desktop/Titlebar";
 import GlobalShortcutsManager from "@/components/GlobalShortcutsManager";
 import ThemeSelectorModal from "@/components/customs/ThemeSelectorModal";
->>>>>>> Stashed changes
 
 function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-<<<<<<< Updated upstream
-        <Router>
-          <Routes>
-            <Route element={<AuthLayout />}>
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-              <Route path="/verify-email" element={<OTPVerification />} />
-              <Route path="/forgot-password" element={<ForgotPassword />} />
-              <Route path="/reset-password" element={<ResetPassword />} />
-              <Route path="/" element={<Navigate to="/login" replace />} />
-            </Route>
-            <Route element={<ProtectedRoute />}>
-              <Route element={<UserLayout />}>
-                <Route path="/dashboard" element={<UserDashboard />} />
-                <Route path="/focus-page" element={<FocusSession />} />
-                <Route path="/planner" element={<Planner />} />
-                <Route path="/profile" element={<Profile />} />
-              </Route>
-              <Route element={<RoleRoute allowedRoles={["admin"]} />}>
-                <Route element={<AdminLayout />}>
-                  <Route path="/admin/dashboard" element={<AdminDashboard />} />
-                </Route>
-              </Route>
-            </Route>
-          </Routes>
-        </Router>
-=======
         <MultiAccountProvider>
           <Router>
             <GlobalShortcutsManager />
@@ -107,7 +69,6 @@ function App() {
             </div>
           </Router>
         </MultiAccountProvider>
->>>>>>> Stashed changes
       </AuthProvider>
     </ThemeProvider>
   );

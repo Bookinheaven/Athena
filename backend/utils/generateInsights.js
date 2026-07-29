@@ -50,7 +50,6 @@ const generateDailyComparison = (sessions) => {
 
 const generateMoodTrend = (sessions) => {
   const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
   const moodByDay = {};
   const focusByDay = {};
@@ -68,25 +67,37 @@ const generateMoodTrend = (sessions) => {
     const sessionDate = new Date(session.createdAt);
     if (sessionDate < oneWeekAgo) return;
 
-    const dayName = dayNames[sessionDate.getDay()];
+    const dayName = sessionDate.toLocaleDateString("en-US", {
+      weekday: "short",
+    });
 
-    if (session.feedbackMood != null)
-      moodByDay[dayName].push(parseFloat(session.feedbackMood));
-    if (session.feedbackFocus != null)
-      focusByDay[dayName].push(parseFloat(session.feedbackFocus));
+    const mood = Number(session.feedbackMood);
+    const focus = Number(session.feedbackFocus);
+
+    if (!isNaN(mood)) moodByDay[dayName].push(mood);
+    if (!isNaN(focus)) focusByDay[dayName].push(focus);
   });
 
-  return days.map((day) => ({
-    day,
-    mood: (moodByDay[day].length
-      ? moodByDay[day].reduce((a, b) => a + b, 0) / moodByDay[day].length
-      : 0
-    ).toFixed(1),
-    focus: (focusByDay[day].length
-      ? focusByDay[day].reduce((a, b) => a + b, 0) / focusByDay[day].length
-      : 0
-    ).toFixed(1),
-  }));
+  return days.map((day) => {
+    const moodArr = moodByDay[day];
+    const focusArr = focusByDay[day];
+
+    const avgMood =
+      moodArr.length > 0
+        ? moodArr.reduce((a, b) => a + b, 0) / moodArr.length
+        : null;
+
+    const avgFocus =
+      focusArr.length > 0
+        ? focusArr.reduce((a, b) => a + b, 0) / focusArr.length
+        : null;
+
+    return {
+      day,
+      mood: avgMood !== null ? Number(avgMood.toFixed(1)) : null,
+      focus: avgFocus !== null ? Number(avgFocus.toFixed(1)) : null,
+    };
+  });
 };
 
 const generateSessionsByDay = (sessions) => {

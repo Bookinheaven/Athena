@@ -91,7 +91,7 @@ export default function GoalList({
                             </div>
 
                             <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                                <button
+                                <button 
                                     onClick={() => {
                                         setEditingGoal(goal._id);
                                         setEditingGoalTitle(goal.title);
@@ -100,7 +100,7 @@ export default function GoalList({
                                 >
                                     <Edit2 size={14} />
                                 </button>
-                                <button
+                                <button 
                                     onClick={() => {
                                         setDateEditingGoal(goal._id);
                                         setGoalStartDate(goal.startDate ? new Date(goal.startDate).toISOString().split("T")[0] : "");
@@ -110,7 +110,7 @@ export default function GoalList({
                                 >
                                     <CalendarDays size={14} />
                                 </button>
-                                <button
+                                <button 
                                     onClick={() => handleDeleteGoal(goal._id)}
                                     className="p-1.5 hover:bg-background-secondary rounded-lg text-text-muted hover:text-button-danger"
                                 >
@@ -127,7 +127,7 @@ export default function GoalList({
                                         <X size={14} />
                                     </button>
                                 </div>
-
+                                
                                 <div className="grid grid-cols-1 gap-2">
                                     <div className="flex flex-col gap-1">
                                         <label className="text-[9px] font-bold text-text-muted ml-1 uppercase">Start Date</label>
@@ -149,7 +149,7 @@ export default function GoalList({
                                     </div>
                                 </div>
 
-                                <button
+                                <button 
                                     onClick={() => handleEditGoalDates(goal._id)}
                                     className="w-full py-2 bg-button-primary text-white rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:brightness-110"
                                 >
@@ -177,11 +177,11 @@ export default function GoalList({
                                     </span>
                                     {goal.startDate && goal.dueDate && (
                                         <span className="text-[9px] font-bold text-text-muted">
-                                            {new Date(goal.startDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} — {new Date(goal.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' })}
+                                            {new Date(goal.startDate).toLocaleDateString(undefined, {month: 'short', day: 'numeric'})} — {new Date(goal.dueDate).toLocaleDateString(undefined, {month: 'short', day: 'numeric', year: '2-digit'})}
                                         </span>
                                     )}
                                 </div>
-
+                                
                                 {goal.startDate && goal.dueDate && (
                                     <span className={`text-[9px] font-black px-1.5 py-0.5 rounded ${getGoalTimeProgress(goal) > (goal.progress || 0) ? 'text-amber-500 bg-amber-500/10' : 'text-emerald-500 bg-emerald-500/10'}`}>
                                         {getGoalTimeProgress(goal)}% Time Used

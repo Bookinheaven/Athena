@@ -2,6 +2,8 @@ import { useEffect, useRef, useCallback } from "react";
 import { useSegmentTimer } from "./useSegmentTimer";
 import { useSessionMachine } from "./useSessionMachine";
 import { useAutoSaveSession } from "./useAutoSaveSession";
+import { v4 as uuidv4 } from "uuid";
+import { rlTrackingService } from "../../../../../services/rlTrackingService";
 
 export const useSessionController = ({
   sessionData,
@@ -10,15 +12,24 @@ export const useSessionController = ({
   saveFunction,
   autoStartBreaks,
   todos,
+  sessionStats,
+  setSessionStats,
 }) => {
   const completedIndexRef = useRef(null);
   const hasStartedSessionRef = useRef(false);
   const isRunningRef = useRef(false);
   const lastSavedElapsedRef = useRef(0);
+  const activePauseRef = useRef(null);
 
   const [machineState, dispatch] = useSessionMachine(
     sessionData?.segments?.length || 0
   );
+
+  const setPauseReason = useCallback((reason) => {
+    if (activePauseRef.current) {
+      activePauseRef.current.reason = reason;
+    }
+  }, []);
 
   const {
     currentSegment,
@@ -66,9 +77,12 @@ export const useSessionController = ({
             sessionId,
             title: sessionTitle,
             plannedDuration,
+            sessionType: sessionData.sessionType,
+            taskIds: sessionData.taskIds || [],
             sessionSegments: segments,
             totalBreakMinutes: sessionData.segments?.filter((x) => x.type === "break") ?.length || 1,
             totalFocusMinutes: sessionData.segments?.filter((x) => x.type === "focus") ?.length || 1,
+            pauseEvents: sessionData.pauseEvents || [],
           };
         case "progress":
           return {
@@ -77,6 +91,7 @@ export const useSessionController = ({
               segmentIndex,
               duration: elapsed,
             },
+            pauseEvents: sessionData?.pauseEvents || [],
           };
         case "segment_complete":
           return {
@@ -96,11 +111,21 @@ export const useSessionController = ({
             sessionId,
             todos: todos,
           };
+        case "stop":
+          return {
+            sessionId,
+            status: "skipped",
+            duration: elapsed,
+            sessionStats,
+            pauseEvents: sessionData?.pauseEvents || [],
+          };
         case "finish":
           return {
             sessionId,
             status: "completed",
             duration: elapsed,
+            sessionStats,
+            pauseEvents: sessionData?.pauseEvents || [],
           };
         default:
           return null;
@@ -136,8 +161,31 @@ export const useSessionController = ({
       if (!isRunningRef.current) {
         isRunningRef.current = true;
         start();
+        
+        if (activePauseRef.current) {
+          const p = activePauseRef.current;
+          p.endTime = new Date().toISOString();
+          p.duration = Math.floor((new Date(p.endTime) - new Date(p.startTime)) / 1000);
+          
+          setSessionData(prev => ({
+            ...prev,
+            pauseEvents: [...(prev.pauseEvents || []), p]
+          }));
+          
+          rlTrackingService.trackPauseEvent(sessionData, p);
+          
+          if (setSessionStats) {
+            setSessionStats(prev => ({
+              ...prev,
+              totalPauseDuration: (prev.totalPauseDuration || 0) + p.duration
+            }));
+          }
+          activePauseRef.current = null;
+        }
+
         if (!hasStartedSessionRef.current) {
           hasStartedSessionRef.current = true;
+          rlTrackingService.trackSessionStart(sessionData);
           markDirtyRef.current("start");
         }
       }
@@ -147,7 +195,22 @@ export const useSessionController = ({
       if (isRunningRef.current) {
         isRunningRef.current = false;
         pause();
+        
+        activePauseRef.current = {
+          id: uuidv4(),
+          startTime: new Date().toISOString(),
+          endTime: null,
+          duration: 0,
+          reason: "Manual Pause"
+        };
+        
         markDirtyRef.current("progress");
+        if (setSessionStats) {
+          setSessionStats(prev => ({ 
+            ...prev, 
+            pauseCount: prev.pauseCount + 1 
+          }));
+        }
       }
     }
 
@@ -178,6 +241,24 @@ export const useSessionController = ({
     ) {
       completedIndexRef.current = segmentIndex;
       markDirtyRef.current("segment_complete");
+
+      if (setSessionStats) {
+        const current = segmentsRef.current?.[segmentIndex];
+        if (current) {
+          if (current.type === "break") {
+            setSessionStats(prev => ({
+              ...prev,
+              breakSegmentsCompleted: prev.breakSegmentsCompleted + 1
+            }));
+          } else {
+            setSessionStats(prev => ({
+              ...prev,
+              focusSegmentsCompleted: prev.focusSegmentsCompleted + 1
+            }));
+          }
+        }
+      }
+
       forceSaveRef.current().finally(() => {
         dispatch({ type: "TIME_UP" });
       });
@@ -244,5 +325,6 @@ export const useSessionController = ({
     onTodoChange,
     onReset,
     buildPayload,
+    setPauseReason,
   };
 };

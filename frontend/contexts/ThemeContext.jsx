@@ -10,6 +10,14 @@ export const AVAILABLE_THEMES = [
     isPremium: false,
   },
   {
+    id: "vercel",
+    name: "Vercel Monochrome",
+    description: "Pure stark high-contrast developer monochrome",
+    color: "#000000",
+    accent: "#ffffff",
+    isPremium: false,
+  },
+  {
     id: "dark",
     name: "Obsidian Dark",
     description: "Sleek high-contrast monochrome with violet",
@@ -97,14 +105,6 @@ export const AVAILABLE_THEMES = [
     accent: "#f97316",
     isPremium: true,
   },
-  {
-    id: "vercel",
-    name: "Vercel Monochrome",
-    description: "Pure stark high-contrast developer monochrome",
-    color: "#000000",
-    accent: "#ffffff",
-    isPremium: true,
-  },
 ];
 
 const ThemeContext = createContext();
@@ -120,7 +120,7 @@ export const useTheme = () => {
 export const ThemeProvider = ({ children }) => {
   const [theme, setTheme] = useState(() => {
     const savedTheme = localStorage.getItem('athena-theme');
-    return savedTheme || 'light';
+    return savedTheme || 'vercel';
   });
 
   const [showThemeModal, setShowThemeModal] = useState(false);

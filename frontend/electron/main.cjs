@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, screen } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, dialog, shell } = require('electron');
 const path = require('path');
 
 let mainWindow;
@@ -72,6 +72,39 @@ ipcMain.on('window-close', () => {
 
 ipcMain.handle('window-is-maximized', () => {
   return mainWindow ? mainWindow.isMaximized() : false;
+});
+
+// Workspace native handlers
+ipcMain.handle('dialog:showOpenDialog', async (event, options) => {
+  if (mainWindow) {
+    const result = await dialog.showOpenDialog(mainWindow, options);
+    return result;
+  }
+  return { canceled: true, filePaths: [] };
+});
+
+ipcMain.handle('shell:openPath', async (event, fullPath) => {
+  try {
+    const error = await shell.openPath(fullPath);
+    if (error) {
+      console.error('Error opening path:', error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('Error in shell.openPath:', err);
+    return false;
+  }
+});
+
+ipcMain.handle('shell:openExternal', async (event, url) => {
+  try {
+    await shell.openExternal(url);
+    return true;
+  } catch (err) {
+    console.error('Error in shell.openExternal:', err);
+    return false;
+  }
 });
 
 app.whenReady().then(() => {
