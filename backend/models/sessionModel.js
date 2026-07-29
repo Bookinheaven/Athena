@@ -29,6 +29,14 @@ const eventSchema = new mongoose.Schema(
 { _id: false }
 );
 
+const pauseEventSchema = new mongoose.Schema({
+  id: { type: String, required: true },
+  startTime: { type: Date, required: true },
+  endTime: { type: Date, default: null },
+  duration: { type: Number, default: 0 },
+  reason: { type: String, default: "Manual Pause" }
+}, { _id: false });
+
 
 const segmentsSchema = new mongoose.Schema(
 {
@@ -113,6 +121,11 @@ const sessionSchema = new mongoose.Schema({
     focusSegmentsCompleted: { type: Number, default: 0 },
     breakSegmentsCompleted: { type: Number, default: 0 },
     interruptions: { type: Number, default: 0 }
+  },
+
+  pauseEvents: {
+    type: [pauseEventSchema],
+    default: []
   },
 
   // events: {

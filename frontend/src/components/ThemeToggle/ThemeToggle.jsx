@@ -1,13 +1,13 @@
 import React from 'react';
 import { useTheme } from '../../../contexts/ThemeContext';
 
-const ThemeToggle = () => {
+const ThemeToggle = ({ className }) => {
   const { theme, toggleTheme } = useTheme();
 
   return (
     <button
       onClick={toggleTheme}
-      className="fixed top-4 right-4 z-50 p-3 rounded-full transition-all duration-300 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2"
+      className={className || "fixed top-4 right-4 z-50 p-3 rounded-full transition-all duration-300 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2"}
       style={{
         backgroundColor: 'var(--color-card-background)',
         border: '1px solid var(--color-card-border)',

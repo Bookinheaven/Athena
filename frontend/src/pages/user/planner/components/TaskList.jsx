@@ -63,7 +63,7 @@ export default function TaskList(props) {
     { value: "deadline", label: "Nearest Deadline" },
     { value: "alpha", label: "Alphabetical" },
   ];
-  
+
   const goalOptions = [
     { value: "all", label: "All Goals" },
     { value: "no_goals", label: "No Goals" },
@@ -145,10 +145,9 @@ export default function TaskList(props) {
 
                 return (
                   <Reorder.Item key={task._id} value={task} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }}>
-                    <div className={`group relative p-5 rounded-[1.75rem] border transition-all duration-300 flex flex-col gap-4 bg-card-background ${
-                      isCompleted || isCancelled ? "opacity-60 border-border-secondary/40 grayscale-[0.4]" : "border-card-border/60 hover:border-button-primary/40 hover:shadow-xl hover:shadow-button-primary/5"
-                    }`}>
-                      
+                    <div className={`group relative p-5 rounded-[1.75rem] border transition-all duration-300 flex flex-col gap-4 bg-card-background ${isCompleted || isCancelled ? "opacity-60 border-border-secondary/40 grayscale-[0.4]" : "border-card-border/60 hover:border-button-primary/40 hover:shadow-xl hover:shadow-button-primary/5"
+                      }`}>
+
                       <div className="flex items-center gap-4">
                         <div className="cursor-grab active:cursor-grabbing text-text-muted/40 p-1 -ml-2 opacity-0 group-hover:opacity-100 transition-all hover:text-text-primary">
                           <GripVertical size={18} />
@@ -196,9 +195,9 @@ export default function TaskList(props) {
                           {!isCompleted && (
                             <>
                               <button onClick={() => handleStartFocusButton(task)} className="p-3 rounded-2xl bg-button-primary text-white hover:scale-110 active:scale-95 shadow-lg shadow-button-primary/25 transition-all"><Play size={16} fill="currentColor" /></button>
-                              
-                              <button 
-                                onClick={() => handleSetStatus(task._id, "cancelled")} 
+
+                              <button
+                                onClick={() => handleSetStatus(task._id, "cancelled")}
                                 className={`p-3 rounded-2xl transition-all ${isCancelled ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/30' : 'text-text-muted hover:bg-orange-500/10 hover:text-orange-500 hover:scale-110'}`}
                               >
                                 <MinusCircle size={16} />
@@ -227,7 +226,7 @@ export default function TaskList(props) {
                               onClick={() => { setEditingTaskDate(task._id); setTaskPlannedDate(new Date(task.plannedDate).toISOString().slice(0, 16)); }}
                               className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-button-primary bg-button-primary/10 px-3 py-1 rounded-xl border border-button-primary/20 hover:bg-button-primary hover:text-white transition-all shadow-sm"
                             >
-                              <CalendarDays size={12} strokeWidth={2.5} /> 
+                              <CalendarDays size={12} strokeWidth={2.5} />
                               {new Date(task.plannedDate).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                             </button>
                           ) : (
@@ -266,9 +265,9 @@ export default function TaskList(props) {
                           </div>
                           <div className="flex gap-2 self-end mb-0.5">
                             <button onClick={() => handleEditTaskDateSave(task._id)} className="p-2.5 rounded-xl bg-button-primary text-white shadow-lg shadow-button-primary/25 hover:scale-105 transition-all"><Save size={16} /></button>
-                            
-                            <button 
-                              onClick={() => setEditingTaskDate(null)} 
+
+                            <button
+                              onClick={() => setEditingTaskDate(null)}
                               className="p-2.5 rounded-xl bg-background-secondary text-text-muted hover:bg-red-500/10 hover:text-red-500 transition-all border border-border-secondary/50 group/cancel"
                             >
                               <X size={16} className="group-hover/cancel:rotate-90 transition-transform" />

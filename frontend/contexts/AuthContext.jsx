@@ -29,7 +29,7 @@ export const AuthProvider = ({ children }) => {
     };
     checkAuth();
   }, []);
-  
+
 
   const login = async (credentials) => {
     const userData = await authService.login(credentials);
@@ -57,6 +57,14 @@ export const AuthProvider = ({ children }) => {
     return await authService.resetPassword(email, otp, newPassword);
   };
 
+  const switchSession = async (token) => {
+    const res = await authService.switchAccount(token);
+    if (res?.success && res.user) {
+      setUser(res.user);
+    }
+    return res;
+  };
+
   const logout = async () => {
     await authService.logout();
     setUser(null);
@@ -64,8 +72,10 @@ export const AuthProvider = ({ children }) => {
 
   const value = {
     user,
+    setUser,
     loading,
     login,
+    switchSession,
     register,
     resendOTPCode,
     verifyEmail,

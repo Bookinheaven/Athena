@@ -8,6 +8,8 @@ import {
   Quote,
   NotebookPen,
   List,
+  LayoutTemplate,
+  Blocks,
 } from "lucide-react";
 import streakService from "../../../../../services/streakService";
 
@@ -19,6 +21,8 @@ export default function HeaderNav({
   activePanels = {},
   isIdle,
   isRunning,
+  isLayoutMode,
+  toggleLayoutMode,
 }) {
   const [isVisible, setIsVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
@@ -55,7 +59,6 @@ export default function HeaderNav({
     return () => clearInterval(interval);
   }, []);
 
-  // Streak
   const updateStreak = useCallback(async () => {
     try {
       const streak = await streakService.fetchStreakDetails("currentStreak");
@@ -65,13 +68,6 @@ export default function HeaderNav({
     } catch (err) {
       console.error("Failed to fetch streak:", err);
     }
-  }, []);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setTime(new Date());
-    }, 1000);
-    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -90,9 +86,9 @@ export default function HeaderNav({
     <header
       className={`
         flex items-center justify-between 
-        px-1.5 shadow-none bg-transparent
+        px-1.5 py-1 bg-transparent
         transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]
-        w-[95%] sm:w-fit min-w-[320px]
+        w-[95%] sm:w-fit min-w-[320px] mx-auto
         ${isVisible ? "translate-y-0 opacity-100" : "-translate-y-20 opacity-0"} 
       `}
     >
@@ -200,6 +196,30 @@ export default function HeaderNav({
         </button>
 
         <div className="w-px h-6 bg-border-primary/40 mx-1" />
+
+        <button
+          className={`p-2 rounded-full transition-all duration-300 ${
+            isLayoutMode
+              ? "bg-button-primary text-button-primary-text shadow-md scale-105 animate-[pulse_2s_infinite]"
+              : "text-text-muted hover:text-text-primary hover:bg-background-secondary"
+          }`}
+          title="Edit Layout"
+          onClick={toggleLayoutMode}
+        >
+          <LayoutTemplate size={18} strokeWidth={2.5} />
+        </button>
+
+        <button
+          className={`p-2 rounded-full transition-all duration-300 ${
+            activePanels.workflow
+              ? "bg-button-primary text-button-primary-text shadow-md scale-105"
+              : "text-text-muted hover:text-text-primary hover:bg-background-secondary"
+          }`}
+          title="Workflow Dock"
+          onClick={() => handlePanelToggle("workflow")}
+        >
+          <Blocks size={18} strokeWidth={2.5} />
+        </button>
 
         <button
           disabled={!isIdle}
