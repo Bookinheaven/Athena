@@ -2,7 +2,7 @@ import Session from "../models/sessionModel.js";
 
 class SessionService {
   async start(userId, payload) {
-    const { sessionId, title, sessionSegments, plannedDuration, taskIds, totalBreakMinutes, totalFocusMinutes } = payload;
+    const { sessionId, title, sessionSegments, plannedDuration, taskIds, totalBreakMinutes, totalFocusMinutes, pauseEvents } = payload;
     if (!sessionId || !sessionSegments?.length) {
       throw new Error("Invalid session payload");
     }
@@ -36,7 +36,8 @@ class SessionService {
           sessionSegments,
           plannedDuration,
           totalBreakMinutes,
-          totalFocusMinutes
+          totalFocusMinutes,
+          pauseEvents: pauseEvents || []
         },
       },
       { upsert: true, new: true },
@@ -50,7 +51,7 @@ class SessionService {
   }
 
   async update(userId, payload) {
-    const { sessionId, segment, title, status, todos } = payload;
+    const { sessionId, segment, title, status, todos, pauseEvents } = payload;
     if (!sessionId) {
       throw new Error("Session id required");
     }
@@ -76,6 +77,9 @@ class SessionService {
     }
     if (Array.isArray(todos)) {
       updateData.todos = todos;
+    }
+    if (pauseEvents && Array.isArray(pauseEvents)) {
+      updateData.pauseEvents = pauseEvents;
     }
     if (status === "skipped"){
       updateData.status = "completed";

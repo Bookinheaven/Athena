@@ -1,172 +1,125 @@
-import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { useAuth } from "../../../../../contexts/AuthContext";
-import { validateEmail } from "../../../../utils/validation";
-import LoadingSpinner from "../../../../components/LoadingSpinner/LoadingSpinner";
+import { useState, useEffect, useRef } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { useAuth } from '@contexts/AuthContext';
+import LoadingSpinner from '@/components/LoadingSpinner/LoadingSpinner';
 
 const ForgotPassword = () => {
   const navigate = useNavigate();
-  const { requestPasswordReset } = useAuth();
-  const [email, setEmail] = useState("");
+  const { forgotPassword } = useAuth();
+  const [email, setEmail] = useState('');
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState(false);
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (!validateEmail(email)) {
-      setError("Please enter a valid email address");
+    if (!email) {
+      setError('Please enter your email address');
       return;
     }
 
     setLoading(true);
-    setError("");
+    setError('');
 
     try {
-      await requestPasswordReset(email);
-      setSuccess(true);
-    } catch (error) {
-      setError(error.message);
+      await forgotPassword(email);
+      navigate('/reset-password', { state: { email } });
+    } catch (err) {
+      setError(err.message || 'Failed to send reset instructions. Please check the email provided.');
     } finally {
       setLoading(false);
     }
   };
 
-  if (success) {
-    return (
-      <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-md w-full space-y-8">
-          <div
-            className="rounded-lg p-8 shadow-lg text-center"
-            style={{
-              backgroundColor: "var(--color-card-background)",
-              border: "1px solid var(--color-card-border)",
-            }}
-          >
-            <div className="text-6xl mb-4">📧</div>
-            <h2
-              className="text-2xl font-bold mb-4"
-              style={{ color: "var(--color-text-primary)" }}
-            >
-              Check your email
-            </h2>
-            <p
-              className="mb-6"
-              style={{ color: "var(--color-text-secondary)" }}
-            >
-              We've sent a password reset code to <strong>{email}</strong>
-            </p>
-            <button
-              onClick={() => navigate("/reset-password", { state: { email } })}
-              className="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors"
-              style={{
-                backgroundColor: "var(--color-button-primary)",
-                color: "var(--color-button-primary-text)",
-                focusRingColor: "var(--color-button-primary)",
-              }}
-            >
-              Continue to Reset Password
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8"></div>
-
-      <div
-        className="rounded-lg p-8 shadow-lg"
-        style={{
-          backgroundColor: "var(--color-card-background)",
-          border: "1px solid var(--color-card-border)",
-        }}
-      >
-        <div className="text-center pb-3">
-          <h2
-            className="text-3xl font-bold"
-            style={{ color: "var(--color-text-primary)" }}
-          >
-            Forgot your password?
-          </h2>
-          <p
-            className="mt-2 text-sm"
-            style={{ color: "var(--color-text-secondary)" }}
-          >
-            No worries! Enter your email and we'll send you a reset code
-          </p>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {error && (
-              <div
-                className="rounded-md p-4"
-                style={{
-                  backgroundColor: "var(--color-error-bg)",
-                  color: "var(--color-error-text)",
-                }}
-              >
-                <p className="text-sm">{error}</p>
-              </div>
-            )}
-
-            <div>
-              <label
-                htmlFor="email"
-                className="block text-sm font-medium mb-2"
-                style={{ color: "var(--color-text-primary)" }}
-              >
-                Email Address
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 transition-colors"
-                style={{
-                  backgroundColor: "var(--color-input-background)",
-                  borderColor: "var(--color-input-border)",
-                  color: "var(--color-text-primary)",
-                  focusRingColor: "var(--color-input-focus)",
-                }}
-                placeholder="Enter your email address"
-                required
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{
-                backgroundColor: "var(--color-button-primary)",
-                color: "var(--color-button-primary-text)",
-                focusRingColor: "var(--color-button-primary)",
-              }}
-            >
-              {loading ? (
-                <LoadingSpinner size="small" text="" />
-              ) : (
-                "Send Reset Code"
-              )}
-            </button>
-
-            <div className="text-center">
-              <Link
-                to="/login"
-                className="text-sm hover:underline"
-                style={{ color: "var(--color-link)" }}
-              >
-                ← Back to login
-              </Link>
-            </div>
-          </form>
-        </div>
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+      className="w-full"
+    >
+      <div className="mb-8 select-none">
+        <h2 className="text-2xl font-semibold tracking-tight text-neutral-900 dark:text-white">
+          Reset password
+        </h2>
+        <p className="mt-1.5 text-sm text-neutral-500 dark:text-neutral-400">
+          Enter your email and we'll send you a 6-digit verification code to recover your account.
+        </p>
       </div>
-    </div>
+
+      {error && (
+        <motion.div 
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          className="rounded-lg p-3.5 mb-6 flex items-start gap-3 border border-red-200 dark:border-red-900/50 bg-red-50/50 dark:bg-red-950/20 text-red-700 dark:text-red-400"
+        >
+          <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <p className="text-xs font-medium leading-relaxed">{error}</p>
+        </motion.div>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label htmlFor="email" className="block text-xs font-medium text-neutral-700 dark:text-neutral-300 mb-1.5 select-none">
+            Email Address
+          </label>
+          <input
+            ref={inputRef}
+            id="email"
+            name="email"
+            type="email"
+            value={email}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              if (error) setError('');
+            }}
+            autoComplete="email"
+            className={`w-full px-3.5 py-2 rounded-lg border text-sm transition-all focus:outline-none focus:ring-1 ${
+              error 
+                ? 'border-red-500 focus:border-red-500 focus:ring-red-500 bg-red-50/20 dark:bg-red-950/10' 
+                : 'border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/50 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 focus:border-neutral-900 dark:focus:border-neutral-200 focus:ring-neutral-900 dark:focus:ring-neutral-200'
+            }`}
+            placeholder="name@example.com"
+          />
+        </div>
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full mt-2 py-2.5 px-4 rounded-lg bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 hover:bg-neutral-800 dark:hover:bg-neutral-100 font-medium text-sm transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed select-none"
+        >
+          {loading ? (
+            <LoadingSpinner size="small" text="" />
+          ) : (
+            <>
+              <span>Send Recovery Code</span>
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+              </svg>
+            </>
+          )}
+        </button>
+      </form>
+
+      <div className="mt-8 pt-6 border-t border-neutral-100 dark:border-neutral-800/80 text-center select-none">
+        <Link
+          to="/login"
+          className="text-xs font-medium text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-all inline-flex items-center gap-1.5"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+          <span>Return to sign in</span>
+        </Link>
+      </div>
+    </motion.div>
   );
 };
 

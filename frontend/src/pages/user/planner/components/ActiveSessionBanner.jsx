@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { Play, OctagonX, ExternalLink } from "lucide-react";
-import sessionService from "../../../../../services/sessionService";
+import sessionService from "@services/sessionService";
 
 export default function ActiveSessionBanner({ activeSession, setActiveSession }) {
   const navigate = useNavigate();
@@ -11,9 +11,9 @@ export default function ActiveSessionBanner({ activeSession, setActiveSession })
     if (window.confirm("Are you sure you want to abandon this session? Your current progress will not be saved as a completed task.")) {
       try {
         const sessionId = activeSession.sessionId || activeSession._id;
-        await sessionService.updateProgress({ 
-          sessionId, 
-          status: "skipped" 
+        await sessionService.updateProgress({
+          sessionId,
+          status: "skipped"
         });
         setActiveSession(null);
       } catch (e) {
@@ -24,22 +24,22 @@ export default function ActiveSessionBanner({ activeSession, setActiveSession })
 
   return (
     <div className="mb-6 p-4 rounded-3xl bg-button-primary/[0.08] border border-button-primary/20 backdrop-blur-md flex flex-col sm:flex-row gap-4 items-center justify-between shadow-xl shadow-button-primary/5 shrink-0 transition-all animate-in fade-in slide-in-from-top-2">
-      
+
       <div className="flex items-center gap-4 w-full sm:w-auto">
         <div className="relative flex items-center justify-center">
           <div className="w-3 h-3 rounded-full bg-button-primary animate-pulse shrink-0 relative z-10" />
           <div className="absolute inset-0 w-3 h-3 rounded-full bg-button-primary animate-ping opacity-40" />
         </div>
-        
+
         <div className="flex flex-col">
           <div className="flex items-center gap-2">
             <span className="text-[10px] font-black text-button-primary tracking-widest uppercase opacity-80">
               Live Focus Mode
             </span>
             {activeSession.taskIds?.length > 1 && (
-                <span className="bg-button-primary/20 text-button-primary text-[9px] px-1.5 py-0.5 rounded-md font-bold uppercase">
-                    Batch
-                </span>
+              <span className="bg-button-primary/20 text-button-primary text-[9px] px-1.5 py-0.5 rounded-md font-bold uppercase">
+                Batch
+              </span>
             )}
           </div>
           <h3 className="text-sm font-bold text-text-primary leading-none mt-1">

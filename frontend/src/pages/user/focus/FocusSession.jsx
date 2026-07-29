@@ -22,12 +22,20 @@ import { useNotes } from "./hooks/useNotes.js";
 import { useSessionController } from "./hooks/useSessionController.js";
 import { useFocusSessionInit } from "./hooks/useFocusSessionInit.js";
 import { useSessionSettings } from "./hooks/useSessionSettings.js";
+import { DraggablePanel } from "./components/DraggablePanel.jsx";
+import { WorkflowDock } from "./components/WorkflowDock.jsx";
 
 const FocusSession = () => {
   const location = useLocation();
   const plannerData = location.state || null;
   const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
-  const dragControls = useDragControls();
+  const dragControlsHeader = useDragControls();
+  const dragControlsTimer = useDragControls();
+  const dragControlsNotes = useDragControls();
+  const dragControlsTodos = useDragControls();
+  const dragControlsProgress = useDragControls();
+  const dragControlsSettings = useDragControls();
+  const dragControlsWorkflow = useDragControls();
 
   const [showQuotes, setShowQuotes] = useState(false);
   const [activePanels, setActivePanels] = useState({
@@ -35,14 +43,95 @@ const FocusSession = () => {
     todos: false,
     settings: false,
     progress: false,
+    workflow: false,
   });
 
-  const togglePanel = (panelName) => {
+  const [isLayoutMode, setIsLayoutMode] = useState(false);
+  const toggleLayoutMode = useCallback(() => {
+    setIsLayoutMode((prev) => !prev);
+  }, []);
+
+  const [layoutPreset, setLayoutPreset] = useLocalStorage("focus-layout", "default");
+  
+  const getPanelPosition = useCallback((panelName) => {
+    switch (layoutPreset) {
+      case "split":
+        return {
+          header: { x: 0, y: -30 },
+          timer: { x: 0, y: -20 },
+          notes: { x: 400, y: 0 },
+          todos: { x: -400, y: 0 },
+          progress: { x: -400, y: 200 },
+          settings: { x: 0, y: 200 },
+          workflow: { x: 0, y: 350 },
+        }[panelName];
+      case "zen":
+        return {
+          header: { x: 0, y: -30 },
+          timer: { x: 0, y: 0 },
+          notes: { x: 800, y: 0 },
+          todos: { x: -800, y: 0 },
+          progress: { x: 0, y: 500 },
+          settings: { x: 0, y: -500 },
+          workflow: { x: 0, y: 500 },
+        }[panelName];
+      case "custom":
+        return {
+          header: { x: 0, y: -30 },
+          timer: { x: 0, y: 0 },
+          notes: { x: 0, y: 0 },
+          todos: { x: 0, y: 0 },
+          progress: { x: 0, y: 0 },
+          settings: { x: 0, y: 0 },
+          workflow: { x: 0, y: 0 },
+        }[panelName];
+      default: // "default"
+        return {
+          header: { x: 0, y: -30 },
+          timer: { x: 0, y: 0 },
+          notes: { x: 300, y: 0 },
+          todos: { x: -300, y: 0 },
+          progress: { x: -300, y: 200 },
+          settings: { x: 0, y: 200 },
+          workflow: { x: 0, y: 350 },
+        }[panelName];
+    }
+  }, [layoutPreset]);
+
+  // Intelligent Layout Visibilities
+  useEffect(() => {
+    switch (layoutPreset) {
+      case "default":
+      case "split":
+        setActivePanels((prev) => ({
+          ...prev,
+          notes: true,
+          todos: true,
+          workflow: true,
+        }));
+        setShowQuotes(true);
+        break;
+      case "zen":
+        setActivePanels({
+          notes: false,
+          todos: false,
+          settings: false,
+          progress: false,
+          workflow: false,
+        });
+        setShowQuotes(false);
+        break;
+      case "custom":
+        break;
+    }
+  }, [layoutPreset]);
+
+  const togglePanel = useCallback((panelName) => {
     setActivePanels((prev) => ({
       ...prev,
       [panelName]: !prev[panelName],
     }));
-  };
+  }, []);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isDeepFocus, setIsDeepFocus] = useState(false);
@@ -415,24 +504,11 @@ const FocusSession = () => {
         todos: false,
         settings: false,
         progress: false,
+        workflow: false,
       });
       setShowQuotes(false);
     }
   }, [machineState.status]);
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen p-8 font-sans flex items-center justify-center bg-background-color text-text-primary">
-        <div className="text-center">
-          <Loader2
-            size={48}
-            className="animate-spin mx-auto text-button-primary"
-          />
-          <p className="mt-4 text-text-secondary">Loading...</p>
-        </div>
-      </div>
-    );
-  }
 
   const timerData = {
     timeLeft,
@@ -478,11 +554,207 @@ const FocusSession = () => {
     onTitleSet: () => onTitleSet(),
   };
 
+  const headerPanel = useMemo(() => (
+    <DraggablePanel
+      id="header"
+      isMobile={isMobile}
+      isLayoutMode={isLayoutMode}
+      dragControls={dragControlsHeader}
+      initialPosition={getPanelPosition("header")}
+      mobilePosition={{ y: 0, x: "-50%", left: "50%", top: "2vh" }}
+      className={isMobile ? "w-[94%] left-1/2 -translate-x-1/2 top-[2vh]" : "w-fit min-w-[320px] left-[calc(50%-160px)] top-[5vh]"}
+      showClose={false}
+    >
+      <div className="px-1.5 pb-1.5 pt-1 md:pt-0">
+        <HeaderNav
+          isDeepFocus={isDeepFocus}
+          toggleDeepFocus={toggleDeepFocus}
+          toggleMotivation={() => setShowQuotes((s) => !s)}
+          togglePanel={togglePanel}
+          activePanels={activePanels}
+          isIdle={machineState.status === "idle"}
+          isRunning={isRunning}
+          isLayoutMode={isLayoutMode}
+          toggleLayoutMode={toggleLayoutMode}
+        />
+      </div>
+    </DraggablePanel>
+  ), [isMobile, isLayoutMode, dragControlsHeader, isDeepFocus, toggleDeepFocus, togglePanel, activePanels, machineState.status, isRunning, toggleLayoutMode]);
+
+  const notesPanel = useMemo(() => (
+    <AnimatePresence>
+      {activePanels.notes && (
+        <DraggablePanel
+          id="notes"
+          isMobile={isMobile}
+          isLayoutMode={isLayoutMode}
+          dragControls={dragControlsNotes}
+          initialPosition={getPanelPosition("notes")}
+          className={isMobile ? "w-full h-full inset-0" : "left-[calc(50%-250px)] top-[10vh] w-[500px] h-[80vh]"}
+          onClose={() => togglePanel("notes")}
+        >
+          <Notes
+            notes={notes}
+            todos={todos}
+            createNote={createNote}
+            updateNote={updateNote}
+            deleteNote={deleteNote}
+            show={true}
+            onClose={() => togglePanel("notes")}
+          />
+        </DraggablePanel>
+      )}
+    </AnimatePresence>
+  ), [activePanels.notes, isMobile, isLayoutMode, dragControlsNotes, notes, todos, createNote, updateNote, deleteNote, togglePanel]);
+
+  const todosPanel = useMemo(() => (
+    <AnimatePresence>
+      {activePanels.todos && (
+        <DraggablePanel
+          id="todos"
+          isMobile={isMobile}
+          isLayoutMode={isLayoutMode}
+          dragControls={dragControlsTodos}
+          initialPosition={getPanelPosition("todos")}
+          className={isMobile ? "w-full h-full inset-0" : "left-[calc(50%-210px)] top-[10vh] w-[420px] h-[70vh]"}
+          onClose={() => togglePanel("todos")}
+        >
+          <TodoList
+            todos={todos}
+            newTodo={newTodo}
+            setNewTodo={setNewTodo}
+            onAddTodo={handleAddTodo}
+            onUpdateStatus={handleUpdateTodoStatus}
+            onDeleteTodo={handleDeleteTodo}
+            show={true}
+            onClose={() => togglePanel("todos")}
+          />
+        </DraggablePanel>
+      )}
+    </AnimatePresence>
+  ), [activePanels.todos, isMobile, isLayoutMode, dragControlsTodos, todos, newTodo, setNewTodo, handleAddTodo, handleUpdateTodoStatus, handleDeleteTodo, togglePanel]);
+
+  const progressPanel = useMemo(() => (
+    <AnimatePresence>
+      {activePanels.progress && (
+        <DraggablePanel
+          id="progress"
+          isMobile={isMobile}
+          isLayoutMode={isLayoutMode}
+          dragControls={dragControlsProgress}
+          initialPosition={getPanelPosition("progress")}
+          className={isMobile ? "w-full h-full inset-0" : "left-[calc(50%-210px)] top-[32vh] w-[420px] h-[35vh]"}
+          onClose={() => togglePanel("progress")}
+        >
+          <CurrentProgress
+            todos={todos}
+            show={true}
+            onClose={() => togglePanel("progress")}
+          />
+        </DraggablePanel>
+      )}
+    </AnimatePresence>
+  ), [activePanels.progress, isMobile, isLayoutMode, dragControlsProgress, todos, togglePanel]);
+
+  const settingsPanel = useMemo(() => (
+    <AnimatePresence>
+      {activePanels.settings && (
+        <DraggablePanel
+          id="settings"
+          isMobile={isMobile}
+          isLayoutMode={isLayoutMode}
+          dragControls={dragControlsSettings}
+          initialPosition={getPanelPosition("settings")}
+          className={isMobile ? "w-full h-full inset-0" : "left-[calc(50%-225px)] top-[17vh] w-[450px] h-[65vh]"}
+          onClose={() => togglePanel("settings")}
+        >
+          <Settings
+            plannedDuration={sessionData.plannedDuration}
+            initialValues={settings}
+            onSave={(values) => {
+              setBreakDuration(values.breakDuration);
+              setAutoStartBreaks(values.autoStartBreaks);
+              setBreaksNumber(values.breaksNumber);
+              setSkipBreaks(values.skipBreaks);
+              setConfirmReset(values.confirmReset);
+              setSoundOnTransition(values.soundOnTransition);
+              setIsSoundEnabled(values.isSoundEnabled);
+              modifySettings(values);
+            }}
+            show={true}
+            onClose={() => togglePanel("settings")}
+          />
+        </DraggablePanel>
+      )}
+    </AnimatePresence>
+  ), [activePanels.settings, isMobile, isLayoutMode, dragControlsSettings, sessionData.plannedDuration, settings, setBreakDuration, setAutoStartBreaks, setBreaksNumber, setSkipBreaks, setConfirmReset, setSoundOnTransition, setIsSoundEnabled, modifySettings, togglePanel, getPanelPosition]);
+
+  const workflowPanel = useMemo(() => (
+    <AnimatePresence>
+      {activePanels.workflow && (
+        <DraggablePanel
+          id="workflow"
+          isMobile={isMobile}
+          isLayoutMode={isLayoutMode}
+          dragControls={dragControlsWorkflow}
+          initialPosition={getPanelPosition("workflow")}
+          className={isMobile ? "w-full h-fit bottom-0" : "left-[calc(50%-350px)] top-[65vh] w-[700px] h-fit max-h-[140px]"}
+          onClose={() => togglePanel("workflow")}
+        >
+          <WorkflowDock />
+        </DraggablePanel>
+      )}
+    </AnimatePresence>
+  ), [activePanels.workflow, isMobile, isLayoutMode, dragControlsWorkflow, togglePanel, getPanelPosition]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen p-8 font-sans flex items-center justify-center bg-background-color text-text-primary">
+        <div className="text-center">
+          <Loader2
+            size={48}
+            className="animate-spin mx-auto text-button-primary"
+          />
+          <p className="mt-4 text-text-secondary">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+
   return (
     <div
       ref={containerRef}
-      className="h-screen w-full flex flex-col relative theme-transition bg-background-color overflow-hidden select-none"
+      className="relative h-full w-full flex flex-col theme-transition bg-background-color overflow-hidden select-none"
     >
+      {/* Dynamic Ambient Glow */}
+      <div 
+        className={`absolute inset-0 opacity-20 transition-colors duration-[3000ms] pointer-events-none blur-[100px] ${
+          currentSegment?.type === "break" ? "bg-success-bg" : "bg-button-primary"
+        }`} 
+        style={{
+          background: `radial-gradient(circle at 50% 50%, var(${currentSegment?.type === "break" ? "--success-bg" : "--button-primary"}) 0%, transparent 60%)`
+        }}
+      />
+      <AnimatePresence>
+        {isLayoutMode && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="absolute top-[10vh] left-1/2 -translate-x-1/2 z-50 bg-card-background/80 backdrop-blur-3xl border border-button-primary/50 rounded-full px-6 py-3 flex items-center gap-4 shadow-2xl"
+          >
+            <span className="text-sm font-bold text-text-primary">Layouts:</span>
+            <button onClick={() => setLayoutPreset('default')} className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${layoutPreset === 'default' ? 'bg-button-primary text-white' : 'text-text-secondary hover:bg-white/10 hover:text-white'}`}>Default</button>
+            <button onClick={() => setLayoutPreset('custom')} className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${layoutPreset === 'custom' ? 'bg-button-primary text-white' : 'text-text-secondary hover:bg-white/10 hover:text-white'}`}>Custom</button>
+            <button onClick={() => setLayoutPreset('split')} className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${layoutPreset === 'split' ? 'bg-button-primary text-white' : 'text-text-secondary hover:bg-white/10 hover:text-white'}`}>Split View</button>
+            <button onClick={() => setLayoutPreset('zen')} className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${layoutPreset === 'zen' ? 'bg-button-primary text-white' : 'text-text-secondary hover:bg-white/10 hover:text-white'}`}>Zen Mode</button>
+            <div className="w-px h-4 bg-white/20 mx-2" />
+            <button onClick={toggleLayoutMode} className="text-xs font-black text-button-primary hover:text-white uppercase tracking-wider transition-colors">Done</button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <AnimatePresence>
         {saveStatus !== "idle" && (
           <motion.div
@@ -514,56 +786,17 @@ const FocusSession = () => {
         )}
       </AnimatePresence>
 
-      <motion.div
-        drag={!isMobile}
-        dragConstraints={containerRef}
-        dragMomentum={false}
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        style={
-          isMobile
-            ? { left: "50%", x: "-50%", top: "2vh" }
-            : { left: "calc(50% - 300px)", top: "3vh" }
-        }
-        className="absolute z-40 flex flex-col items-center shadow-2xl rounded-full border border-border-primary/40 bg-card-background/80 backdrop-blur-xl w-fit min-w-[320px]"
-      >
-        {!isMobile && (
-          <div className="h-4 w-full cursor-grab active:cursor-grabbing flex justify-center items-center group shrink-0 pt-1">
-            <div className="w-8 h-1 bg-border-primary/40 group-hover:bg-button-primary/40 rounded-full transition-colors" />
-          </div>
-        )}
-        <div className="px-1.5 pb-1.5 pt-1 md:pt-0">
-          <HeaderNav
-            isDeepFocus={isDeepFocus}
-            toggleDeepFocus={toggleDeepFocus}
-            toggleMotivation={() => setShowQuotes((s) => !s)}
-            togglePanel={togglePanel}
-            activePanels={activePanels}
-            isIdle={machineState.status === "idle"}
-            isRunning={isRunning}
-          />
-        </div>
-      </motion.div>
+      {headerPanel}
 
-      <motion.div
-        drag={!isMobile}
-        dragConstraints={containerRef}
-        dragMomentum={false}
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        style={
-          isMobile
-            ? { left: "50%", x: "-50%", top: "14vh", width: "94%" }
-            : { left: "calc(50% - 270px)", top: "15vh", width: "540px" }
-        }
-        className="absolute z-40 flex flex-col bg-card-background/60 backdrop-blur-2xl border border-card-border rounded-[40px] shadow-[0_30px_100px_rgba(0,0,0,0.5)] overflow-hidden"
+      <DraggablePanel
+        id="timer"
+        isMobile={isMobile}
+        isLayoutMode={isLayoutMode}
+        dragControls={dragControlsTimer}
+        initialPosition={getPanelPosition("timer")}
+        className={isMobile ? "w-[94%] left-1/2 -translate-x-1/2 top-[14vh]" : "w-[540px] left-[calc(50%-270px)] top-[15vh]"}
+        showClose={false}
       >
-        {!isMobile && (
-          <div className="h-8 w-full cursor-grab active:cursor-grabbing flex justify-center items-center bg-background-secondary/20 hover:bg-background-secondary/40 transition-colors shrink-0 border-b border-border-secondary/20">
-            <div className="w-14 h-1 bg-border-primary/30 rounded-full" />
-          </div>
-        )}
-
         <div className="flex-1 overflow-hidden relative min-h-[450px] flex flex-col">
           <AnimatePresence mode="wait">
             {machineState.status === "finished" ? (
@@ -624,220 +857,31 @@ const FocusSession = () => {
             )}
           </AnimatePresence>
         </div>
-      </motion.div>
+      </DraggablePanel>
 
-      <AnimatePresence>
-        {activePanels.notes && (
-          <motion.div
-            drag={!isMobile}
-            dragControls={dragControls}
-            dragListener={false}
-            dragConstraints={containerRef}
-            dragMomentum={false}
-            initial={
-              isMobile ? { y: "100%" } : { opacity: 0, scale: 0.9, x: 20 }
-            }
-            animate={{ y: 0, opacity: 1, scale: 1, x: 0 }}
-            exit={isMobile ? { y: "100%" } : { opacity: 0, scale: 0.9, x: 20 }}
-            style={
-              isMobile
-                ? { inset: 0, width: "100%", height: "100%" }
-                : { right: "40px", top: "80px", width: "500px", height: "80vh" }
-            }
-            className="absolute z-50 flex flex-col bg-card-background border border-card-border md:rounded-[32px] shadow-2xl overflow-hidden backdrop-blur-xl"
-          >
-            <div
-              onPointerDown={(e) => !isMobile && dragControls.start(e)}
-              className="h-12 md:h-7 w-full cursor-grab active:cursor-grabbing flex justify-center items-center bg-background-secondary/40 shrink-0 border-b border-border-secondary relative"
-            >
-              <div className="w-12 h-1 bg-border-primary/40 rounded-full" />
-              {isMobile && (
-                <button
-                  onClick={() => togglePanel("notes")}
-                  className="absolute right-5 text-xs font-black uppercase text-button-primary"
-                >
-                  Close
-                </button>
-              )}
-            </div>
-            <div className="flex-1 overflow-hidden cursor-auto relative">
-              <Notes
-                notes={notes}
-                todos={todos}
-                createNote={createNote}
-                updateNote={updateNote}
-                deleteNote={deleteNote}
-                show={true}
-                onClose={() => togglePanel("notes")}
-              />
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {activePanels.todos && (
-          <motion.div
-            drag={!isMobile}
-            dragConstraints={containerRef}
-            dragMomentum={false}
-            initial={
-              isMobile ? { y: "100%" } : { opacity: 0, scale: 0.9, x: -20 }
-            }
-            animate={{ y: 0, opacity: 1, scale: 1, x: 0 }}
-            exit={isMobile ? { y: "100%" } : { opacity: 0, scale: 0.9, x: -20 }}
-            style={
-              isMobile
-                ? { inset: 0, width: "100%", height: "100%" }
-                : { left: "40px", top: "80px", width: "420px", height: "70vh" }
-            }
-            className="absolute z-50 flex flex-col bg-card-background border border-card-border md:rounded-[32px] shadow-2xl overflow-hidden"
-          >
-            <div className="h-12 md:h-7 w-full flex justify-center items-center bg-background-secondary/40 shrink-0 border-b border-border-secondary relative">
-              <div className="w-12 h-1 bg-border-primary/40 rounded-full" />
-              {isMobile && (
-                <button
-                  onClick={() => togglePanel("todos")}
-                  className="absolute right-5 text-xs font-black uppercase text-button-primary"
-                >
-                  Done
-                </button>
-              )}
-            </div>
-            <div className="flex-1 overflow-auto">
-              <TodoList
-                todos={todos}
-                newTodo={newTodo}
-                setNewTodo={setNewTodo}
-                onAddTodo={handleAddTodo}
-                onUpdateStatus={handleUpdateTodoStatus}
-                onDeleteTodo={handleDeleteTodo}
-                show={true}
-                onClose={() => togglePanel("todos")}
-              />
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {activePanels.progress && (
-          <motion.div
-            drag={!isMobile}
-            dragConstraints={containerRef}
-            dragMomentum={false}
-            initial={isMobile ? { y: "100%" } : { opacity: 0, scale: 0.9 }}
-            animate={{ y: 0, opacity: 1, scale: 1 }}
-            exit={isMobile ? { y: "100%" } : { opacity: 0, scale: 0.9 }}
-            style={
-              isMobile
-                ? { inset: 0, width: "100%", height: "100%" }
-                : {
-                  left: "100px",
-                  top: "150px",
-                  width: "420px",
-                  height: "35vh",
-                }
-            }
-            className="absolute z-50 flex flex-col bg-card-background border border-card-border md:rounded-3xl shadow-2xl overflow-hidden"
-          >
-            <div className="h-12 md:h-7 w-full flex justify-center items-center bg-background-secondary/40 shrink-0 border-b border-border-secondary relative">
-              <div className="w-12 h-1 bg-border-primary/40 rounded-full" />
-              {isMobile && (
-                <button
-                  onClick={() => togglePanel("progress")}
-                  className="absolute right-5 text-xs font-black uppercase text-button-primary"
-                >
-                  Close
-                </button>
-              )}
-            </div>
-            <CurrentProgress
-              todos={todos}
-              show={true}
-              onClose={() => togglePanel("progress")}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {activePanels.settings && (
-          <motion.div
-            drag={!isMobile}
-            dragConstraints={containerRef}
-            dragMomentum={false}
-            initial={isMobile ? { y: "100%" } : { opacity: 0, scale: 0.9 }}
-            animate={{ y: 0, opacity: 1, scale: 1 }}
-            exit={isMobile ? { y: "100%" } : { opacity: 0, scale: 0.9 }}
-            style={
-              isMobile
-                ? { inset: 0, width: "100%", height: "100%" }
-                : {
-                  left: "calc(50% - 200px)",
-                  top: "20vh",
-                  width: "400px",
-                  height: "65vh",
-                }
-            }
-            className="absolute z-50 flex flex-col bg-card-background border border-card-border md:rounded-3xl shadow-2xl overflow-hidden"
-          >
-            <div className="h-12 md:h-7 w-full flex justify-center items-center bg-background-secondary/40 shrink-0 border-b border-border-secondary relative">
-              <div className="w-12 h-1 bg-border-primary/40 rounded-full" />
-              {isMobile && (
-                <button
-                  onClick={() => togglePanel("settings")}
-                  className="absolute right-5 text-xs font-black uppercase text-button-primary"
-                >
-                  Save
-                </button>
-              )}
-            </div>
-            <Settings
-              plannedDuration={sessionData.plannedDuration}
-              initialValues={settings}
-              onSave={(values) => {
-                setBreakDuration(values.breakDuration);
-                setAutoStartBreaks(values.autoStartBreaks);
-                setBreaksNumber(values.breaksNumber);
-                setSkipBreaks(values.skipBreaks);
-                setConfirmReset(values.confirmReset);
-                setSoundOnTransition(values.soundOnTransition);
-                setIsSoundEnabled(values.isSoundEnabled);
-                modifySettings(values);
-              }}
-              show={true}
-              onClose={() => togglePanel("settings")}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {notesPanel}
+      {todosPanel}
+      {progressPanel}
+      {settingsPanel}
+      {workflowPanel}
 
       <AnimatePresence>
         {showQuotes && (
-          <motion.div
-            drag={!isMobile}
-            dragConstraints={containerRef}
-            dragMomentum={false}
-
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 30 }}
-            style={
-              isMobile
-                ? { left: "3%", bottom: "20px", width: "94%" }
-                : { left: "calc(50% - 240px)", bottom: "40px", width: "480px" }
-            }
-            className="absolute z-50 flex flex-col shadow-2xl rounded-[32px] overflow-hidden border border-border-secondary bg-background-primary/90 backdrop-blur-2xl cursor-grab active:cursor-grabbing"
+          <DraggablePanel
+            id="quotes"
+            isMobile={isMobile}
+            isLayoutMode={isLayoutMode}
+            dragControls={dragControlsSettings} // reuse a control if needed, or don't use handle
+            initialPosition={{ x: 0, y: 0 }}
+            className={isMobile ? "w-[94%] left-[3%] bottom-[20px]" : "w-[480px] left-[calc(50%-240px)] bottom-[40px]"}
+            onClose={() => setShowQuotes(false)}
+            showClose={false}
           >
-            <div className="h-6 w-full flex justify-center items-center shrink-0 pt-2">
-              <div className="w-10 h-1 bg-border-primary/30 rounded-full" />
-            </div>
             <MotivationalQuotes
               show={showQuotes}
               onClose={() => setShowQuotes(false)}
             />
-          </motion.div>
+          </DraggablePanel>
         )}
       </AnimatePresence>
     </div>

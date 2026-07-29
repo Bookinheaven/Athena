@@ -30,9 +30,9 @@ const MenuBar = ({ editor }) => {
     <button
       onClick={onClick}
       disabled={disabled}
-      className={`p-1.5 rounded-lg transition-all duration-200 ${isActive
+      className={`p-1.5 rounded-full transition-all duration-200 ${isActive
         ? "bg-button-primary/20 text-button-primary shadow-sm"
-        : "text-text-muted hover:bg-background-secondary hover:text-text-primary"
+        : "text-text-muted hover:bg-button-primary/10 hover:text-text-primary"
         }`}
     >
       {children}
@@ -40,7 +40,7 @@ const MenuBar = ({ editor }) => {
   );
 
   return (
-    <div className="flex items-center gap-1 p-1 bg-background-secondary/40 border border-border-secondary rounded-xl mb-4 w-fit shrink-0 shadow-sm">
+    <div className="flex items-center gap-1 p-1 bg-background-secondary/50 backdrop-blur-md border border-white/10 dark:border-white/5 rounded-full mb-4 w-fit shrink-0 shadow-sm">
       <Button
         onClick={() => editor.chain().focus().toggleBold().run()}
         disabled={!editor.can().chain().focus().toggleBold().run()}
@@ -278,16 +278,16 @@ const Notes = ({
 
   return (
     <div className="flex flex-col h-full w-full bg-transparent">
-      <div className="flex justify-between items-center px-5 py-4 border-b border-border-secondary shrink-0">
-        <h3 className="text-base font-semibold text-text-primary flex items-center gap-2">
+      <div className="flex justify-between items-center px-5 py-4 border-b border-white/5 bg-background-primary/30 backdrop-blur-md shrink-0 z-20">
+        <h3 className="text-sm font-black tracking-wide text-text-primary flex items-center gap-2">
           {selectedTask ? "Task Notes" : "Workspace Notes"}
         </h3>
-        <button onClick={onClose} className="p-1 rounded-md text-text-muted hover:text-text-primary hover:bg-background-secondary transition-colors">
+        <button onClick={onClose} className="p-1.5 rounded-full text-text-muted hover:text-text-primary hover:bg-background-secondary transition-colors active:scale-95">
           <X className="w-4 h-4" />
         </button>
       </div>
 
-      <div className="px-5 py-4 border-b border-border-secondary shrink-0 bg-background-primary/20 z-20">
+      <div className="px-5 py-3 border-b border-white/5 shrink-0 bg-background-primary/20 backdrop-blur-sm z-10">
         <div className="flex justify-between items-center text-xs mb-3">
           <span className="flex items-center gap-1.5 font-bold text-text-muted uppercase tracking-wider">
             <Link size={12} strokeWidth={2.5} /> Link Context

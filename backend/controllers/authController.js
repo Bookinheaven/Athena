@@ -1,6 +1,7 @@
 import AuthService from '../services/authService.js';
+import User from '../models/userModel.js';
 import { validationResult } from 'express-validator';
-import jwt from 'jsonwebtoken'
+import jwt from 'jsonwebtoken';
 
 class AuthController {
   // Register
@@ -14,7 +15,7 @@ class AuthController {
           errors: errors.array()
         });
       }
-      
+
       const result = await AuthService.registerUser(req.body);
       res.status(201).json({
         success: true,
@@ -70,22 +71,24 @@ class AuthController {
         });
       }
 
-      const { usernameOrEmail, password } = req.body;
+      const { usernameOrEmail, password, rememberMe } = req.body;
       const result = await AuthService.loginUser(usernameOrEmail, password);
       if (!result?.success) {
         res.json(result)
         return;
       }
+      const cookieMaxAge = rememberMe ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
       res.cookie('token', result.token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production' ? true : false,
         sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+        maxAge: cookieMaxAge
       });
       res.json({
         success: true,
         message: 'Login successful',
-        user: result.user
+        user: result.user,
+        token: result.token
       });
     } catch (error) {
       res.status(401).json({
@@ -132,14 +135,14 @@ class AuthController {
   // Get current user
   static async getCurrentUser(req, res) {
     try {
-        const token = req.cookies.token;
-        if (!token) return res.status(404).json({
+      const token = req.cookies.token;
+      if (!token) return res.status(404).json({
         success: false,
         message: error.message
       });
 
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      const user = (decoded) ? await AuthService.getUserById(decoded.userId): await AuthService.getUserById(req.user?._id);
+      const user = (decoded) ? await AuthService.getUserById(decoded.userId) : await AuthService.getUserById(req.user?._id);
       res.json({
         success: true,
         user
@@ -159,6 +162,47 @@ class AuthController {
       success: true,
       message: 'Logged out successfully'
     });
+  }
+
+  // Switch Account
+  static async switchAccount(req, res) {
+    try {
+      const { token } = req.body;
+      if (!token) {
+        return res.status(400).json({ success: false, message: 'Token required to switch account' });
+      }
+
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const user = await User.findById(decoded.userId).select('-password');
+      if (!user) {
+        return res.status(404).json({ success: false, message: 'Account no longer found' });
+      }
+
+      res.cookie('token', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production' ? true : false,
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+        maxAge: 30 * 24 * 60 * 60 * 1000
+      });
+
+      res.json({
+        success: true,
+        message: 'Switched account successfully',
+        user: {
+          id: user._id,
+          username: user.username,
+          email: user.email,
+          fullName: user.fullName,
+          type: user.type
+        },
+        token
+      });
+    } catch (error) {
+      res.status(401).json({
+        success: false,
+        message: 'Invalid or expired session. Please log in again.'
+      });
+    }
   }
 }
 

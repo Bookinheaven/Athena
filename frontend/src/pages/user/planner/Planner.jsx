@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import taskService from "../../../../services/taskService.js";
+import taskService from "@services/taskService.js";
 import goalService from "../../../../services/goalService.js";
 import sessionService from "../../../../services/sessionService.js";
 import { useNotes } from "../focus/hooks/useNotes.js";
@@ -148,7 +148,7 @@ export default function Planner() {
     goalEndDate,
 
   });
-  const [leftSidebarView, setLeftSidebarView] = useState("timeline"); 
+  const [leftSidebarView, setLeftSidebarView] = useState("timeline");
   return (
     <div className="min-h-screen lg:h-screen bg-background-color text-text-primary p-3 md:p-6 overflow-x-hidden lg:overflow-hidden">
       <div className="max-w-screen mx-auto h-full flex flex-col min-h-0">
@@ -187,22 +187,20 @@ export default function Planner() {
             <div className="flex p-1 bg-background-secondary/30 rounded-2xl border border-border-secondary/50 shrink-0">
               <button
                 onClick={() => setLeftSidebarView("timeline")}
-                className={`flex-1 flex items-center justify-center gap-2 py-2 text-[11px] font-black uppercase tracking-wider transition-all rounded-xl ${
-                  leftSidebarView === "timeline"
-                    ? "bg-button-primary text-white shadow-lg shadow-button-primary/20"
-                    : "text-text-muted hover:text-text-primary"
-                }`}
+                className={`flex-1 flex items-center justify-center gap-2 py-2 text-[11px] font-black uppercase tracking-wider transition-all rounded-xl ${leftSidebarView === "timeline"
+                  ? "bg-button-primary text-white shadow-lg shadow-button-primary/20"
+                  : "text-text-muted hover:text-text-primary"
+                  }`}
               >
                 <Clock size={14} strokeWidth={3} />
                 Timeline
               </button>
               <button
                 onClick={() => setLeftSidebarView("goals")}
-                className={`flex-1 flex items-center justify-center gap-2 py-2 text-[11px] font-black uppercase tracking-wider transition-all rounded-xl ${
-                  leftSidebarView === "goals"
-                    ? "bg-button-primary text-white shadow-lg shadow-button-primary/20"
-                    : "text-text-muted hover:text-text-primary"
-                }`}
+                className={`flex-1 flex items-center justify-center gap-2 py-2 text-[11px] font-black uppercase tracking-wider transition-all rounded-xl ${leftSidebarView === "goals"
+                  ? "bg-button-primary text-white shadow-lg shadow-button-primary/20"
+                  : "text-text-muted hover:text-text-primary"
+                  }`}
               >
                 <Target size={14} strokeWidth={3} />
                 Goals
@@ -303,7 +301,7 @@ export default function Planner() {
             <div className="bg-card-background border border-card-border rounded-3xl shadow-xl h-full flex flex-col overflow-hidden">
               <Notes
                 show={true}
-                onClose={() => {}}
+                onClose={() => { }}
                 notes={notes}
                 todos={tasks.map((t) => ({
                   id: t._id,
