@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import User from '../models/userModel.js';
 import Streak from '../models/streakModel.js'
 import jwt from 'jsonwebtoken';
@@ -5,7 +6,20 @@ import EmailService from './emailService.js';
 
 class AuthService {
   static generateOTP() {
-    return Math.floor(100000 + Math.random() * 900000).toString();
+    return crypto.randomInt(100000, 1000000).toString();
+  }
+
+  static hashOTP(otp) {
+    return crypto.createHash('sha256').update(String(otp)).digest('hex');
+  }
+
+  static verifyOTPHash(storedHash, plainOtp) {
+    if (!storedHash || !plainOtp) return false;
+    const computedHash = this.hashOTP(plainOtp);
+    const storedBuffer = Buffer.from(storedHash, 'utf-8');
+    const computedBuffer = Buffer.from(computedHash, 'utf-8');
+    if (storedBuffer.length !== computedBuffer.length) return false;
+    return crypto.timingSafeEqual(storedBuffer, computedBuffer);
   }
 
   static generateToken(userId) {
@@ -39,7 +53,7 @@ class AuthService {
       email,
       password,
       fullName,
-      emailVerificationOTP: otp,
+      emailVerificationOTP: this.hashOTP(otp),
       emailVerificationExpires: otpExpires
     });
 
@@ -58,20 +72,28 @@ class AuthService {
   }
 
   static async resendCode(userData) {
-    const { email, fullName } = userData;
+    const { email, fullName } = userData || {};
+    if (!email) {
+      return { message: 'Please check your email for verification code.' };
+    }
+
+    const user = await User.findOne({ email });
+
+    // If user does not exist or is already verified, do not alter account state or leak existence
+    if (!user || user.isEmailVerified) {
+      return { message: 'Please check your email for verification code.' };
+    }
 
     const otp = this.generateOTP();
     const otpExpires = new Date(Date.now() + 10 * 60 * 1000);
 
-    const user = await User.findOne({ email });
-    user.isEmailVerified = false;
-    user.emailVerificationOTP = otp;
-    user.emailVerificationExpires = otpExpires
+    user.emailVerificationOTP = this.hashOTP(otp);
+    user.emailVerificationExpires = otpExpires;
 
     await user.save();
 
     try {
-      await EmailService.sendVerificationOTP(email, otp, fullName);
+      await EmailService.sendVerificationOTP(email, otp, fullName || user.fullName);
     } catch (error) {
       console.warn(error)
     }
@@ -80,13 +102,16 @@ class AuthService {
   }
 
   static async verifyEmail(email, otp) {
+    if (!email || !otp) {
+      throw new Error('Invalid or expired verification code');
+    }
+
     const user = await User.findOne({
       email,
-      emailVerificationOTP: otp,
       emailVerificationExpires: { $gt: Date.now() }
     });
 
-    if (!user) {
+    if (!user || !user.emailVerificationOTP || !this.verifyOTPHash(user.emailVerificationOTP, otp)) {
       throw new Error('Invalid or expired verification code');
     }
     user.isEmailVerified = true;
@@ -144,24 +169,27 @@ class AuthService {
     const otp = this.generateOTP();
     const otpExpires = new Date(Date.now() + 10 * 60 * 1000);
 
-    user.passwordResetOTP = otp;
+    user.passwordResetOTP = this.hashOTP(otp);
     user.passwordResetExpires = otpExpires;
     await user.save();
 
-    // Send reset email
+    // Send reset email with plain OTP
     await EmailService.sendPasswordResetOTP(email, otp, user.fullName);
 
     return { message: 'Password reset code sent to your email' };
   }
 
   static async resetPassword(email, otp, newPassword) {
+    if (!email || !otp || !newPassword) {
+      throw new Error('Invalid or expired reset code');
+    }
+
     const user = await User.findOne({
       email,
-      passwordResetOTP: otp,
       passwordResetExpires: { $gt: Date.now() }
     });
 
-    if (!user) {
+    if (!user || !user.passwordResetOTP || !this.verifyOTPHash(user.passwordResetOTP, otp)) {
       throw new Error('Invalid or expired reset code');
     }
 

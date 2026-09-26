@@ -23,7 +23,7 @@ router.get('/check-auth', auth, (req, res) => {
   res.json({
     success: true,
     message: 'User is authenticated',
-    userId: req.user.userId
+    userId: req.user._id
   });
 });
 

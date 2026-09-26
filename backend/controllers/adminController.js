@@ -1,5 +1,6 @@
 import User from '../models/userModel.js';
 import Session from '../models/sessionModel.js';
+import Streak from '../models/streakModel.js';
 
 class adminController {
   
@@ -77,16 +78,31 @@ class adminController {
         });
       }
 
-      const user = new User({ username: username, fullName: fullName, email: email, password: password, type: type });
+      const user = new User({
+        username: username,
+        usernameLower: username.toLowerCase(),
+        fullName: fullName,
+        email: email,
+        password: password,
+        type: type,
+        isEmailVerified: true
+      });
       await user.save();
+
+      await Streak.create({
+        userId: user._id
+      });
+
+      const userObj = user.toObject();
+      delete userObj.password;
 
       res.status(201).json({
         success: true,
         message: 'User created successfully.',
-        user
+        user: userObj
       });
     } catch (error) {
-      res.status(404).json({
+      res.status(400).json({
         success: false,
         message: error.message
       });
@@ -95,26 +111,59 @@ class adminController {
 
   static async updateUser(req, res) {
     try {
-      const {id, user} = req.body;
-      const updateUser = await User.findByIdAndUpdate(id, user, {
-        new: true,
-        runValidators: true,
-      }).select('-password');
+      const { id, user } = req.body;
+      if (!id || !user || typeof user !== 'object') {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid user update payload.'
+        });
+      }
 
-      if (!updateUser) {
+      const existingUser = await User.findById(id);
+      if (!existingUser) {
         return res.status(404).json({
           success: false,
           message: 'User not found.'
         });
       }
 
+      // Whitelist intended updatable fields
+      if (user.username !== undefined) {
+        existingUser.username = user.username;
+        existingUser.usernameLower = user.username.toLowerCase();
+      }
+      if (user.fullName !== undefined) {
+        existingUser.fullName = user.fullName;
+      }
+      if (user.email !== undefined) {
+        existingUser.email = user.email.toLowerCase();
+      }
+      if (user.type !== undefined) {
+        existingUser.type = user.type;
+      }
+      if (user.isActive !== undefined) {
+        existingUser.isActive = Boolean(user.isActive);
+      }
+      if (user.isEmailVerified !== undefined) {
+        existingUser.isEmailVerified = Boolean(user.isEmailVerified);
+      }
+      // Explicitly handle password updates through existing pre-save bcrypt mechanism
+      if (user.password) {
+        existingUser.password = user.password;
+      }
+
+      await existingUser.save();
+
+      const userObj = existingUser.toObject();
+      delete userObj.password;
+
       res.json({
         success: true,
         message: 'User updated successfully.',
-        updateUser
+        updateUser: userObj
       });
     } catch (error) {
-      res.status(404).json({
+      res.status(400).json({
         success: false,
         message: error.message
       });
