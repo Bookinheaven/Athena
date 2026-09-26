@@ -1,10 +1,10 @@
 import nodemailer from 'nodemailer';
 import { APP_NAME } from '../config/branding.js';
+import env from '../config/env.js';
 
 async function createTransporter() {
-  while (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-    console.log("Waiting for EMAIL_USER and EMAIL_PASS to load...");
-    await new Promise((res) => setTimeout(res, 100)); 
+  if (!env.EMAIL_USER || !env.EMAIL_PASS) {
+    throw new Error("Email service is not configured (missing EMAIL_USER or EMAIL_PASS).");
   }
 
   const transporter = nodemailer.createTransport({
@@ -13,8 +13,8 @@ async function createTransporter() {
     port: 465,
     secure: true,
     auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
+      user: env.EMAIL_USER,
+      pass: env.EMAIL_PASS,
     },
   });
 
@@ -33,7 +33,7 @@ class EmailService {
     const transporter = await createTransporter();
 
     const mailOptions = {
-      from: `"${APP_NAME}" <${process.env.EMAIL_USER}>`,
+      from: `"${APP_NAME}" <${env.EMAIL_USER}>`,
       to: email,
       subject: `${APP_NAME} – Email Verification`,
       html: `
@@ -59,7 +59,7 @@ class EmailService {
     const transporter = await createTransporter();
 
     const mailOptions = {
-      from: `"${APP_NAME}" <${process.env.EMAIL_USER}>`,
+      from: `"${APP_NAME}" <${env.EMAIL_USER}>`,
       to: email,
       subject: `${APP_NAME} – Password Reset Request`,
       html: `

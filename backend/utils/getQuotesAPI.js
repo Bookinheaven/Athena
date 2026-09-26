@@ -1,3 +1,5 @@
+import env from "../config/env.js";
+
 const apis = [
   {
     url: "https://motivational-spark-api.vercel.app/api/quotes/random",
@@ -9,7 +11,7 @@ const apis = [
   {
     url: "https://api.api-ninjas.com/v2/randomquotes?categories=motivational",
     headers: {
-      "X-Api-Key": process.env.API_NINJAS,
+      "X-Api-Key": env.API_NINJAS,
     },
     transform: (data) => ({
       text: data[0]?.quote,

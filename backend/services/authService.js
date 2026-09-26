@@ -3,6 +3,7 @@ import User from '../models/userModel.js';
 import Streak from '../models/streakModel.js'
 import jwt from 'jsonwebtoken';
 import EmailService from './emailService.js';
+import env from '../config/env.js';
 
 class AuthService {
   static generateOTP() {
@@ -23,8 +24,8 @@ class AuthService {
   }
 
   static generateToken(userId) {
-    return jwt.sign({ userId }, process.env.JWT_SECRET, {
-      expiresIn: process.env.JWT_EXPIRES_IN || '7d'
+    return jwt.sign({ userId }, env.JWT_SECRET, {
+      expiresIn: env.JWT_EXPIRES_IN
     });
   }
 
