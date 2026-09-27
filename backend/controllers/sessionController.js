@@ -22,11 +22,11 @@ class SessionController {
   async updateSession(req, res) {
     try {
       const userId = req.user._id;
-      const session = await SessionService.update(userId, {
+      const { session, transitionedToCompleted } = await SessionService.update(userId, {
         sessionId: req.params.sessionId,
         ...req.body,
       });
-      if (session.status?.toLowerCase().trim() === "completed") {
+      if (transitionedToCompleted) {
         await StreakService.dailyStreakUpdate(userId, session.duration / 60);
         await StreakService.processDailyStreak(userId);
       }

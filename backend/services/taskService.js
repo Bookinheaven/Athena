@@ -4,9 +4,10 @@ import Task from "../models/taskModel.js";
 
 class TaskService {
   async createTask(userId, data) {
+    const { user, _id, ...safeData } = data;
     const task = await Task.create({
+      ...safeData,
       user: userId,
-      ...data,
     });
     if (task.goal) {
       await GoalService.recalculateProgress(task.goal);
@@ -29,13 +30,14 @@ class TaskService {
   }
 
   async updateTask(userId, taskId, data) {
+    const { user, _id, ...updateData } = data;
     const task = await Task.findOneAndUpdate(
       { _id: taskId, user: userId },
-      data,
+      { $set: updateData },
       { new: true }
     );
 
-    if (task.goal) {
+    if (task?.goal) {
       await GoalService.recalculateProgress(task.goal);
     }
 

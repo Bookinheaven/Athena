@@ -41,8 +41,8 @@ class UserController {
     async resetSettings(req, res) {
         try {
             const userId = req.user.id;
-            const settings = await UserService.resetSettings(userId, type);
             const type = req.params.type;
+            const settings = await UserService.resetSettings(userId, type);
             res.status(200).json({
                 success: true,
                 settings

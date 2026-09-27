@@ -59,10 +59,13 @@ class SessionService {
     if (!session) {
       throw new Error("Session not found");
     }
+
     const updateData = {};
     if (segment) {
       const existing = session.sessionSegments?.[segment.segmentIndex];
-      if (!existing) return session;
+      if (!existing) {
+        return { session, transitionedToCompleted: false };
+      }
       const total = existing?.totalDuration || 0;
       if (segment.duration !== undefined) {
         updateData[`sessionSegments.${segment.segmentIndex}.duration`] = Math.max(existing?.duration || 0, segment.duration);
@@ -72,6 +75,7 @@ class SessionService {
         updateData[`sessionSegments.${segment.segmentIndex}.duration`] = total; 
       }
     }
+
     if (title) {
       updateData.title = title;
     }
@@ -81,37 +85,54 @@ class SessionService {
     if (pauseEvents && Array.isArray(pauseEvents)) {
       updateData.pauseEvents = pauseEvents;
     }
-    if (status === "skipped"){
-      updateData.status = "completed";
-      updateData.completionType = "skipped";
-      updateData.endedAt = new Date();
+
+    let transitionedToCompleted = false;
+    if (status === "completed" || status === "skipped") {
+      const completionType = status === "skipped" ? "skipped" : "completed";
+      const transitionSet = {
+        status: "completed",
+        completionType,
+        endedAt: new Date(),
+      };
       if (payload.sessionStats) {
-        updateData.sessionStats = payload.sessionStats;
+        transitionSet.sessionStats = payload.sessionStats;
       }
+
+      const transitionResult = await Session.updateOne(
+        { sessionId, userId, status: { $ne: "completed" } },
+        { $set: transitionSet }
+      );
+
+      transitionedToCompleted = transitionResult.modifiedCount === 1;
     }
-    if (status === "completed") {
-      updateData.status = "completed";
-      updateData.completionType = "completed";
-      updateData.endedAt = new Date();
-      if (payload.sessionStats) {
-        updateData.sessionStats = payload.sessionStats;
+
+    const segments = session.sessionSegments || [];
+    const totalDuration = segments.reduce((sum, seg, idx) => {
+      let duration = seg.duration || 0;
+      const total = seg.totalDuration || 0;
+      if (segment && segment.segmentIndex === idx) {
+        if (segment.completedAt) {
+          duration = total;
+        } else if (segment.duration !== undefined) {
+          duration = Math.max(duration, segment.duration);
+        }
       }
-    }
+      const safe = Math.min(duration, seg.totalDuration || Infinity);
+      return sum + safe;
+    }, 0);
+
+    updateData.duration = totalDuration;
+
     const updatedSession = await Session.findOneAndUpdate(
       { sessionId, userId },
       { $set: updateData },
       { new: true }
     );
 
-    const totalDuration = updatedSession.sessionSegments.reduce((sum, seg) => {
-      const safe = Math.min(seg.duration || 0, seg.totalDuration || Infinity);
-      return sum + safe;
-    }, 0);
-
-    updatedSession.duration = totalDuration;
-    await updatedSession.save();
-
-    return updatedSession;
+    return {
+      session: updatedSession,
+      transitionedToCompleted,
+    };
   }
 
   async feedback(userId, payload) {
