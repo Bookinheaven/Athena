@@ -7,7 +7,7 @@ import LoadingSpinner from '@/components/LoadingSpinner/LoadingSpinner';
 const OTPVerification = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { verifyOTP, resendOTPCode } = useAuth();
+  const { verifyEmail, resendOTPCode } = useAuth();
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -89,7 +89,7 @@ const OTPVerification = () => {
 
     setLoading(true);
     try {
-      await verifyOTP({ email, otp: otpString });
+      await verifyEmail(email, otpString);
       navigate('/dashboard');
     } catch (err) {
       setError(err.message || 'Verification failed. Please try again.');

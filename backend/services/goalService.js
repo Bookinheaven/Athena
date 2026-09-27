@@ -2,9 +2,10 @@ import Goal from "../models/goalModel.js"
 
 class GoalService {
     async createGoal(userId, data) {
+        const { user, _id, ...safeData } = data;
         const goal = await Goal.create({
-            user: userId,
-            ...data
+            ...safeData,
+            user: userId
         })
         return goal;
     }
@@ -18,15 +19,21 @@ class GoalService {
     }
 
     async updateGoal(userId, goalId, data) {
+        const { user, _id, ...updateData } = data;
         return Goal.findOneAndUpdate(
-            { _id: goalId, user: userId},
-            data,
+            { _id: goalId, user: userId },
+            { $set: updateData },
             { new: true }
         );
     }
 
     async deleteGoal(userId, goalId) {
-        await Goal.updateMany({ goal: goalId }, { goal: null })
+        const Task = (await import("../models/taskModel.js")).default;
+        const Note = (await import("../models/notesModel.js")).default;
+        await Promise.all([
+            Task.updateMany({ goal: goalId }, { goal: null }),
+            Note.updateMany({ goal: goalId }, { goal: null })
+        ]);
         return Goal.findOneAndDelete({ _id: goalId, user: userId })
     }
 

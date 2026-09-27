@@ -34,6 +34,8 @@ class StreakService {
       ? Math.floor((today - lastDate) / (1000 * 60 * 60 * 24))
       : null;
 
+    let freezeUsed = 0;
+
     // SAME DAY LOGIC (REAL-TIME)
     if (diffDays === 0) {
       let updated = false;
@@ -58,83 +60,98 @@ class StreakService {
       if (updated) {
         await streak.save();
       }
+    } else {
+      const previousStreak = streak.currentStreak;
 
-      return {
-        state,
-        focusMinutes,
-        streakCount: streak.currentStreak,
-        freezeUsed: 0,
-      };
-    }
-
-    const previousStreak = streak.currentStreak;
-    let freezeUsed = 0;
-
-    // FIRST TIME USER
-    if (!lastDate) {
-      if (state === "green") {
-        streak.currentStreak = 1;
-        streak.lastCountedDate = today;
-      } else {
-        streak.currentStreak = 0;
-        streak.lastCountedDate = null;
-      }
-    }
-
-    // NEXT DAY (CONSECUTIVE)
-    else if (diffDays === 1) {
-      if (state === "green") {
-        if (!isSameDay(streak.lastCountedDate, today)) {
-          streak.currentStreak = previousStreak + 1;
+      // FIRST TIME USER
+      if (!lastDate) {
+        if (state === "green") {
+          streak.currentStreak = 1;
           streak.lastCountedDate = today;
-        }
-
-        // reward freeze every 7 days
-        if (
-          streak.currentStreak % 7 === 0 &&
-          streak.freezeBalance < streak.maxFreezeBalance
-        ) {
-          streak.freezeBalance += 1;
-        }
-      } else if (state === "yellow") {
-        // maintain streak
-        streak.currentStreak = previousStreak;
-      } else {
-        // RED DAY
-        if (streak.freezeBalance > 0 && previousStreak > 0) {
-          streak.freezeBalance -= 1;
-          streak.totalFreezesUsed += 1;
-          freezeUsed = 1;
-
-          streak.currentStreak = previousStreak;
-
-          // preserve last counted date
-          streak.lastCountedDate = streak.lastCountedDate || lastDate;
         } else {
           streak.currentStreak = 0;
           streak.lastCountedDate = null;
         }
       }
-    }
 
-    // MISSED MULTIPLE DAYS
-    else if (diffDays > 1) {
-      streak.currentStreak = state === "green" ? 1 : 0;
-      streak.freezeBalance = 0;
+      // NEXT DAY (CONSECUTIVE)
+      else if (diffDays === 1) {
+        if (state === "green") {
+          if (!isSameDay(streak.lastCountedDate, today)) {
+            streak.currentStreak = previousStreak + 1;
+            streak.lastCountedDate = today;
+          }
 
-      if (state === "green") {
-        streak.lastCountedDate = today;
-      } else {
-        streak.lastCountedDate = null;
+          // reward freeze every 7 days
+          if (
+            streak.currentStreak % 7 === 0 &&
+            streak.freezeBalance < streak.maxFreezeBalance
+          ) {
+            streak.freezeBalance += 1;
+          }
+        } else if (state === "yellow") {
+          // maintain streak
+          streak.currentStreak = previousStreak;
+        } else {
+          // RED DAY
+          if (streak.freezeBalance > 0 && previousStreak > 0) {
+            streak.freezeBalance -= 1;
+            streak.totalFreezesUsed += 1;
+            freezeUsed = 1;
+
+            streak.currentStreak = previousStreak;
+
+            // preserve last counted date
+            streak.lastCountedDate = streak.lastCountedDate || lastDate;
+          } else {
+            streak.currentStreak = 0;
+            streak.lastCountedDate = null;
+          }
+        }
       }
-    }
-    streak.lastProcessedDate = today;
 
-    if (streak.currentStreak > streak.longestStreak) {
-      streak.longestStreak = streak.currentStreak;
+      // MISSED MULTIPLE DAYS
+      else if (diffDays > 1) {
+        streak.currentStreak = state === "green" ? 1 : 0;
+        streak.freezeBalance = 0;
+
+        if (state === "green") {
+          streak.lastCountedDate = today;
+        } else {
+          streak.lastCountedDate = null;
+        }
+      }
+      streak.lastProcessedDate = today;
+
+      if (streak.currentStreak > streak.longestStreak) {
+        streak.longestStreak = streak.currentStreak;
+      }
+
+      await streak.save();
     }
 
-    await streak.save();
+    let resultType = "failed";
+    if (state === "green") {
+      resultType = "success";
+    } else if (state === "yellow") {
+      resultType = "partial";
+    } else if (freezeUsed > 0) {
+      resultType = "freeze_saved";
+    }
+
+    await DailyStats.updateOne(
+      { userId, date: today },
+      {
+        $set: {
+          dailyTargetMinutes: target,
+          streakRate,
+          state,
+          resultType,
+          streakCount: streak.currentStreak,
+          usedFreeze: freezeUsed,
+        },
+      },
+    );
 
     return {
       state,
@@ -147,6 +164,11 @@ class StreakService {
   async dailyStreakUpdate(userId, sessionMinutes) {
     const today = getStartOfDay();
 
+    const streak = await Streak.findOne({ userId });
+    if (!streak) throw new Error("Streak not found");
+
+    const target = Math.max(streak.dailyTargetMinutes, 1);
+
     await DailyStats.findOneAndUpdate(
       { userId, date: today },
       {
@@ -154,14 +176,34 @@ class StreakService {
           focusMinutes: sessionMinutes,
           sessions: 1,
         },
+        $setOnInsert: {
+          dailyTargetMinutes: target,
+          streakRate: 0,
+          state: "red",
+          resultType: "failed",
+          streakCount: streak.currentStreak || 0,
+        },
       },
-      { upsert: true, new: true },
+      { upsert: true, new: true, runValidators: true },
     );
   }
 
   async getSpecificField(userId, type) {
     const data = await Streak.findOne({ userId }).select(`${type} -_id`);
     return data;
+  }
+
+  async getMonthlyStats(userId, year, month) {
+    const parsedYear = parseInt(year, 10) || new Date().getUTCFullYear();
+    const parsedMonth = parseInt(month, 10) || new Date().getUTCMonth() + 1;
+
+    const start = new Date(Date.UTC(parsedYear, parsedMonth - 1, 1, 0, 0, 0));
+    const end = new Date(Date.UTC(parsedYear, parsedMonth, 0, 23, 59, 59, 999));
+
+    return await DailyStats.find({
+      userId,
+      date: { $gte: start, $lte: end },
+    }).sort({ date: 1 });
   }
 }
 

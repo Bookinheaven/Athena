@@ -3,6 +3,7 @@ import User from '../models/userModel.js';
 import Streak from '../models/streakModel.js'
 import jwt from 'jsonwebtoken';
 import EmailService from './emailService.js';
+import env from '../config/env.js';
 
 class AuthService {
   static generateOTP() {
@@ -23,8 +24,8 @@ class AuthService {
   }
 
   static generateToken(userId) {
-    return jwt.sign({ userId }, process.env.JWT_SECRET, {
-      expiresIn: process.env.JWT_EXPIRES_IN || '7d'
+    return jwt.sign({ userId }, env.JWT_SECRET, {
+      expiresIn: env.JWT_EXPIRES_IN
     });
   }
 
@@ -162,21 +163,19 @@ class AuthService {
   static async requestPasswordReset(email) {
     const user = await User.findOne({ email, isActive: true });
 
-    if (!user) {
-      throw new Error('No account found with this email address');
+    if (user) {
+      const otp = this.generateOTP();
+      const otpExpires = new Date(Date.now() + 10 * 60 * 1000);
+
+      user.passwordResetOTP = this.hashOTP(otp);
+      user.passwordResetExpires = otpExpires;
+      await user.save();
+
+      // Send reset email with plain OTP
+      await EmailService.sendPasswordResetOTP(email, otp, user.fullName);
     }
 
-    const otp = this.generateOTP();
-    const otpExpires = new Date(Date.now() + 10 * 60 * 1000);
-
-    user.passwordResetOTP = this.hashOTP(otp);
-    user.passwordResetExpires = otpExpires;
-    await user.save();
-
-    // Send reset email with plain OTP
-    await EmailService.sendPasswordResetOTP(email, otp, user.fullName);
-
-    return { message: 'Password reset code sent to your email' };
+    return { message: 'If an account exists with this email address, a password reset code has been sent.' };
   }
 
   static async resetPassword(email, otp, newPassword) {

@@ -2,9 +2,10 @@ import Note from "../models/notesModel.js";
 
 class NoteService {
   async createNote(userId, data) {
+    const { user, _id, ...safeData } = data;
     return Note.create({
+      ...safeData,
       user: userId,
-      ...data,
     });
   }
 
@@ -13,9 +14,10 @@ class NoteService {
   }
 
   async updateNote(userId, noteId, data) {
+    const { user, _id, ...updateData } = data;
     return Note.findOneAndUpdate(
       { _id: noteId, user: userId },
-      data,
+      { $set: updateData },
       { new: true }
     );
   }

@@ -1,6 +1,4 @@
-if (process.env.NODE_ENV !== "production") {
-  await import("./utils/loadEnv.js");
-}
+import env from "./config/env.js";
 import express from "express";
 import cookieParser from "cookie-parser";
 import rateLimit from "express-rate-limit";
@@ -24,10 +22,6 @@ import workspaceRoutes from "./routes/workspaceRoutes.js";
 // Database instance setup
 import { connectDB, closeDB } from "./config/db.js";
 import { initSocket } from "./config/socket.js";
-import {
-  startUserChangeStream,
-  stopChangeStream,
-} from "./services/changeStream.js";
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -67,7 +61,7 @@ const app = express();
 // app.use(limiter);
 app.use(
   cors({
-    origin: ["http://localhost:5173", "http://localhost:3000"],
+    origin: Array.from(new Set([env.CLIENT_URL, "http://localhost:5173", "http://localhost:3000"])),
     credentials: true,
   }),
 );
@@ -108,7 +102,7 @@ app.use((err, req, res, next) => {
   res.status(500).json({
     success: false,
     message:
-      process.env.NODE_ENV === "production"
+      env.NODE_ENV === "production"
         ? "Something went wrong!"
         : err.message,
   });
@@ -121,23 +115,20 @@ app.use((err, req, res, next) => {
 //     });
 // });
 
-const PORT = process.env.PORT || 5000;
+const PORT = env.PORT;
 const startServer = async () => {
   // connecting database
   await connectDB();
   const server = http.createServer(app);
   initSocket(server);
 
-  startUserChangeStream();
-
   server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
     console.log(`${APP_NAME} Backend ready!`);
-    console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
+    console.log(`Environment: ${env.NODE_ENV}`);
   });
   process.on("SIGINT", async () => {
     console.log("Shutting down...");
-    await stopChangeStream();
     await closeDB();
     process.exit(0);
   });

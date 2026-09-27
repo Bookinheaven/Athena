@@ -2,6 +2,7 @@ import AuthService from '../services/authService.js';
 import User from '../models/userModel.js';
 import { validationResult } from 'express-validator';
 import jwt from 'jsonwebtoken';
+import env from '../config/env.js';
 
 class AuthController {
   // Register
@@ -80,8 +81,8 @@ class AuthController {
       const cookieMaxAge = rememberMe ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
       res.cookie('token', result.token, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production' ? true : false,
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+        secure: env.NODE_ENV === 'production',
+        sameSite: env.NODE_ENV === 'production' ? 'none' : 'lax',
         maxAge: cookieMaxAge
       });
       res.json({
@@ -135,20 +136,19 @@ class AuthController {
   // Get current user
   static async getCurrentUser(req, res) {
     try {
-      const token = req.cookies.token;
-      if (!token) return res.status(404).json({
-        success: false,
-        message: error.message
-      });
+      if (!req.user) {
+        return res.status(401).json({
+          success: false,
+          message: 'Access denied. User not authenticated.'
+        });
+      }
 
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      const user = (decoded) ? await AuthService.getUserById(decoded.userId) : await AuthService.getUserById(req.user?._id);
       res.json({
         success: true,
-        user
+        user: req.user
       });
     } catch (error) {
-      res.status(404).json({
+      res.status(500).json({
         success: false,
         message: error.message
       });
@@ -172,7 +172,7 @@ class AuthController {
         return res.status(400).json({ success: false, message: 'Token required to switch account' });
       }
 
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const decoded = jwt.verify(token, env.JWT_SECRET);
       const user = await User.findById(decoded.userId).select('-password');
       if (!user) {
         return res.status(404).json({ success: false, message: 'Account no longer found' });
@@ -180,8 +180,8 @@ class AuthController {
 
       res.cookie('token', token, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production' ? true : false,
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+        secure: env.NODE_ENV === 'production',
+        sameSite: env.NODE_ENV === 'production' ? 'none' : 'lax',
         maxAge: 30 * 24 * 60 * 60 * 1000
       });
 

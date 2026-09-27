@@ -25,8 +25,9 @@ const getWorkspaceById = async (userId, workspaceId) => {
  * Create a new workspace
  */
 const createWorkspace = async (userId, data) => {
+  const { user, _id, ...safeData } = data;
   const workspace = new Workspace({
-    ...data,
+    ...safeData,
     user: userId
   });
   return await workspace.save();
@@ -36,9 +37,10 @@ const createWorkspace = async (userId, data) => {
  * Update an existing workspace
  */
 const updateWorkspace = async (userId, workspaceId, data) => {
+  const { user, _id, ...updateData } = data;
   const workspace = await Workspace.findOneAndUpdate(
     { _id: workspaceId, user: userId },
-    { $set: data },
+    { $set: updateData },
     { new: true, runValidators: true }
   );
   if (!workspace) throw new Error('Workspace not found');

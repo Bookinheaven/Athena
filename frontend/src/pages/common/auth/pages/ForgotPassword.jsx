@@ -6,7 +6,7 @@ import LoadingSpinner from '@/components/LoadingSpinner/LoadingSpinner';
 
 const ForgotPassword = () => {
   const navigate = useNavigate();
-  const { forgotPassword } = useAuth();
+  const { requestPasswordReset } = useAuth();
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -27,7 +27,7 @@ const ForgotPassword = () => {
     setError('');
 
     try {
-      await forgotPassword(email);
+      await requestPasswordReset(email);
       navigate('/reset-password', { state: { email } });
     } catch (err) {
       setError(err.message || 'Failed to send reset instructions. Please check the email provided.');

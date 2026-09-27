@@ -1,42 +1,40 @@
-import nodemailer from 'nodemailer';
+import { BrevoClient } from '@getbrevo/brevo';
 import { APP_NAME } from '../config/branding.js';
+import env from '../config/env.js';
 
-async function createTransporter() {
-  while (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-    console.log("Waiting for EMAIL_USER and EMAIL_PASS to load...");
-    await new Promise((res) => setTimeout(res, 100)); 
+let brevoClient = null;
+
+function getBrevoClient() {
+  if (!env.BREVO_API_KEY || !env.BREVO_SENDER_EMAIL) {
+    throw new Error("Email service is not configured (missing BREVO_API_KEY or BREVO_SENDER_EMAIL).");
   }
 
-  const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    host: 'smtp.gmail.com',
-    port: 465,
-    secure: true,
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
-  });
-
-  try {
-    await transporter.verify();
-    console.log("Email transporter verified and ready to send emails");
-  } catch (err) {
-    console.error("Email transporter verification failed:", err.message);
+  if (!brevoClient) {
+    brevoClient = new BrevoClient({
+      apiKey: env.BREVO_API_KEY,
+    });
   }
 
-  return transporter;
+  return brevoClient;
 }
 
 class EmailService {
   static async sendVerificationOTP(email, otp, fullName) {
-    const transporter = await createTransporter();
+    const client = getBrevoClient();
 
-    const mailOptions = {
-      from: `"${APP_NAME}" <${process.env.EMAIL_USER}>`,
-      to: email,
+    const emailPayload = {
+      sender: {
+        name: APP_NAME,
+        email: env.BREVO_SENDER_EMAIL,
+      },
+      to: [
+        {
+          email,
+          name: fullName || email,
+        },
+      ],
       subject: `${APP_NAME} – Email Verification`,
-      html: `
+      htmlContent: `
         <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; background: #f9fafb;">
           <div style="background: #ffffff; border-radius: 12px; padding: 32px; box-shadow: 0 6px 20px rgba(0,0,0,0.08);">
             <h2 style="color: #111827;">Welcome, ${fullName}</h2>
@@ -51,18 +49,26 @@ class EmailService {
       `,
     };
 
-    await transporter.sendMail(mailOptions);
+    await client.transactionalEmails.sendTransacEmail(emailPayload);
     console.log(`Verification email sent to ${email}`);
   }
 
   static async sendPasswordResetOTP(email, otp, fullName) {
-    const transporter = await createTransporter();
+    const client = getBrevoClient();
 
-    const mailOptions = {
-      from: `"${APP_NAME}" <${process.env.EMAIL_USER}>`,
-      to: email,
+    const emailPayload = {
+      sender: {
+        name: APP_NAME,
+        email: env.BREVO_SENDER_EMAIL,
+      },
+      to: [
+        {
+          email,
+          name: fullName || email,
+        },
+      ],
       subject: `${APP_NAME} – Password Reset Request`,
-      html: `
+      htmlContent: `
         <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; background: #f9fafb;">
           <div style="background: #ffffff; border-radius: 12px; padding: 32px; box-shadow: 0 6px 20px rgba(0,0,0,0.08);">
             <h2 style="color: #111827;">Hello, ${fullName}</h2>
@@ -77,7 +83,7 @@ class EmailService {
       `,
     };
 
-    await transporter.sendMail(mailOptions);
+    await client.transactionalEmails.sendTransacEmail(emailPayload);
     console.log(`Password reset email sent to ${email}`);
   }
 }

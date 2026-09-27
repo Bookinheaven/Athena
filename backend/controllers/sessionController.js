@@ -22,11 +22,12 @@ class SessionController {
   async updateSession(req, res) {
     try {
       const userId = req.user._id;
-      const session = await SessionService.update(userId, {
-        sessionId: req.params.sessionId,
-        ...req.body,
+      const { sessionId: _bodySessionId, ...restBody } = req.body || {};
+      const { session, transitionedToCompleted } = await SessionService.update(userId, {
+        ...restBody,
+        sessionId: req.params.id,
       });
-      if (session.status?.toLowerCase().trim() === "completed") {
+      if (transitionedToCompleted) {
         await StreakService.dailyStreakUpdate(userId, session.duration / 60);
         await StreakService.processDailyStreak(userId);
       }
@@ -108,11 +109,14 @@ class SessionController {
       let maxDuration = 0;
 
       for (let session of todaysSessions) {
-        const focusSessions = session.sessionSegments
+        const focusSessions = session.sessionSegments || [];
         output.focus_blocks += focusSessions.length;
         if (session.duration > maxDuration) maxDuration = session.duration;
-        if (session.sessionFeedback?.distractions) {
-          output.distractions.push(...session.sessionFeedback.distractions);
+        if (session.sessionFeedback?.distractions && typeof session.sessionFeedback.distractions === "string") {
+          const trimmed = session.sessionFeedback.distractions.trim();
+          if (trimmed) {
+            output.distractions.push(trimmed);
+          }
         }
       }
 
@@ -131,7 +135,7 @@ class SessionController {
     try {
       const userId = req.user._id;
       const allSessions = await Session.find({ userId }).sort({
-        timestamp: -1,
+        createdAt: -1,
       });
       const insights = await generateInsights(userId, allSessions);
       const recentSessions = allSessions.map(transformSessionForDashboard);

@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import env from "./env.js";
 
 let isConnected = false;
 
@@ -7,11 +8,8 @@ export const connectDB = async () => {
     console.log("MongoDB already connected.");
     return;
   }
-  if (!process.env.MONGODB_URI) {
-    throw new Error("MONGODB_URI is not defined in environment variables");
-  }
   try {
-    const conn = await mongoose.connect(process.env.MONGODB_URI, {
+    const conn = await mongoose.connect(env.MONGODB_URI, {
       serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 45000,
       maxPoolSize: 10,

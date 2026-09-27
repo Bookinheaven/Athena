@@ -1,8 +1,5 @@
 import User from "../models/userModel.js";
 
-/**
- * All the Services Like settings, .. can be performed.
- */
 class UserService {
     allowedSettings = ["session"];
 
@@ -70,6 +67,7 @@ class UserService {
      * @returns {Object} default session settings
      */
     async resetSettings(userId, type) {
+        const defaults = this.defaultSettings;
         let update;
         if (!type) {
             update = { settings: defaults };
@@ -82,7 +80,6 @@ class UserService {
                 $set: { [`settings.${type}`]: defaults[type] }
             }
         }
-        const defaults = this.defaultSettings[type];
         const user = await User.findByIdAndUpdate(
             userId,
             update,
@@ -91,7 +88,7 @@ class UserService {
         if (!user) {
             throw new Error("User not found");
         }
-        return user.settings[type];
+        return type ? user.settings[type] : user.settings;
     }
 }
 

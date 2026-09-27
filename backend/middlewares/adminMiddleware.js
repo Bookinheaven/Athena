@@ -1,9 +1,17 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/userModel.js';
+import env from '../config/env.js';
 
 const adminAuth = async (req, res, next) => {
   try {
-    const token = req.cookies.token;
+    let token = "";
+    if (req.headers.authorization?.startsWith("Bearer ")) {
+      token = req.headers.authorization.split(" ")[1];
+    }
+
+    if (!token && req.cookies?.token) {
+      token = req.cookies.token;
+    }
 
     if (!token) {
       return res.status(401).json({
@@ -12,7 +20,7 @@ const adminAuth = async (req, res, next) => {
       });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, env.JWT_SECRET);
     const user = await User.findById(decoded.userId).select('-password');
 
     if (!user || !user.isActive) {
