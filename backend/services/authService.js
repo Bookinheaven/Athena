@@ -163,21 +163,19 @@ class AuthService {
   static async requestPasswordReset(email) {
     const user = await User.findOne({ email, isActive: true });
 
-    if (!user) {
-      throw new Error('No account found with this email address');
+    if (user) {
+      const otp = this.generateOTP();
+      const otpExpires = new Date(Date.now() + 10 * 60 * 1000);
+
+      user.passwordResetOTP = this.hashOTP(otp);
+      user.passwordResetExpires = otpExpires;
+      await user.save();
+
+      // Send reset email with plain OTP
+      await EmailService.sendPasswordResetOTP(email, otp, user.fullName);
     }
 
-    const otp = this.generateOTP();
-    const otpExpires = new Date(Date.now() + 10 * 60 * 1000);
-
-    user.passwordResetOTP = this.hashOTP(otp);
-    user.passwordResetExpires = otpExpires;
-    await user.save();
-
-    // Send reset email with plain OTP
-    await EmailService.sendPasswordResetOTP(email, otp, user.fullName);
-
-    return { message: 'Password reset code sent to your email' };
+    return { message: 'If an account exists with this email address, a password reset code has been sent.' };
   }
 
   static async resetPassword(email, otp, newPassword) {

@@ -136,20 +136,19 @@ class AuthController {
   // Get current user
   static async getCurrentUser(req, res) {
     try {
-      const token = req.cookies.token;
-      if (!token) return res.status(404).json({
-        success: false,
-        message: error.message
-      });
+      if (!req.user) {
+        return res.status(401).json({
+          success: false,
+          message: 'Access denied. User not authenticated.'
+        });
+      }
 
-      const decoded = jwt.verify(token, env.JWT_SECRET);
-      const user = (decoded) ? await AuthService.getUserById(decoded.userId) : await AuthService.getUserById(req.user?._id);
       res.json({
         success: true,
-        user
+        user: req.user
       });
     } catch (error) {
-      res.status(404).json({
+      res.status(500).json({
         success: false,
         message: error.message
       });

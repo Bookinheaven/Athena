@@ -16,23 +16,7 @@ const router = express.Router();
 // });
 
 router.get("/summary", auth, StreakController.getSummary);
-
-
-router.get("/monthly", auth, async (req, res) => {
-  const { year, month } = req.query;
-  const userId = req.user.id;
-
-  const start = new Date(year, month - 1, 1);
-  const end = new Date(year, month, 0, 23, 59, 59);
-
-  const days = await StreakDay.find({
-    userId,
-    date: { $gte: start, $lte: end }
-  }).sort({ date: 1 });
-
-  res.json(days);
-});
-
-router.get("/:type", auth, StreakController.getSpecific)
+router.get("/monthly", auth, StreakController.getMonthly);
+router.get("/:type", auth, StreakController.getSpecific);
 
 export default router;

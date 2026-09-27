@@ -192,6 +192,19 @@ class StreakService {
     const data = await Streak.findOne({ userId }).select(`${type} -_id`);
     return data;
   }
+
+  async getMonthlyStats(userId, year, month) {
+    const parsedYear = parseInt(year, 10) || new Date().getUTCFullYear();
+    const parsedMonth = parseInt(month, 10) || new Date().getUTCMonth() + 1;
+
+    const start = new Date(Date.UTC(parsedYear, parsedMonth - 1, 1, 0, 0, 0));
+    const end = new Date(Date.UTC(parsedYear, parsedMonth, 0, 23, 59, 59, 999));
+
+    return await DailyStats.find({
+      userId,
+      date: { $gte: start, $lte: end },
+    }).sort({ date: 1 });
+  }
 }
 
 export default new StreakService();

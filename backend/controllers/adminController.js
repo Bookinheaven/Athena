@@ -38,12 +38,14 @@ class adminController {
         }
       }
       if (errors.length > 0) {
+        const errorDetails = errors.map((err) => `${err.id}: ${err.message}`).join(", ");
         return res.status(400).json(
           {
             success: false,
-            message: `Failed users: ${errors.join(" ")}`
+            message: `Failed users: ${errorDetails}`,
+            errors
           }
-        )
+        );
       }
       res.json({
         success: true,
@@ -172,17 +174,35 @@ class adminController {
 
   static async getSessions (req, res) {
     try {
-        const sessions = await Session.find().select('-password');
-        res.status(200).json({success: true, sessions});
-      } catch (error) {
-        console.error("Error in getSessions:", error);
-        res
-          .status(500)
-          .json({
-            message: "Server error while fetching session.",
-            error: error.message,
-          });
-      }
+      const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+      const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 50));
+      const skip = (page - 1) * limit;
+
+      const [sessions, total] = await Promise.all([
+        Session.find()
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limit),
+        Session.countDocuments(),
+      ]);
+
+      res.status(200).json({
+        success: true,
+        sessions,
+        pagination: {
+          page,
+          limit,
+          total,
+          pages: Math.ceil(total / limit),
+        },
+      });
+    } catch (error) {
+      console.error("Error in getSessions:", error);
+      res.status(500).json({
+        message: "Server error while fetching session.",
+        error: error.message,
+      });
+    }
   }
 
 }

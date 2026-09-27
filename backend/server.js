@@ -22,10 +22,6 @@ import workspaceRoutes from "./routes/workspaceRoutes.js";
 // Database instance setup
 import { connectDB, closeDB } from "./config/db.js";
 import { initSocket } from "./config/socket.js";
-import {
-  startUserChangeStream,
-  stopChangeStream,
-} from "./services/changeStream.js";
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -126,8 +122,6 @@ const startServer = async () => {
   const server = http.createServer(app);
   initSocket(server);
 
-  startUserChangeStream();
-
   server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
     console.log(`${APP_NAME} Backend ready!`);
@@ -135,7 +129,6 @@ const startServer = async () => {
   });
   process.on("SIGINT", async () => {
     console.log("Shutting down...");
-    await stopChangeStream();
     await closeDB();
     process.exit(0);
   });

@@ -88,7 +88,7 @@ class UserService {
         if (!user) {
             throw new Error("User not found");
         }
-        return user.settings[type];
+        return type ? user.settings[type] : user.settings;
     }
 }
 
