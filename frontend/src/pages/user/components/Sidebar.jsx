@@ -35,10 +35,11 @@ const Sidebar = ({ expanded, setExpanded }) => {
 
   const handleLogoutConfirm = async () => {
     try {
-      if (user?.id) {
-        clearAccountToken(user.id);
-      }
+      const userId = user?._id || user?.id;
       await logout();
+      if (userId) {
+        clearAccountToken(userId);
+      }
       navigate("/login");
     } catch (error) {
       console.error("Logout error:", error);

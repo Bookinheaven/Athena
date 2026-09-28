@@ -90,8 +90,9 @@ const Login = () => {
     setLoading(true);
     try {
       const res = await login(formData);
-      if (res?.token && res?.user?.id) {
-        saveAccountToken(res.user.id, res.token);
+      const userId = res?.user?._id || res?.user?.id;
+      if (res?.token && userId) {
+        saveAccountToken(userId, res.token);
       }
       if (formData.rememberMe) {
         localStorage.setItem('athena_remembered_email', formData.usernameOrEmail);
@@ -103,7 +104,7 @@ const Login = () => {
         navigate('/verify-email', { state: { email: res.userData.email, fullName: res.userData.fullName } });
         return;
       }
-      navigate('/dashboard');
+      navigate('/dashboard', { replace: true });
     } catch (error) {
       setErrors({ submit: error.message || "Failed to sign in. Please check your credentials." });
     } finally {

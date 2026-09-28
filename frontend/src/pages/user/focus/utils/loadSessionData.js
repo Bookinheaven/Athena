@@ -50,11 +50,31 @@ export const loadSessionData = async ({
         },
       });
     } else {
-      setSessionData(initialSession());
+      setSessionData((prev) => {
+        if (prev && !prev.backendCreated) {
+          if (prev.title) {
+            setSessionTitle(prev.title);
+          }
+          return prev;
+        }
+        const fresh = initialSession();
+        setSessionTitle(fresh.title || "Untitled Work");
+        return fresh;
+      });
     }
   } catch (err) {
     console.error("Failed to load session data:", err);
-    setSessionData(initialSession());
+    setSessionData((prev) => {
+      if (prev && !prev.backendCreated) {
+        if (prev.title) {
+          setSessionTitle(prev.title);
+        }
+        return prev;
+      }
+      const fresh = initialSession();
+      setSessionTitle(fresh.title || "Untitled Work");
+      return fresh;
+    });
   } finally {
     setIsLoading(false);
   }

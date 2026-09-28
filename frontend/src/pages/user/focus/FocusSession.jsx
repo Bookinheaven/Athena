@@ -24,6 +24,8 @@ import { useFocusSessionInit } from "./hooks/useFocusSessionInit.js";
 import { useSessionSettings } from "./hooks/useSessionSettings.js";
 import { DraggablePanel } from "./components/DraggablePanel.jsx";
 import { WorkflowDock } from "./components/WorkflowDock.jsx";
+import { useAuth } from "../../../../contexts/AuthContext";
+import { getUserScopedKey } from "../../../../services/userStateService";
 
 const FocusSession = () => {
   const location = useLocation();
@@ -148,7 +150,14 @@ const FocusSession = () => {
     setIsSoundEnabled,
   } = useSessionSettings();
 
-  const [sessionStats, setSessionStats] = useSessionStorage("sessionStats",
+  const { user } = useAuth();
+  const userId = user?._id || user?.id;
+
+  const statsKey = getUserScopedKey("sessionStats", userId);
+  const reviewKey = getUserScopedKey("sessionReview", userId);
+  const dataKey = getUserScopedKey("sessionData", userId);
+
+  const [sessionStats, setSessionStats] = useSessionStorage(statsKey,
     {
       breakSegmentsCompleted: 0,
       focusSegmentsCompleted: 0,
@@ -165,9 +174,8 @@ const FocusSession = () => {
   const { notes, createNote, updateNote, deleteNote } = useNotes();
 
   const [newTodo, setNewTodo] = useState("");
-  const [sessionTitle, setSessionTitle] = useState("Untitled Work");
   const [newSession, setNewSession] = useState(false);
-  const [sessionReview, setSessionReview] = useSessionStorage("sessionReview", {
+  const [sessionReview, setSessionReview] = useSessionStorage(reviewKey, {
     mood: null,
     focus: null,
     distractions: "",
@@ -220,9 +228,23 @@ const FocusSession = () => {
   ]);
 
   const [sessionData, setSessionData] = useSessionStorage(
-    "sessionData",
+    dataKey,
     initialSession,
   );
+  const [sessionTitle, setSessionTitle] = useState(() => sessionData?.title || "Untitled Work");
+
+  const handleTitleChange = useCallback((newTitle) => {
+    setSessionTitle(newTitle);
+    setSessionData((prev) => ({
+      ...prev,
+      title: newTitle,
+    }));
+  }, [setSessionData]);
+
+  const sessionDataRef = useRef(sessionData);
+  useEffect(() => {
+    sessionDataRef.current = sessionData;
+  }, [sessionData]);
   const isPlannerSession =
     sessionData?.sessionType === "task" || sessionData?.taskIds?.length > 0;
   const todos = sessionData.todos || [];
@@ -263,7 +285,13 @@ const FocusSession = () => {
   } = useSessionController({
     sessionData,
     setSessionData,
-    saveFunction: (payload) => sessionService.updateProgress(payload),
+    sessionTitle,
+    saveFunction: async (payload) => {
+      if (!sessionDataRef.current?.backendCreated) {
+        return;
+      }
+      return sessionService.updateProgress(payload);
+    },
     autoStartBreaks: settings?.autoStartBreaks,
     skipBreaks: settings.skipBreaks,
     soundOnTransition: settings.soundOnTransition,
@@ -284,7 +312,7 @@ const FocusSession = () => {
     }
     const fresh = initialSession();
     setSessionData(fresh);
-    setSessionTitle(fresh.title || "Untitled Work");
+    handleTitleChange(fresh.title || "Untitled Work");
     setSessionReview({ mood: null, focus: null, distractions: "" });
     dispatch({ type: "RESET" });
     onReset();
@@ -301,7 +329,7 @@ const FocusSession = () => {
     }
     const fresh = initialSession();
     setSessionData(fresh);
-    setSessionTitle(fresh.title || "Untitled Work");
+    handleTitleChange(fresh.title || "Untitled Work");
     setSessionReview({ mood: null, focus: null, distractions: "" });
     dispatch({ type: "STOP" });
     onReset();
@@ -320,7 +348,7 @@ const FocusSession = () => {
     setSessionData,
     setIsLoading,
     dispatch,
-    setSessionTitle,
+    setSessionTitle: handleTitleChange,
     setSessionPlannedDuration,
     setAutoStartBreaks,
     setBreakDuration,
@@ -551,7 +579,10 @@ const FocusSession = () => {
     pause: () => dispatch({ type: "PAUSE" }),
     reset: () => dispatch({ type: "RESET" }),
     setNewSession: () => setNewSession(true),
-    onTitleSet: () => onTitleSet(),
+    onTitleSet: async () => {
+      onTitleSet();
+      return forceSave();
+    },
   };
 
   const headerPanel = useMemo(() => (
@@ -847,7 +878,7 @@ const FocusSession = () => {
                     session={sessionMetrics}
                     controls={controls}
                     sessionTitle={sessionTitle}
-                    setSessionTitle={setSessionTitle}
+                    setSessionTitle={handleTitleChange}
                     sessionPlannedDuration={sessionData.plannedDuration}
                     setSessionPlannedDuration={setSessionPlannedDuration}
                     stopSession={stopSession}

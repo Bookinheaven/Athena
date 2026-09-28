@@ -100,7 +100,9 @@ const Dashboard = () => {
           dailyTargetMinutes: streakDataO.dailyTargetMinutes || 25,
           freezeBalance: streakDataO.freezeBalance || 0,
           maxFreezeBalance: streakDataO.maxFreezeBalance || 0,
-          streakRate: (streakDataO.focusMinutes / streakDataO.maxTargetMinutes) || 0,
+          streakRate: typeof streakDataO.streakRate === "number"
+            ? streakDataO.streakRate
+            : (streakDataO.focusMinutes / (streakDataO.dailyTargetMinutes || 25)) || 0,
           state: streakDataO.state || "green",
           focusMinutes: streakDataO.focusMinutes || 0,
           t_distractions: todaysInsights.distractions,

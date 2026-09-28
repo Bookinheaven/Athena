@@ -138,7 +138,7 @@ export const useSessionController = ({
     buildPayload,
     saveFunction,
     enabled: machineState.status !== "idle",
-    allowedWhenDisabled: ["progress", "todos"],
+    allowedWhenDisabled: ["progress", "todos", "title"],
   });
 
   const forceSaveRef = useRef(forceSave);
@@ -287,8 +287,9 @@ export const useSessionController = ({
     }
   }, [machineState.status]);
 
-  const onTitleSet = () => {
+  const onTitleSet = async () => {
     markDirtyRef.current("title");
+    return forceSaveRef.current?.();
   };
 
   const onTodoChange = () => {

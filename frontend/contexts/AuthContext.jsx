@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import authService from "../services/authService";
+import { normalizeUser, clearUserTransientState } from "../services/userStateService";
 
 const AuthContext = createContext();
 
@@ -19,10 +20,10 @@ export const AuthProvider = ({ children }) => {
     const checkAuth = async () => {
       try {
         const userData = await authService.getCurrentUser();
-        setUser(userData);
+        setUser(normalizeUser(userData));
       } catch (error) {
-        // console.error("Auto login failed:", error.message);
         setUser(null);
+        clearUserTransientState();
       } finally {
         setLoading(false);
       }
@@ -30,11 +31,15 @@ export const AuthProvider = ({ children }) => {
     checkAuth();
   }, []);
 
-
   const login = async (credentials) => {
+    clearUserTransientState();
     const userData = await authService.login(credentials);
-    setUser(userData.user);
-    return userData;
+    const normalized = normalizeUser(userData.user);
+    setUser(normalized);
+    return {
+      ...userData,
+      user: normalized,
+    };
   };
 
   const register = async (userData) => {
@@ -58,16 +63,26 @@ export const AuthProvider = ({ children }) => {
   };
 
   const switchSession = async (token) => {
+    clearUserTransientState();
     const res = await authService.switchAccount(token);
     if (res?.success && res.user) {
-      setUser(res.user);
+      const normalized = normalizeUser(res.user);
+      setUser(normalized);
+      return {
+        ...res,
+        user: normalized,
+      };
     }
     return res;
   };
 
   const logout = async () => {
-    await authService.logout();
-    setUser(null);
+    try {
+      await authService.logout();
+    } finally {
+      clearUserTransientState();
+      setUser(null);
+    }
   };
 
   const value = {

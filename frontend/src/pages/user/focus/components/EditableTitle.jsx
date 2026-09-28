@@ -35,15 +35,25 @@ export const EditableTitle = ({ title, setTitle, className = "", titleSet}) => {
   }, [title, isEditing]);
 
 
-  const saveTitle = () => {
+  const saveTitle = async () => {
     setIsEditing(false);
     const trimmedTitle = title ? title.trim() : "";
 
     if (trimmedTitle && trimmedTitle !== originalTitle) {
-      setTitle(trimmedTitle);
-      toast.success("Title updated!");
-      setOriginalTitle(trimmedTitle);
-      titleSet();
+      const prevTitle = originalTitle;
+      try {
+        setTitle(trimmedTitle);
+        setOriginalTitle(trimmedTitle);
+        if (titleSet) {
+          await titleSet(trimmedTitle);
+        }
+        toast.success("Title updated!");
+      } catch (err) {
+        console.error("Failed to update title:", err);
+        setTitle(prevTitle);
+        setOriginalTitle(prevTitle);
+        toast.error("Failed to update title");
+      }
     } else if (!trimmedTitle) {
       setTitle(originalTitle);
       toast.error("Title cannot be empty.");
