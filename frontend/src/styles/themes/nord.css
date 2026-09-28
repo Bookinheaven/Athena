@@ -1,0 +1,37 @@
+.theme-nord {
+  --background: #1e2230;
+  --foreground: #eceff4;
+  --card: #252a3a;
+  --card-foreground: #eceff4;
+  --popover: #2e3447;
+  --popover-foreground: #eceff4;
+  --primary: #88c0d0;
+  --primary-foreground: #1e2230;
+  --secondary: #2e3447;
+  --secondary-foreground: #d8dee9;
+  --muted: #272d3e;
+  --muted-foreground: #7b88a1;
+  --accent: #353d52;
+  --accent-foreground: #eceff4;
+  --destructive: #bf616a;
+  --destructive-foreground: #eceff4;
+  --border: #3b4252;
+  --input: #2e3447;
+  --ring: #88c0d0;
+  --radius: 0.5rem;
+
+  --sidebar: #1b2130;
+  --sidebar-foreground: #d8dee9;
+  --sidebar-primary: #88c0d0;
+  --sidebar-primary-foreground: #1b2130;
+  --sidebar-accent: #272d3e;
+  --sidebar-accent-foreground: #d8dee9;
+  --sidebar-border: #2e3447;
+  --sidebar-ring: #88c0d0;
+
+  --chart-1: #88c0d0;
+  --chart-2: #81a1c1;
+  --chart-3: #a3be8c;
+  --chart-4: #ebcb8b;
+  --chart-5: #bf616a;
+}

@@ -1,43 +1,16 @@
-import { lazy, Suspense, useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import sessionService from "../../../../services/sessionService.js";
 import { useAuth } from "../../../../contexts/AuthContext.jsx";
-import Header from "./components/Header.jsx";
-import {
-  Brain,
-  Calendar,
-  CheckCircle,
-  Clock,
-  Flame,
-  Gauge,
-  Loader2,
-  Smile,
-  TrendingUp,
-  Zap,
-  BarChart3,
-  PieChart
-} from "lucide-react";
-
-import MetricCard from "./components/cards/MetricCard.jsx";
-import KpiSkeleton from "./components/skeletons/KpiSkeleton.jsx";
-import StatCard from "./components/cards/StatCard.jsx";
-import ChartSkeleton from "./components/skeletons/ChartSkeleton.jsx";
-import StreakCard from "./components/StreakCard/StreakCard.jsx";
+import sessionService from "../../../../services/sessionService.js";
 import StreakService from "../../../../services/streakService.js";
-import TodaysInsights from "./components/StreakCard/TodaysInsights.jsx";
-
-const WeeklyFocusAreaChart = lazy(() => import("./components/charts/WeeklyFocusAreaChart.jsx"));
-const DailyComparisonChart = lazy(() => import("./components/charts/DailyComparisonChart.jsx"));
-const SessionsByDayChart = lazy(() => import("./components/charts/SessionsByDayChart.jsx"));
-const MoodFocusTrendChart = lazy(() => import("./components/charts/MoodFocusTrendChart.jsx"));
-const CompletionRateChart = lazy(() => import("./components/charts/CompletionRateChart.jsx"));
-const FocusMoodRadarChart = lazy(() => import("./components/charts/FocusMoodRadarChart.jsx"));
-const FocusVsBreakChart = lazy(() => import("./components/charts/FocusVsBreakChart.jsx"));
-const TopDistractionsChart = lazy(() => import("./components/charts/TopDistractionsChart.jsx"));
-const RecentSessions = lazy(() => import("./components/charts/RecentSessions.jsx"));
-
-const isMeaningful = (v) => v !== null && v !== undefined && Number(v) > 0;
+import taskService from "../../../../services/taskService.js";
+import goalService from "../../../../services/goalService.js";
+import { Play, CheckCircle2, Circle, Flame, Brain, Plus } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card.jsx";
+import { Button } from "@/components/ui/button.jsx";
+import { Badge } from "@/components/ui/badge.jsx";
+import { Skeleton } from "@/components/ui/skeleton.jsx";
+import { Separator } from "@/components/ui/separator.jsx";
 
 const formatTime = (seconds = 0) => {
   if (isNaN(seconds) || seconds < 0) return "0m";
@@ -50,360 +23,264 @@ const Dashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  // Tab State
-  const [activeTab, setActiveTab] = useState("overview");
   const [isLoading, setIsLoading] = useState(true);
-
-  const [dashboard, setDashboard] = useState({
-    kpis: null,
-    productivityScore: 0,
-    focusTrends: [],
-    dailyComparison: [],
-    sessionsByDay: [],
-    focusMoodData: [],
-    focusVsBreakData: [],
-    completionRate: [],
-    moodTrend: [],
-    topDistractions: [],
-    recentSessions: [],
-    dailyStreak: 0,
-    dailyTargetMinutes: 25,
-    freezeBalance: 0,
-    maxFreezeBalance: 0,
-    streakRate: 0,
-    state: "",
-    focusMinutes: 0,
+  const [isError, setIsError] = useState(false);
+  const [data, setData] = useState({
+    tasks: [],
+    goals: [],
+    streak: null,
+    insights: null,
   });
 
   useEffect(() => {
-    const loadDashboard = async () => {
+    const loadData = async () => {
       try {
-        const data = await sessionService.getInsights();
-        const todaysData = await sessionService.getTodaysInsights();
-        const streakDataO = await StreakService.fetchStreak();
-        const todaysInsights = todaysData?.insights || {};
-        const insights = data?.insights || {};
+        const [tasksData, goalsData, streakData, todaysInsights] = await Promise.all([
+          taskService.getTasks(),
+          goalService.getGoals(),
+          StreakService.fetchStreak(),
+          sessionService.getTodaysInsights()
+        ]);
 
-        setDashboard({
-          kpis: insights.kpis || null,
-          productivityScore: insights.productivityScore || 0,
-          focusTrends: insights.focusTrends || [],
-          dailyComparison: insights.dailyComparison || [],
-          sessionsByDay: insights.sessionsByDay || [],
-          focusMoodData: insights.focusMoodData || [],
-          focusVsBreakData: insights.focusVsBreakData || [],
-          completionRate: insights.completionRate || [],
-          moodTrend: insights.moodTrend || [],
-          topDistractions: insights.topDistractions || [],
-          recentSessions: data?.recentSessions || [],
-          dailyStreak: streakDataO.currentStreak || 0,
-          dailyTargetMinutes: streakDataO.dailyTargetMinutes || 25,
-          freezeBalance: streakDataO.freezeBalance || 0,
-          maxFreezeBalance: streakDataO.maxFreezeBalance || 0,
-          streakRate: typeof streakDataO.streakRate === "number"
-            ? streakDataO.streakRate
-            : (streakDataO.focusMinutes / (streakDataO.dailyTargetMinutes || 25)) || 0,
-          state: streakDataO.state || "green",
-          focusMinutes: streakDataO.focusMinutes || 0,
-          t_distractions: todaysInsights.distractions,
-          t_sessions: todaysInsights.sessions || 0,
-          t_longest_focus: formatTime(todaysInsights.longest_focus || 0),
-          t_focus_blocks: todaysInsights.focus_blocks || 0,
+        setData({
+          tasks: tasksData || [],
+          goals: goalsData || [],
+          streak: streakData || null,
+          insights: todaysInsights?.insights || null
         });
       } catch (err) {
-        console.error("Dashboard load failed:", err);
+        console.error("Failed to load Today data", err);
+        setIsError(true);
       } finally {
         setIsLoading(false);
       }
     };
-
-    loadDashboard();
+    loadData();
   }, []);
 
-  if (!user && !isLoading) {
+  const todayTasks = useMemo(() => {
+    return data.tasks.filter((t) => {
+      if (!t.plannedDate) return false;
+      return new Date(t.plannedDate).toDateString() === new Date().toDateString();
+    }).sort((a, b) => a.order - b.order);
+  }, [data.tasks]);
+
+  const nextTask = useMemo(() => {
+    return todayTasks.find((t) => t.status !== "completed" && t.status !== "cancelled");
+  }, [todayTasks]);
+
+  const handleStartFocus = async (task) => {
+    if (!task) return;
+    const durationSeconds = 25 * 60; // 25 mins by default
+    const payload = {
+      sessionId: Date.now().toString(),
+      title: task.title,
+      taskIds: [task._id],
+      sessionSegments: [
+        { type: "focus", duration: 0, totalDuration: durationSeconds },
+      ],
+      plannedDuration: durationSeconds,
+      totalBreakMinutes: 0,
+      totalFocusMinutes: 0,
+    };
+    try {
+      await sessionService.startSession(payload);
+      navigate("/focus-page", {
+        state: {
+          taskIds: [task._id],
+          title: task.title,
+          source: "today",
+          plannedDuration: durationSeconds,
+        },
+      });
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const currentDate = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+  
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good morning";
+    if (hour < 17) return "Good afternoon";
+    return "Good evening";
+  };
+  
+  const greeting = `${getGreeting()}, ${user?.firstName || user?.fullName?.split(" ")[0] || "User"}`;
+
+  if (isError) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background-color">
-        <div className="p-8 rounded-2xl bg-card-background border border-card-border text-center">
-          <p className="text-text-secondary mb-4">
-            Could not load user data. Please log in again.
-          </p>
-          <button
-            onClick={() => navigate("/login")}
-            className="px-6 py-2 rounded-lg bg-button-primary text-button-primary-text"
-          >
-            Go to Login
-          </button>
+      <div className="flex-1 flex items-center justify-center min-h-screen bg-background">
+        <div className="text-center space-y-4">
+          <p className="text-muted-foreground">Couldn't load today's work.</p>
+          <Button onClick={() => window.location.reload()}>Retry</Button>
         </div>
       </div>
     );
   }
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background-color">
-        <div className="text-center">
-          <Loader2
-            size={48}
-            className="animate-spin mx-auto text-button-primary mb-4"
-          />
-          <p className="text-text-secondary">
-            Loading your dashboard…
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  const tabs = [
-    { id: "overview", label: "Overview", icon: Gauge },
-    { id: "trends", label: "Trends", icon: BarChart3 },
-    { id: "insights", label: "Insights", icon: PieChart },
-  ];
 
   return (
-    <div className="min-h-full bg-background-color text-text-primary p-6 sm:p-8 md:p-10 lg:p-12">
-      <div className="max-w-7xl mx-auto w-full">
-        <Header displayName={user.fullName} username={user.username} />
+    <div className="flex-1 bg-background text-foreground h-full overflow-y-auto">
+      <div className="max-w-4xl mx-auto p-6 sm:p-8 md:p-10 lg:p-12 space-y-12 pb-24">
+        
+        {/* Header */}
+        <header className="space-y-1.5 mt-4">
+          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-foreground">{greeting}</h1>
+          <p className="text-sm text-muted-foreground">{currentDate}</p>
+        </header>
 
-        <div className="flex flex-wrap gap-1.5 mb-8 bg-neutral-100 dark:bg-white/[0.04] p-1.5 rounded-xl border border-neutral-200 dark:border-white/10 w-fit">
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`
-                  flex items-center gap-2 px-5 py-2 rounded-lg text-xs font-mono font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer
-                  ${activeTab === tab.id
-                    ? "bg-white dark:bg-[#18181c] text-neutral-900 dark:text-white shadow-sm border border-neutral-200/60 dark:border-white/10"
-                    : "text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"}
-                `}
-              >
-                <Icon size={14} />
-                {tab.label}
-              </button>
-            );
-          })}
+        {/* Today's Progress */}
+        <section className="space-y-4">
+          {isLoading ? (
+            <Skeleton className="h-16 w-full rounded-xl" />
+          ) : (
+            <div>
+              <div className="flex justify-between items-end mb-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Daily Progress</span>
+                <span className="text-sm font-medium">
+                   {formatTime((data.streak?.focusMinutes || 0) * 60)} / {formatTime((data.streak?.dailyTargetMinutes || 25) * 60)}
+                </span>
+              </div>
+              <div className="h-2.5 w-full bg-secondary/50 rounded-full overflow-hidden border border-border/50">
+                <div 
+                  className="h-full bg-primary transition-all duration-500 ease-out" 
+                  style={{ width: `${Math.min(100, ((data.streak?.focusMinutes || 0) / (data.streak?.dailyTargetMinutes || 25)) * 100)}%` }} 
+                />
+              </div>
+            </div>
+          )}
+        </section>
+
+        {/* Next Up */}
+        <section className="space-y-4">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Next Up</h2>
+          {isLoading ? (
+            <Skeleton className="h-40 w-full rounded-2xl" />
+          ) : nextTask ? (
+            <Card className="border-border bg-card hover:border-primary/50 transition-colors shadow-sm rounded-2xl">
+              <CardContent className="p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+                <div className="space-y-3">
+                  {nextTask.goal && (
+                    <Badge variant="secondary" className="mb-1 rounded-md px-2 py-0.5 text-[10px] uppercase font-bold tracking-wider">
+                      {data.goals.find(g => g._id === nextTask.goal)?.title || "Project Task"}
+                    </Badge>
+                  )}
+                  <h3 className="text-xl sm:text-2xl font-bold tracking-tight text-card-foreground">{nextTask.title}</h3>
+                  <p className="text-sm text-muted-foreground">Ready to focus</p>
+                </div>
+                <Button size="lg" className="shrink-0 gap-2 font-bold px-8 h-12 rounded-xl" onClick={() => handleStartFocus(nextTask)}>
+                  <Play className="w-4 h-4 fill-current" />
+                  Start Focus
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+             <Card className="border-border bg-card border-dashed shadow-sm rounded-2xl">
+                <CardContent className="p-10 flex flex-col items-center justify-center text-center space-y-4">
+                  <p className="text-muted-foreground font-medium">Nothing planned yet</p>
+                  <Button variant="outline" className="rounded-xl font-bold border-border hover:bg-secondary" onClick={() => navigate("/planner")}>
+                     Plan your day
+                  </Button>
+                </CardContent>
+             </Card>
+          )}
+        </section>
+
+        {/* Today's Work & Supporting info */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
+          
+          {/* Today's Work */}
+          <section className="lg:col-span-7 space-y-4">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Today's Work</h2>
+              <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground hover:text-foreground font-bold rounded-lg" onClick={() => navigate("/planner")}>
+                 <Plus className="w-3.5 h-3.5 mr-1.5" /> Add task
+              </Button>
+            </div>
+            
+            <div className="space-y-3">
+               {isLoading ? (
+                 <>
+                   <Skeleton className="h-14 w-full rounded-xl" />
+                   <Skeleton className="h-14 w-full rounded-xl" />
+                 </>
+               ) : todayTasks.length > 0 ? (
+                 <div className="flex flex-col gap-2.5">
+                    {todayTasks.map(task => {
+                       const isCompleted = task.status === "completed";
+                       return (
+                        <div key={task._id} className={`flex items-center gap-3 p-4 rounded-xl border transition-colors ${isCompleted ? 'bg-secondary/20 border-transparent grayscale-[0.5] opacity-70' : 'bg-card border-border hover:border-primary/30 shadow-sm'}`}>
+                           {isCompleted ? (
+                              <CheckCircle2 className="w-5 h-5 text-primary shrink-0" />
+                           ) : (
+                              <Circle className="w-5 h-5 text-muted-foreground shrink-0" />
+                           )}
+                           <span className={`text-sm font-medium ${isCompleted ? "line-through text-muted-foreground" : "text-card-foreground"}`}>
+                              {task.title}
+                           </span>
+                        </div>
+                       );
+                    })}
+                 </div>
+               ) : (
+                  <div className="p-6 rounded-xl border border-dashed border-border bg-card/30 text-center">
+                     <p className="text-sm text-muted-foreground">No tasks scheduled for today.</p>
+                  </div>
+               )}
+            </div>
+          </section>
+
+          {/* Sidebar / Context */}
+          <div className="lg:col-span-5 space-y-8">
+             {/* Streak */}
+             <section className="space-y-4">
+                <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Streak</h2>
+                {isLoading ? (
+                  <Skeleton className="h-24 w-full rounded-2xl" />
+                ) : (
+                  <Card className="border-border bg-card shadow-sm rounded-2xl">
+                     <CardContent className="p-6 flex items-center justify-between">
+                        <div>
+                           <div className="flex items-center gap-2.5">
+                              <Flame className="w-6 h-6 text-orange-500 fill-orange-500/20" />
+                              <h3 className="text-2xl font-bold tracking-tight text-card-foreground">
+                                 {data.streak?.currentStreak || 0} days
+                              </h3>
+                           </div>
+                           <p className="text-sm text-muted-foreground mt-1.5 ml-8 font-medium">Small consistent wins</p>
+                        </div>
+                     </CardContent>
+                  </Card>
+                )}
+             </section>
+
+             {/* Insight */}
+             <section className="space-y-4">
+                <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Insight</h2>
+                {isLoading ? (
+                  <Skeleton className="h-24 w-full rounded-2xl" />
+                ) : (
+                  <Card className="border-primary/20 bg-primary/5 shadow-sm rounded-2xl">
+                     <CardContent className="p-6">
+                        <div className="flex gap-4">
+                          <div className="p-2.5 bg-primary/10 rounded-xl shrink-0 h-fit">
+                            <Brain className="w-4 h-4 text-primary" />
+                          </div>
+                          <p className="text-sm font-medium text-foreground leading-relaxed mt-1">
+                             {data.insights?.longest_focus && data.insights.longest_focus > 0 ? 
+                              `Your longest focus session today was ${Math.round(data.insights.longest_focus / 60)} minutes. Great sustained effort!` : 
+                              "Complete a focus session today to generate productivity insights."}
+                          </p>
+                        </div>
+                     </CardContent>
+                  </Card>
+                )}
+             </section>
+          </div>
+
         </div>
 
-        <AnimatePresence mode="wait">
-          <motion.main
-            key={activeTab}
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -15 }}
-            transition={{ duration: 0.25, ease: "easeOut" }}
-            className="space-y-10"
-          >
-
-            {activeTab === "overview" && (
-              <div className="space-y-10">
-                <section>
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-button-primary/10">
-                      <Flame className="text-amber-500" />
-                    </div>
-                    <h2 className="text-2xl font-bold">Today’s Momentum</h2>
-                  </div>
-                  <p className="text-sm text-text-secondary mt-1 mb-4">
-                    Small consistent wins build long streaks.
-                  </p>
-
-                  <div className="grid gap-6 grid-cols-1 lg:grid-cols-[1.5fr_0.5fr]">
-                    <StreakCard
-                      dailyStreak={dashboard?.dailyStreak || 0}
-                      dailyTargetMinutes={dashboard?.dailyTargetMinutes || 0}
-                      todayFocusMinutes={dashboard?.focusMinutes || 0}
-                      streakRate={dashboard?.streakRate || 0}
-                      state={dashboard?.state || "green"}
-                      freezeCredits={dashboard?.freezeBalance || 0}
-                    />
-                    <TodaysInsights
-                      sessions={dashboard.t_sessions}
-                      focusBlocks={dashboard.t_focus_blocks}
-                      longestFocus={dashboard.t_longest_focus}
-                      distractions={dashboard.t_distractions}
-                    />
-                  </div>
-                </section>
-
-                <section>
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="p-2 rounded-lg bg-button-primary/10">
-                      <Gauge className="text-button-primary" />
-                    </div>
-                    <h2 className="text-xl font-bold">Recent Performance</h2>
-                  </div>
-
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    {!dashboard.kpis ? (
-                      <>
-                        <KpiSkeleton />
-                        <KpiSkeleton />
-                        <KpiSkeleton />
-                        <KpiSkeleton />
-                      </>
-                    ) : (
-                      <>
-                        <MetricCard
-                          icon={<Clock size={18} />}
-                          title="Focus Time"
-                          value={formatTime(dashboard.kpis.totalFocusTime)}
-                          tag="Today"
-                        />
-                        <MetricCard
-                          icon={<CheckCircle size={18} />}
-                          title="Avg Completion"
-                          value={isMeaningful(dashboard.kpis.avgSessions) ? `${dashboard.kpis.avgSessions}%` : "—"}
-                          tag="7 days"
-                        />
-                        <MetricCard
-                          icon={<Brain size={18} />}
-                          title="Avg Focus"
-                          value={isMeaningful(dashboard.kpis.avgFocus) ? `${dashboard.kpis.avgFocus} / 5` : "No ratings"}
-                          tag="7 days"
-                        />
-                        <MetricCard
-                          icon={<Smile size={18} />}
-                          title="Avg Mood"
-                          value={isMeaningful(dashboard.kpis.avgMood) ? `${dashboard.kpis.avgMood} / 5` : "No ratings"}
-                          tag="7 days"
-                        />
-                      </>
-                    )}
-                  </div>
-                </section>
-
-                <section>
-                  <Suspense fallback={<ChartSkeleton />}>
-                    <RecentSessions
-                      recentSessions={dashboard.recentSessions}
-                      navigate={navigate}
-                    />
-                  </Suspense>
-                </section>
-              </div>
-            )}
-
-            {activeTab === "trends" && (
-              <div className="space-y-10">
-                <section>
-                  <h2 className="text-xl font-bold mb-6">All-Time Statistics</h2>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                    <StatCard
-                      icon={<Zap size={18} />}
-                      title="Total Sessions"
-                      value={dashboard.kpis?.sessionsStarted || 0}
-                      subtitle="All time"
-                    />
-                    <StatCard
-                      icon={<CheckCircle size={18} />}
-                      title="Completed Sessions"
-                      value={dashboard.kpis?.sessionsCompleted || 0}
-                      subtitle="All time"
-                    />
-                    <StatCard
-                      icon={<Calendar size={18} />}
-                      title="Avg Session Length"
-                      value={formatTime(dashboard.kpis?.avgSessionLength || 0)}
-                      subtitle="Per session"
-                    />
-                    <StatCard
-                      icon={<TrendingUp size={18} />}
-                      title="Productivity"
-                      value={`${dashboard.productivityScore}%`}
-                      subtitle="Overall"
-                    />
-                  </div>
-                </section>
-
-                <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <Suspense fallback={<ChartSkeleton />}>
-                    <WeeklyFocusAreaChart data={dashboard.focusTrends} />
-                  </Suspense>
-                  <Suspense fallback={<ChartSkeleton />}>
-                    <DailyComparisonChart data={dashboard.dailyComparison} />
-                  </Suspense>
-                  <Suspense fallback={<ChartSkeleton />}>
-                    <SessionsByDayChart data={dashboard.sessionsByDay} />
-                  </Suspense>
-                  <Suspense fallback={<ChartSkeleton />}>
-                    <MoodFocusTrendChart data={dashboard.moodTrend} />
-                  </Suspense>
-                </section>
-              </div>
-            )}
-
-            {activeTab === "insights" && (
-              <div className="space-y-10">
-                <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="bg-card-background border border-card-border p-6 rounded-3xl shadow-xl flex flex-col gap-3 relative overflow-hidden group hover:border-button-primary/50 transition-colors">
-                    <div className="absolute -top-4 -right-4 p-4 opacity-5 group-hover:opacity-10 transition-opacity"><Zap size={100} /></div>
-                    <h3 className="text-xl font-black flex items-center gap-2 tracking-tight"><Zap className="text-amber-500" size={22} /> Smart Suggestions</h3>
-                    <div className="bg-background-secondary/50 rounded-xl p-4 mt-2 border border-border-secondary/50">
-                      <p className="text-text-secondary font-medium text-sm">Best time for focus: <strong className="text-text-primary">10:00 AM</strong></p>
-                    </div>
-                    <div className="bg-background-secondary/50 rounded-xl p-4 border border-border-secondary/50">
-                      <p className="text-text-secondary font-medium text-sm">You often get distracted by phone after 45 mins. Try taking a break at 30 mins.</p>
-                    </div>
-                  </div>
-                  
-                  <div className="bg-card-background border border-card-border p-6 rounded-3xl shadow-xl flex flex-col gap-3 relative overflow-hidden group hover:border-button-primary/50 transition-colors">
-                    <div className="absolute -top-4 -right-4 p-4 opacity-5 group-hover:opacity-10 transition-opacity"><Brain size={100} /></div>
-                    <h3 className="text-xl font-black flex items-center gap-2 tracking-tight"><Brain className="text-button-primary" size={22} /> AI Insights</h3>
-                    <div className="bg-background-secondary/50 rounded-xl p-4 mt-2 border border-border-secondary/50">
-                      <p className="text-text-secondary font-medium text-sm">You are <strong className="text-button-primary">18% more productive</strong> on high priority tasks.</p>
-                    </div>
-                    <div className="bg-background-secondary/50 rounded-xl p-4 border border-border-secondary/50">
-                      <p className="text-text-secondary font-medium text-sm">Your deep focus is significantly better when you tackle tasks early.</p>
-                    </div>
-                  </div>
-                </section>
-
-                <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="bg-card-background border border-card-border p-6 rounded-3xl shadow-xl flex flex-col gap-5 relative overflow-hidden">
-                    <h3 className="text-xl font-black flex items-center gap-2 tracking-tight"><CheckCircle className="text-emerald-500" size={22} /> Task Insights</h3>
-                    <ul className="space-y-4">
-                      <li className="flex justify-between items-center text-sm border-b border-border-secondary/50 pb-3"><span className="text-text-muted font-bold tracking-tight">Average Task Duration</span><span className="font-bold text-text-primary px-3 py-1 rounded-lg bg-background-secondary">45 mins</span></li>
-                      <li className="flex justify-between items-center text-sm border-b border-border-secondary/50 pb-3"><span className="text-text-muted font-bold tracking-tight">Completion Rate</span><span className="font-bold text-emerald-500 px-3 py-1 rounded-lg bg-emerald-500/10">82%</span></li>
-                      <li className="flex justify-between items-center text-sm"><span className="text-text-muted font-bold tracking-tight">Tasks Finished This Week</span><span className="font-bold text-text-primary px-3 py-1 rounded-lg bg-background-secondary">12</span></li>
-                    </ul>
-                  </div>
-
-                  <div className="bg-card-background border border-card-border p-6 rounded-3xl shadow-xl flex flex-col gap-5 relative overflow-hidden">
-                    <h3 className="text-xl font-black flex items-center gap-2 tracking-tight"><TrendingUp className="text-brand-500" size={22} /> Goal Analytics</h3>
-                    <ul className="space-y-4">
-                      <li className="flex justify-between items-center text-sm border-b border-border-secondary/50 pb-3"><span className="text-text-muted font-bold tracking-tight">Goals Reached This Month</span><span className="font-bold text-text-primary px-3 py-1 rounded-lg bg-background-secondary">3</span></li>
-                      <li className="flex justify-between items-center text-sm border-b border-border-secondary/50 pb-3"><span className="text-text-muted font-bold tracking-tight">Current Progress Velocity</span><span className="font-bold text-brand-500 px-3 py-1 rounded-lg bg-brand-500/10">+15% / week</span></li>
-                      <li className="flex justify-between items-center text-sm"><span className="text-text-muted font-bold tracking-tight">Avg Time per Goal</span><span className="font-bold text-text-primary px-3 py-1 rounded-lg bg-background-secondary">14 Days</span></li>
-                    </ul>
-                  </div>
-                </section>
-
-                <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  <Suspense fallback={<ChartSkeleton />}>
-                    <FocusVsBreakChart data={dashboard.focusVsBreakData} />
-                  </Suspense>
-
-                  <Suspense fallback={<ChartSkeleton />}>
-                    <CompletionRateChart data={dashboard.completionRate} />
-                  </Suspense>
-
-                  <Suspense fallback={<ChartSkeleton />}>
-                    <FocusMoodRadarChart data={dashboard.focusMoodData} />
-                  </Suspense>
-
-                  <div className="md:col-span-2 lg:col-span-3">
-                    <Suspense fallback={<ChartSkeleton />}>
-                      <TopDistractionsChart data={dashboard.topDistractions} />
-                    </Suspense>
-                  </div>
-                </section>
-              </div>
-            )}
-
-          </motion.main>
-        </AnimatePresence>
       </div>
     </div>
   );

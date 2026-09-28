@@ -2,6 +2,14 @@ import { createContext, useContext, useState, useEffect } from 'react';
 
 export const AVAILABLE_THEMES = [
   {
+    id: "system",
+    name: "System Default",
+    description: "Sync automatically with OS light/dark mode",
+    color: "#71717a",
+    accent: "#6366f1",
+    isPremium: false,
+  },
+  {
     id: "light",
     name: "Light Mode",
     description: "Classic clean white and slate aesthetic",
@@ -120,7 +128,7 @@ export const useTheme = () => {
 export const ThemeProvider = ({ children }) => {
   const [theme, setTheme] = useState(() => {
     const savedTheme = localStorage.getItem('athena-theme');
-    return savedTheme || 'vercel';
+    return savedTheme || 'dark';
   });
 
   const [showThemeModal, setShowThemeModal] = useState(false);
@@ -130,14 +138,35 @@ export const ThemeProvider = ({ children }) => {
     const root = document.documentElement;
 
     const allThemeClasses = AVAILABLE_THEMES
-      .filter(t => t.id !== 'light' && t.id !== 'dark')
+      .filter(t => t.id !== 'system')
       .map(t => `theme-${t.id}`);
 
     root.classList.remove('dark', ...allThemeClasses);
 
-    if (theme === 'dark') {
-      root.classList.add('dark');
-    } else if (theme !== 'light') {
+    if (theme === 'system') {
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      const applySystemTheme = (e) => {
+        if (e.matches) {
+          root.classList.add('dark', 'theme-dark');
+          root.classList.remove('theme-light');
+        } else {
+          root.classList.remove('dark', 'theme-dark');
+          root.classList.add('theme-light');
+        }
+      };
+      if (mediaQuery.matches) {
+        root.classList.add('dark', 'theme-dark');
+      } else {
+        root.classList.add('theme-light');
+      }
+      mediaQuery.addEventListener('change', applySystemTheme);
+      return () => mediaQuery.removeEventListener('change', applySystemTheme);
+    } else if (theme === 'dark') {
+      root.classList.add('dark', 'theme-dark');
+    } else if (theme === 'light') {
+      root.classList.add('theme-light');
+      root.classList.remove('dark');
+    } else {
       root.classList.add('dark', `theme-${theme}`);
     }
   }, [theme]);
