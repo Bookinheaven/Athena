@@ -73,6 +73,12 @@ const sessionSchema = new mongoose.Schema({
     required: true
   },
 
+  scheduleBlockId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "ScheduleBlock",
+    default: null
+  },
+
   taskIds: {
     type: [
       {
@@ -174,5 +180,6 @@ const sessionSchema = new mongoose.Schema({
 
 sessionSchema.index({ sessionId: 1, userId: 1 }, { unique: true });
 sessionSchema.index({ userId: 1, createdAt: -1 });
+sessionSchema.index({ scheduleBlockId: 1, userId: 1 });
 
 export default mongoose.model("Session", sessionSchema);

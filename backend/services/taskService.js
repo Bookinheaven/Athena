@@ -1,6 +1,7 @@
 import { getStartOfDay } from "../utils/streakHelpers.js";
 import GoalService from "./goalService.js";
 import Task from "../models/taskModel.js";
+import ScheduleBlock from "../models/scheduleBlockModel.js";
 
 class TaskService {
   async createTask(userId, data) {
@@ -49,6 +50,10 @@ class TaskService {
       _id: taskId,
       user: userId,
     });
+
+    if (task) {
+      await ScheduleBlock.deleteMany({ taskId, userId });
+    }
 
     if (task?.goal) {
       await GoalService.recalculateProgress(task.goal);

@@ -1,16 +1,89 @@
+import mongoose from "mongoose";
 import Session from "../models/sessionModel.js";
+import ScheduleBlock from "../models/scheduleBlockModel.js";
+import Task from "../models/taskModel.js";
 
 class SessionService {
   async start(userId, payload) {
-    const { sessionId, title, sessionSegments, plannedDuration, taskIds, totalBreakMinutes, totalFocusMinutes, pauseEvents } = payload;
+    const {
+      sessionId,
+      title,
+      sessionSegments,
+      plannedDuration,
+      taskIds,
+      totalBreakMinutes,
+      totalFocusMinutes,
+      pauseEvents,
+      scheduleBlockId,
+    } = payload;
+
     if (!sessionId || !sessionSegments?.length) {
       throw new Error("Invalid session payload");
     }
+
+    let resolvedScheduleBlock = null;
+    let effectivePlannedDuration = plannedDuration;
+    let effectiveTaskIds = taskIds || [];
+
+    if (scheduleBlockId) {
+      if (!mongoose.Types.ObjectId.isValid(scheduleBlockId)) {
+        throw new Error("Invalid scheduleBlockId format");
+      }
+
+      resolvedScheduleBlock = await ScheduleBlock.findOne({
+        _id: scheduleBlockId,
+        userId,
+      });
+
+      if (!resolvedScheduleBlock) {
+        throw new Error("ScheduleBlock not found or access denied");
+      }
+
+      if (resolvedScheduleBlock.status === "completed") {
+        throw new Error("Cannot start Focus session: ScheduleBlock is already completed");
+      }
+
+      if (resolvedScheduleBlock.status === "skipped") {
+        throw new Error("Cannot start Focus session: ScheduleBlock is skipped");
+      }
+
+      if (resolvedScheduleBlock.status !== "scheduled") {
+        throw new Error("Cannot start Focus session: Invalid ScheduleBlock status");
+      }
+
+      if (resolvedScheduleBlock.sessionId) {
+        throw new Error("Cannot start Focus session: ScheduleBlock already has an associated session");
+      }
+
+      // Verify the referenced Task also belongs to this user
+      const task = await Task.findOne({
+        _id: resolvedScheduleBlock.taskId,
+        user: userId,
+      });
+
+      if (!task) {
+        throw new Error("Associated task not found or access denied");
+      }
+
+      // Planned duration derived from block (durationMinutes * 60 seconds)
+      effectivePlannedDuration = resolvedScheduleBlock.durationMinutes * 60;
+
+      // Ensure taskIds includes the ScheduleBlock's taskId
+      const taskIdStr = resolvedScheduleBlock.taskId.toString();
+      const existingTaskIdStrs = (effectiveTaskIds || []).map((id) =>
+        id.toString()
+      );
+      if (!existingTaskIdStrs.includes(taskIdStr)) {
+        effectiveTaskIds = [resolvedScheduleBlock.taskId, ...effectiveTaskIds];
+      }
+    }
+
     // if current session is same session as before and it is active then send it back.
     const oldSession = await this.getSession(userId, sessionId);
-    
-    if (oldSession && oldSession.status == "active") return oldSession;
-    // Close any active sessions
+
+    if (oldSession && oldSession.status === "active") return oldSession;
+
+    // Close any active sessions (marked abandoned; do not auto-complete their schedule blocks)
     await Session.updateMany(
       { userId, status: "active" },
       {
@@ -19,7 +92,7 @@ class SessionService {
           completionType: "abandoned",
           endedAt: new Date(),
         },
-      },
+      }
     );
 
     const session = await Session.findOneAndUpdate(
@@ -28,26 +101,32 @@ class SessionService {
         $setOnInsert: {
           userId,
           sessionId,
-          title: title || "Untitled Work",
-          taskIds: taskIds || [],
-          sessionType: payload.sessionType || "quick",
+          scheduleBlockId: resolvedScheduleBlock
+            ? resolvedScheduleBlock._id
+            : null,
+          title: title || (resolvedScheduleBlock ? "Focus Session" : "Untitled Work"),
+          taskIds: effectiveTaskIds,
+          sessionType:
+            payload.sessionType || (resolvedScheduleBlock ? "task" : "quick"),
           status: "active",
           startedAt: new Date(),
           sessionSegments,
-          plannedDuration,
+          plannedDuration: effectivePlannedDuration,
           totalBreakMinutes,
           totalFocusMinutes,
-          pauseEvents: pauseEvents || []
+          pauseEvents: pauseEvents || [],
         },
       },
-      { upsert: true, new: true },
-    );
+      { upsert: true, new: true }
+    ).populate("scheduleBlockId");
 
     return session;
   }
 
   async getSession(userId, sessionId) {
-    return await Session.findOne({ userId, sessionId });
+    return await Session.findOne({ userId, sessionId }).populate(
+      "scheduleBlockId"
+    );
   }
 
   async update(userId, payload) {
@@ -68,11 +147,15 @@ class SessionService {
       }
       const total = existing?.totalDuration || 0;
       if (segment.duration !== undefined) {
-        updateData[`sessionSegments.${segment.segmentIndex}.duration`] = Math.max(existing?.duration || 0, segment.duration);
+        updateData[`sessionSegments.${segment.segmentIndex}.duration`] = Math.max(
+          existing?.duration || 0,
+          segment.duration
+        );
       }
       if (segment.completedAt) {
-        updateData[`sessionSegments.${segment.segmentIndex}.completedAt`] = segment.completedAt;
-        updateData[`sessionSegments.${segment.segmentIndex}.duration`] = total; 
+        updateData[`sessionSegments.${segment.segmentIndex}.completedAt`] =
+          segment.completedAt;
+        updateData[`sessionSegments.${segment.segmentIndex}.duration`] = total;
       }
     }
 
@@ -104,6 +187,23 @@ class SessionService {
       );
 
       transitionedToCompleted = transitionResult.modifiedCount === 1;
+
+      // When session successfully transitions to completed, update linked ScheduleBlock
+      if (
+        transitionedToCompleted &&
+        status === "completed" &&
+        session.scheduleBlockId
+      ) {
+        await ScheduleBlock.updateOne(
+          { _id: session.scheduleBlockId, userId, status: "scheduled" },
+          {
+            $set: {
+              status: "completed",
+              sessionId: session._id,
+            },
+          }
+        );
+      }
     }
 
     const segments = session.sessionSegments || [];
@@ -127,7 +227,7 @@ class SessionService {
       { sessionId, userId },
       { $set: updateData },
       { new: true }
-    );
+    ).populate("scheduleBlockId");
 
     return {
       session: updatedSession,
@@ -144,8 +244,8 @@ class SessionService {
           sessionFeedback: feedback,
         },
       },
-      { new: true },
-    );
+      { new: true }
+    ).populate("scheduleBlockId");
     return session;
   }
 
@@ -153,8 +253,10 @@ class SessionService {
     if (!userId) {
       throw new Error("User not found.");
     }
-    const session = await Session.findOne({ userId, status: "active" });
-    // console.log(session);
+    const session = await Session.findOne({
+      userId,
+      status: "active",
+    }).populate("scheduleBlockId");
     return session;
   }
 
@@ -162,11 +264,12 @@ class SessionService {
     if (!userId) {
       throw new Error("User not found.");
     }
-    const session = await Session.find({ userId }).sort({ createdAt: -1 });
+    const session = await Session.find({ userId })
+      .sort({ createdAt: -1 })
+      .populate("scheduleBlockId");
     return session;
   }
 
-  // -------- need to work from here (-_-) ----------- //
   async getInsights(userId, type = null) {
     switch (type) {
       case "today": {

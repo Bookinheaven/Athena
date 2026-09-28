@@ -18,6 +18,7 @@ import plannerRoutes from "./routes/plannerRoute.js";
 import goalRoutes from "./routes/goalRoutes.js";
 import taskRoutes from "./routes/taskRoutes.js";
 import workspaceRoutes from "./routes/workspaceRoutes.js";
+import scheduleRoutes from "./routes/scheduleRoutes.js";
 
 // Database instance setup
 import { connectDB, closeDB } from "./config/db.js";
@@ -95,6 +96,8 @@ app.use("/api/goal", apiLimiter, goalRoutes);
 app.use("/api/task", apiLimiter, taskRoutes);
 app.use("/api/planner", apiLimiter, plannerRoutes);
 app.use("/api/workspace", apiLimiter, workspaceRoutes);
+app.use("/api/schedule-block", apiLimiter, scheduleRoutes);
+app.use("/api/schedule-blocks", apiLimiter, scheduleRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
