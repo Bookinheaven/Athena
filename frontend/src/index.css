@@ -14,6 +14,11 @@
   --titlebar-height: 0px;
 }
 
+:fullscreen,
+::backdrop {
+  --titlebar-height: 0px !important;
+}
+
 @theme inline {
   --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
   --font-heading: var(--font-sans);

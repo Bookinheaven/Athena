@@ -80,22 +80,21 @@ export const FocusTaskCard = ({
           </div>
         )}
 
-        {todos.length > 0 && (
+        {/* {todos.length > 0 && (
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-secondary/60 border border-border/40 text-muted-foreground text-xs font-medium">
             <CheckCircle2 size={12} className="text-emerald-400" />
             <span>
               {completedTodos} / {todos.length} done
             </span>
           </div>
-        )}
+        )} */}
 
         {totalSegments > 1 && (
           <div
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${
-              isBreak
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${isBreak
                 ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
                 : "bg-secondary/60 border-border/40 text-muted-foreground"
-            }`}
+              }`}
           >
             {isBreak ? (
               <>

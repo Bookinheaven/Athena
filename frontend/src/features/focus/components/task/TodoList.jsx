@@ -198,14 +198,17 @@ export const TodoList = ({
               <p className="text-xs mt-1">Add a task below to begin.</p>
             </div>
           ) : (
-            todos.map((todo) => (
-              <TodoItem
-                key={todo.id}
-                todo={todo}
-                onUpdateStatus={(status) => onUpdateStatus(todo.id, status)}
-                onDelete={() => onDeleteTodo(todo.id)}
-              />
-            ))
+            todos.map((todo, idx) => {
+              const todoId = todo.id || todo._id || `todo-${idx}`;
+              return (
+                <TodoItem
+                  key={todoId}
+                  todo={{ ...todo, id: todoId }}
+                  onUpdateStatus={(status) => onUpdateStatus(todoId, status)}
+                  onDelete={() => onDeleteTodo(todoId)}
+                />
+              );
+            })
           )}
         </div>
       </div>

@@ -18,9 +18,14 @@ function DialogTrigger({
 }
 
 function DialogPortal({
+  container,
   ...props
 }) {
-  return <DialogPrimitive.Portal data-slot="dialog-portal" {...props} />
+  const resolvedContainer =
+    container ??
+    (typeof document !== "undefined" ? document.fullscreenElement : undefined) ??
+    undefined;
+  return <DialogPrimitive.Portal data-slot="dialog-portal" container={resolvedContainer} {...props} />
 }
 
 function DialogClose({
@@ -49,10 +54,11 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  container,
   ...props
 }) {
   return (
-    <DialogPortal>
+    <DialogPortal container={container}>
       <DialogOverlay />
       <DialogPrimitive.Popup
         data-slot="dialog-content"

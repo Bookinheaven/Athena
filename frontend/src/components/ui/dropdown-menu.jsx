@@ -10,9 +10,14 @@ function DropdownMenu({
 }
 
 function DropdownMenuPortal({
+  container,
   ...props
 }) {
-  return <MenuPrimitive.Portal data-slot="dropdown-menu-portal" {...props} />
+  const resolvedContainer =
+    container ??
+    (typeof document !== "undefined" ? document.fullscreenElement : undefined) ??
+    undefined;
+  return <MenuPrimitive.Portal data-slot="dropdown-menu-portal" container={resolvedContainer} {...props} />
 }
 
 function DropdownMenuTrigger({
@@ -27,10 +32,11 @@ function DropdownMenuContent({
   side = "bottom",
   sideOffset = 4,
   className,
+  container,
   ...props
 }) {
   return (
-    <MenuPrimitive.Portal>
+    <DropdownMenuPortal container={container}>
       <MenuPrimitive.Positioner
         className="isolate z-50 outline-none"
         align={align}
@@ -44,7 +50,7 @@ function DropdownMenuContent({
           {...props}
         />
       </MenuPrimitive.Positioner>
-    </MenuPrimitive.Portal>
+    </DropdownMenuPortal>
   )
 }
 

@@ -43,6 +43,7 @@ const DISTRACTION_OPTIONS = [
 export const FocusDrawers = ({
   activeDrawers,
   closeDrawer,
+  portalContainer,
   // Todos & Progress
   todos,
   newTodo,
@@ -82,6 +83,7 @@ export const FocusDrawers = ({
         }}
       >
         <SheetContent
+          container={portalContainer}
           side="right"
           className="w-full sm:max-w-md p-0 flex flex-col bg-background border-l border-border"
         >
@@ -159,6 +161,7 @@ export const FocusDrawers = ({
         }}
       >
         <SheetContent
+          container={portalContainer}
           side="right"
           className="w-full sm:max-w-lg p-0 flex flex-col bg-background border-l border-border"
         >
@@ -194,7 +197,7 @@ export const FocusDrawers = ({
           if (!open) closeDrawer("distraction");
         }}
       >
-        <DialogContent className="sm:max-w-md bg-background border-border">
+        <DialogContent container={portalContainer} className="sm:max-w-md bg-background border-border">
           <DialogHeader>
             <DialogTitle className="text-lg font-black flex items-center gap-2">
               <AlertCircle size={18} className="text-amber-500" />
@@ -269,6 +272,7 @@ export const FocusDrawers = ({
         }}
       >
         <SheetContent
+          container={portalContainer}
           side="right"
           className="w-full sm:max-w-md p-0 flex flex-col bg-background border-l border-border"
         >

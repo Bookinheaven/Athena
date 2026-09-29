@@ -156,7 +156,13 @@ const FocusSession = () => {
 
   const handleUpdateTodoStatus = useCallback(
     async (id, status) => {
-      updateTodos(todos.map((t) => (t.id === id ? { ...t, status } : t)));
+      if (!id) return;
+      updateTodos(
+        todos.map((t) => {
+          const match = String(t.id) === String(id) || String(t._id) === String(id);
+          return match ? { ...t, status } : t;
+        })
+      );
       try {
         const backendStatus =
           status === "Completed"
@@ -176,7 +182,10 @@ const FocusSession = () => {
 
   const handleDeleteTodo = useCallback(
     async (id) => {
-      updateTodos(todos.filter((t) => t.id !== id));
+      if (!id) return;
+      updateTodos(
+        todos.filter((t) => String(t.id) !== String(id) && String(t._id) !== String(id))
+      );
       try {
         await taskService.deleteTask(id);
       } catch (err) {

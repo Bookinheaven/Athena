@@ -252,6 +252,7 @@ export const FocusWorkspace = ({
           isIdle={isIdle}
           saveStatus={saveStatus}
           todoCount={todoCount}
+          portalContainer={isDeepFocus ? containerRef.current : undefined}
         />
       )}
 
@@ -338,6 +339,7 @@ export const FocusWorkspace = ({
 
       {/* Drawers and modals */}
       <FocusDrawers
+        portalContainer={isDeepFocus ? containerRef.current : undefined}
         activeDrawers={activeDrawers}
         closeDrawer={closeDrawer}
         todos={todos}

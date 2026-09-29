@@ -162,7 +162,11 @@ export function transition(state, event) {
           segmentIndex,
           taskIds:         session.taskIds    || [],
           sessionType:     session.sessionType || 'quick',
-          todos:           session.todos       || [],
+          todos: (session.todos || []).map((t, idx) => ({
+            ...t,
+            id: t.id || t._id || `todo-${idx}`,
+            _id: t._id || t.id || `todo-${idx}`,
+          })),
           pauseEvents:     session.pauseEvents || [],
           sessionStats:    session.sessionStats
             ? { ...INITIAL_STATE.sessionStats, ...session.sessionStats }

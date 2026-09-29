@@ -24,9 +24,14 @@ function SheetClose({
 }
 
 function SheetPortal({
+  container,
   ...props
 }) {
-  return <SheetPrimitive.Portal data-slot="sheet-portal" {...props} />
+  const resolvedContainer =
+    container ??
+    (typeof document !== "undefined" ? document.fullscreenElement : undefined) ??
+    undefined;
+  return <SheetPrimitive.Portal data-slot="sheet-portal" container={resolvedContainer} {...props} />
 }
 
 function SheetOverlay({
@@ -50,10 +55,11 @@ function SheetContent({
   children,
   side = "right",
   showCloseButton = true,
+  container,
   ...props
 }) {
   return (
-    <SheetPortal>
+    <SheetPortal container={container}>
       <SheetOverlay />
       <SheetPrimitive.Popup
         data-slot="sheet-content"

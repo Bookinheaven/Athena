@@ -33,10 +33,15 @@ function TooltipContent({
   align = "center",
   alignOffset = 0,
   children,
+  container,
   ...props
 }) {
+  const resolvedContainer =
+    container ??
+    (typeof document !== "undefined" ? document.fullscreenElement : undefined) ??
+    undefined;
   return (
-    <TooltipPrimitive.Portal>
+    <TooltipPrimitive.Portal container={resolvedContainer}>
       <TooltipPrimitive.Positioner
         align={align}
         alignOffset={alignOffset}

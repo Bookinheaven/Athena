@@ -64,6 +64,7 @@ export const FocusHeader = ({
   isIdle,
   saveStatus,
   todoCount = { completed: 0, total: 0 },
+  portalContainer,
 }) => {
   const navigate = useNavigate();
   const [time, setTime] = useState(new Date());
@@ -160,6 +161,7 @@ export const FocusHeader = ({
           </DropdownMenuTrigger>
 
           <DropdownMenuContent
+            container={portalContainer}
             align="center"
             sideOffset={8}
             className="w-64 p-1.5 bg-popover/95 backdrop-blur-xl border border-border/80 shadow-2xl rounded-2xl select-none"
