@@ -115,35 +115,20 @@ export const useTodayData = () => {
   const greeting = `${getGreeting()}, ${displayName}`;
 
   // Actions
+  // Navigate to Focus with context only.
+  // Session creation is now owned by the Focus runtime (useFocusRuntime),
+  // eliminating the double-start race.
   const handleStartFocus = useCallback(
-    async (task) => {
+    (task) => {
       if (!task) return;
-      const durationSeconds = 25 * 60;
-      const payload = {
-        sessionId: Date.now().toString(),
-        title: task.title,
-        taskIds: [task._id],
-        sessionSegments: [
-          { type: "focus", duration: 0, totalDuration: durationSeconds },
-        ],
-        plannedDuration: durationSeconds,
-        totalBreakMinutes: 0,
-        totalFocusMinutes: 0,
-      };
-      try {
-        await sessionService.startSession(payload);
-      } catch (error) {
-        console.error("Failed to initialize session record:", error);
-      } finally {
-        navigate("/focus-page", {
-          state: {
-            taskIds: [task._id],
-            title: task.title,
-            source: "today",
-            plannedDuration: durationSeconds,
-          },
-        });
-      }
+      navigate("/focus-page", {
+        state: {
+          taskIds:         [task._id],
+          title:           task.title,
+          source:          "today",
+          plannedDuration: 25 * 60,
+        },
+      });
     },
     [navigate]
   );

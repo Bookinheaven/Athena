@@ -3,6 +3,11 @@ import { useLocation } from 'react-router-dom';
 import { useAuth } from '@contexts/AuthContext';
 import { APP_CONFIG } from '@/config/branding';
 
+// Synchronously set CSS variable if in Electron to avoid flash of 0 height
+if (typeof window !== 'undefined' && window.electronAPI) {
+    document.documentElement.style.setProperty('--titlebar-height', '36px');
+}
+
 const Titlebar = () => {
     const [isMaximized, setIsMaximized] = useState(false);
     const [isDesktop, setIsDesktop] = useState(false);
@@ -21,6 +26,7 @@ const Titlebar = () => {
         // Check if running inside Electron
         if (typeof window !== 'undefined' && window.electronAPI) {
             setIsDesktop(true);
+            document.documentElement.style.setProperty('--titlebar-height', '36px');
             window.electronAPI.isMaximized().then(setIsMaximized);
 
             const unsubscribe = window.electronAPI.onMaximizedChange((maximized) => {

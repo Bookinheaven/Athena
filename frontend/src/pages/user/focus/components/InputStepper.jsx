@@ -1,44 +1,88 @@
+import React from "react";
 import { Plus, Minus } from "lucide-react";
 
-export const InputStepper = ({ label, value, onChange, min, max, step }) => {
+export const InputStepper = ({
+  label,
+  description,
+  value,
+  onChange,
+  min = 1,
+  max = 60,
+  step = 1,
+  unit = "",
+  presets = [],
+}) => {
   const handleChange = (newValue) => {
-    const clampedValue = Math.max(min, Math.min(max, newValue));
-    onChange(clampedValue);
+    const clamped = Math.max(min, Math.min(max, newValue));
+    onChange(clamped);
   };
 
   return (
-    <div className="flex items-center justify-between p-3 rounded-lg bg-background-secondary">
-      <label className="text-sm font-medium text-text-primary">{label}</label>
-      <div className="flex items-center gap-2">
-        <button
-          onClick={() => handleChange(value - step)}
-          disabled={value <= min}
-          className="w-8 h-8 rounded-full bg-button-secondary text-button-secondary-text border border-card-border hover:bg-button-secondary-hover transition-all duration-200 flex items-center justify-center active:scale-95 disabled:opacity-50"
-        >
-          <Minus className="w-4 h-4" />
-        </button>
-        <input
-          type="number"
-          min={min}
-          max={max}
-          step={step}
-          value={value}
-          onChange={(e) => {
-            const val = parseFloat(e.target.value);
-            if (!isNaN(val)) {
-              handleChange(val);
-            }
-          }}
-          className="w-20 px-3 py-2 rounded-lg text-center font-medium focus-ring-primary bg-input-background border border-input-border text-text-primary"
-        />
-        <button
-          onClick={() => handleChange(value + step)}
-          disabled={value >= max}
-          className="w-8 h-8 rounded-full bg-button-secondary text-button-secondary-text border border-card-border hover:bg-button-secondary-hover transition-all duration-200 flex items-center justify-center active:scale-95 disabled:opacity-50"
-        >
-          <Plus className="w-4 h-4" />
-        </button>
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-3">
+        <div className="space-y-0.5">
+          <label className="text-xs font-semibold text-foreground tracking-tight block">
+            {label}
+          </label>
+          {description && (
+            <p className="text-[11px] text-muted-foreground leading-snug">
+              {description}
+            </p>
+          )}
+        </div>
+
+        <div className="flex items-center gap-1.5 shrink-0 bg-secondary/40 p-1 rounded-xl border border-border/50">
+          <button
+            type="button"
+            onClick={() => handleChange(Number((value - step).toFixed(1)))}
+            disabled={value <= min}
+            className="w-7 h-7 rounded-lg bg-background text-foreground border border-border/40 hover:bg-secondary flex items-center justify-center transition-all disabled:opacity-30 disabled:cursor-not-allowed active:scale-95 shadow-2xs"
+            aria-label={`Decrease ${label}`}
+          >
+            <Minus size={13} strokeWidth={2.5} />
+          </button>
+
+          <div className="min-w-[3.5rem] px-2 text-center">
+            <span className="text-xs font-black tabular-nums text-foreground">
+              {value}
+            </span>
+            {unit && (
+              <span className="text-[10px] text-muted-foreground ml-0.5 font-medium">
+                {unit}
+              </span>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => handleChange(Number((value + step).toFixed(1)))}
+            disabled={value >= max}
+            className="w-7 h-7 rounded-lg bg-background text-foreground border border-border/40 hover:bg-secondary flex items-center justify-center transition-all disabled:opacity-30 disabled:cursor-not-allowed active:scale-95 shadow-2xs"
+            aria-label={`Increase ${label}`}
+          >
+            <Plus size={13} strokeWidth={2.5} />
+          </button>
+        </div>
       </div>
+
+      {presets.length > 0 && (
+        <div className="flex items-center gap-1 pt-0.5">
+          {presets.map((preset) => (
+            <button
+              key={preset}
+              type="button"
+              onClick={() => handleChange(preset)}
+              className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-all border ${
+                value === preset
+                  ? "bg-primary text-primary-foreground border-primary shadow-2xs"
+                  : "bg-secondary/40 text-muted-foreground border-border/40 hover:text-foreground hover:bg-secondary"
+              }`}
+            >
+              {preset}{unit ? ` ${unit}` : ""}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

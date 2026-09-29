@@ -11,6 +11,7 @@
 
 :root {
   --radius: 0.5rem;
+  --titlebar-height: 0px;
 }
 
 @theme inline {

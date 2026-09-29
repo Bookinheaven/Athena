@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import scheduleService from "../../../../services/scheduleService.js";
-import sessionService from "../../../../services/sessionService.js";
 import toast from "react-hot-toast";
 
 export const START_HOUR = 7;
@@ -147,47 +146,34 @@ export const useTimelineData = (selectedDate, setSelectedDate) => {
     [blocks]
   );
 
-  // Start Focus session directly from ScheduleBlock
+  // Start Focus session from a ScheduleBlock.
+  // Session creation is owned by Focus runtime (useFocusRuntime);
+  // we pass scheduleBlockId in navigation context so the runtime can
+  // validate the block and derive plannedDuration from the backend.
   const handleStartFocus = useCallback(
-    async (block) => {
+    (block) => {
       if (!block || block.status !== "scheduled") {
         toast.error("Can only start Focus from a scheduled block");
         return;
       }
 
       const durationSeconds = block.durationMinutes * 60;
-      const task = block.taskId;
+      const task   = block.taskId;
       const taskId = task?._id || task;
-      const title = task?.title || "Scheduled Focus";
+      const title  = task?.title || "Scheduled Focus";
 
-      const payload = {
-        sessionId: Date.now().toString(),
-        scheduleBlockId: block._id,
-        title,
-        taskIds: taskId ? [taskId] : [],
-        sessionSegments: [
-          { type: "focus", duration: 0, totalDuration: durationSeconds },
-        ],
-        plannedDuration: durationSeconds,
-        totalBreakMinutes: 0,
-        totalFocusMinutes: 0,
-      };
-
-      try {
-        await sessionService.startSession(payload);
-        navigate("/focus-page", {
-          state: {
-            scheduleBlockId: block._id,
-            taskIds: taskId ? [taskId] : [],
-            title,
-            source: "timeline",
-            plannedDuration: durationSeconds,
-          },
-        });
-      } catch (err) {
-        console.error("Failed to start session from schedule block:", err);
-        toast.error(err.message || "Failed to start Focus session");
-      }
+      navigate("/focus-page", {
+        state: {
+          scheduleBlockId: block._id,
+          taskIds:         taskId ? [taskId] : [],
+          title,
+          source:          "timeline",
+          plannedDuration: durationSeconds,
+          startTime:       block.startTime,
+          endTime:         block.endTime,
+          durationMinutes: block.durationMinutes,
+        },
+      });
     },
     [navigate]
   );

@@ -274,7 +274,7 @@ export const usePlannerData = () => {
   }, []);
 
   const handleConfirmStartFocus = useCallback(
-    async (durationMinutes, taskList) => {
+    (durationMinutes, taskList) => {
       const durationSeconds = durationMinutes * 60;
       const title =
         taskList.length > 1
@@ -282,33 +282,17 @@ export const usePlannerData = () => {
           : taskList[0]?.title || "Focus Session";
       const taskIds = taskList.map((t) => t._id);
 
-      const payload = {
-        sessionId: Date.now().toString(),
-        title,
-        taskIds,
-        sessionSegments: [
-          { type: "focus", duration: 0, totalDuration: durationSeconds },
-        ],
-        plannedDuration: durationSeconds,
-        totalBreakMinutes: 0,
-        totalFocusMinutes: 0,
-      };
-
-      try {
-        await sessionService.startSession(payload);
-      } catch (err) {
-        console.error("Failed to record start session:", err);
-      } finally {
-        setDurationModalOpen(false);
-        navigate("/focus-page", {
-          state: {
-            taskIds,
-            title,
-            source: "planner",
-            plannedDuration: durationSeconds,
-          },
-        });
-      }
+      // Session creation is owned by Focus runtime (useFocusRuntime).
+      // Navigate with context only — no pre-creation race.
+      setDurationModalOpen(false);
+      navigate("/focus-page", {
+        state: {
+          taskIds,
+          title,
+          source:          "planner",
+          plannedDuration: durationSeconds,
+        },
+      });
     },
     [navigate]
   );
