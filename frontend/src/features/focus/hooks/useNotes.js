@@ -18,7 +18,7 @@ export const useNotes = () => {
         notesArray.map((n) => ({
           ...n,
           id: n._id,
-          taskId: n.task,
+          taskId: n.task?._id || n.task || null,
         }))
       );
     } catch (err) {
@@ -44,7 +44,7 @@ export const useNotes = () => {
       const newNote = {
         ...noteRaw,
         id: noteRaw._id,
-        taskId: noteRaw.task,
+        taskId: noteRaw.task?._id || noteRaw.task || null,
       };
 
       setNotes((prev) => [newNote, ...prev]);
@@ -58,7 +58,11 @@ export const useNotes = () => {
 
   const updateNote = useCallback(async (id, payload) => {
     try {
-      await notesService.updateNote(id, payload);
+      const backendPayload = { ...payload };
+      if (payload.taskId !== undefined && payload.task === undefined) {
+        backendPayload.task = payload.taskId;
+      }
+      await notesService.updateNote(id, backendPayload);
 
       setNotes((prev) =>
         prev.map((n) => (n.id === id ? { ...n, ...payload } : n))

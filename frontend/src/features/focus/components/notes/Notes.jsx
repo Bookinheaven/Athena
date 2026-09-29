@@ -18,11 +18,15 @@ import {
   Calendar,
   Clock,
   ArrowLeft,
+  Layers,
+  FileText,
+  ListTodo,
 } from "lucide-react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
+import taskService from "@services/taskService.js";
 
 const MenuBar = ({ editor }) => {
   if (!editor) return null;
@@ -32,8 +36,8 @@ const MenuBar = ({ editor }) => {
       onClick={onClick}
       disabled={disabled}
       className={`p-1.5 rounded-full transition-all duration-200 ${isActive
-        ? "bg-button-primary/20 text-button-primary shadow-sm"
-        : "text-text-muted hover:bg-button-primary/10 hover:text-text-primary"
+        ? "bg-primary/20 text-primary shadow-xs"
+        : "text-muted-foreground hover:bg-primary/10 hover:text-foreground"
         }`}
     >
       {children}
@@ -41,7 +45,7 @@ const MenuBar = ({ editor }) => {
   );
 
   return (
-    <div className="flex items-center gap-1 p-1 bg-background-secondary/50 backdrop-blur-md border border-white/10 dark:border-white/5 rounded-full mb-4 w-fit shrink-0 shadow-sm">
+    <div className="flex items-center gap-1 p-1 bg-secondary/50 border border-border rounded-full mb-4 w-fit shrink-0 shadow-xs">
       <Button
         onClick={() => editor.chain().focus().toggleBold().run()}
         disabled={!editor.can().chain().focus().toggleBold().run()}
@@ -93,11 +97,13 @@ export const Notes = ({
   hideHeader = false,
   notes = [],
   todos = [],
+  tasks = [],
   createNote,
   updateNote,
   deleteNote,
 }) => {
-  const [selectedTaskId, setSelectedTaskId] = useState(null);
+  const [selectedTaskId, setSelectedTaskId] = useState("all");
+  const [userTasks, setUserTasks] = useState([]);
   const [editingId, setEditingId] = useState(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -107,6 +113,27 @@ export const Notes = ({
 
   const previousEditingId = useRef(editingId);
   const notesRef = useRef(notes);
+
+  useEffect(() => {
+    let mounted = true;
+    taskService
+      .getTasks()
+      .then((res) => {
+        if (!mounted) return;
+        const list = Array.isArray(res?.data)
+          ? res.data
+          : Array.isArray(res)
+          ? res
+          : [];
+        setUserTasks(list);
+      })
+      .catch((err) => {
+        console.error("[Notes] Failed to load tasks:", err);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     notesRef.current = notes;
@@ -131,15 +158,82 @@ export const Notes = ({
     previousEditingId.current = editingId;
   }, [editingId, deleteNote, localTitle]);
 
+  const allAvailableTasks = useMemo(() => {
+    const map = new Map();
+    // 1. Tasks from tasks prop
+    (tasks || []).forEach((t) => {
+      const id = String(t._id || t.id);
+      if (id) {
+        map.set(id, {
+          id,
+          _id: id,
+          title: t.title || t.name || t.text || "Untitled Task",
+          status: t.status,
+        });
+      }
+    });
+    // 2. Tasks from userTasks (taskService)
+    userTasks.forEach((t) => {
+      const id = String(t._id || t.id);
+      if (id && !map.has(id)) {
+        map.set(id, {
+          id,
+          _id: id,
+          title: t.title || t.name || "Untitled Task",
+          status: t.status,
+        });
+      }
+    });
+    // 3. Todos from session checklist
+    (todos || []).forEach((t) => {
+      const id = String(t.id || t._id);
+      if (id) {
+        const existing = map.get(id);
+        map.set(id, {
+          id,
+          _id: id,
+          title: t.title || t.text || existing?.title || "Untitled Task",
+          status: t.status || existing?.status,
+        });
+      }
+    });
+    // 4. Notes referencing tasks
+    notes.forEach((n) => {
+      const raw = n.taskId || (typeof n.task === "object" ? n.task?._id : n.task);
+      if (raw) {
+        const id = String(raw);
+        if (!map.has(id)) {
+          const title =
+            (typeof n.task === "object" && n.task?.title) ||
+            n.taskTitle ||
+            "Linked Task";
+          map.set(id, { id, _id: id, title, status: null });
+        }
+      }
+    });
+    return Array.from(map.values());
+  }, [tasks, userTasks, todos, notes]);
+
   const selectedTask = useMemo(
-    () => todos.find((todo) => String(todo.id) === String(selectedTaskId)),
-    [selectedTaskId, todos],
+    () => allAvailableTasks.find((t) => String(t.id) === String(selectedTaskId)),
+    [selectedTaskId, allAvailableTasks],
   );
 
   const filteredNotes = useMemo(() => {
-    let baseNotes = selectedTaskId
-      ? notes.filter((n) => String(n.taskId) === String(selectedTaskId))
-      : notes.filter((n) => !n.taskId);
+    let baseNotes = notes;
+    if (selectedTaskId === "all") {
+      baseNotes = notes;
+    } else if (selectedTaskId === "general" || !selectedTaskId) {
+      baseNotes = notes.filter((n) => {
+        const raw = n.taskId || (typeof n.task === "object" ? n.task?._id : n.task);
+        return !raw;
+      });
+    } else {
+      baseNotes = notes.filter((n) => {
+        const raw = n.taskId || (typeof n.task === "object" ? n.task?._id : n.task);
+        return String(raw) === String(selectedTaskId);
+      });
+    }
 
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
@@ -155,7 +249,8 @@ export const Notes = ({
 
   const noteCounts = useMemo(() => {
     return notes.reduce((acc, note) => {
-      const key = note.taskId || "general";
+      const raw = note.taskId || (typeof note.task === "object" ? note.task?._id : note.task);
+      const key = raw ? String(raw) : "general";
       acc[key] = (acc[key] || 0) + 1;
       return acc;
     }, {});
@@ -251,11 +346,16 @@ export const Notes = ({
       setEditingId(existingEmptyNote.id);
       return;
     }
+    const targetTaskId =
+      selectedTaskId === "all" || selectedTaskId === "general" || !selectedTaskId
+        ? null
+        : selectedTaskId;
+
     const res = await createNote({
       title: "",
       content: "<p></p>",
-      task: selectedTaskId || null,
-      taskId: selectedTaskId || null,
+      task: targetTaskId,
+      taskId: targetTaskId,
     });
     if (!res) return;
     setEditingId(res.id);
@@ -267,7 +367,12 @@ export const Notes = ({
   };
 
   const handleDeleteGroup = async () => {
-    const contextName = selectedTask ? `"${selectedTask.title || selectedTask.text}"` : "General Notes";
+    const contextName =
+      selectedTaskId === "all"
+        ? "All Notes"
+        : selectedTask
+        ? `"${selectedTask.title || selectedTask.text}"`
+        : "General Notes";
     if (window.confirm(`Delete all notes for ${contextName}?`)) {
       for (let note of filteredNotes) {
         await deleteNote(note.id);
@@ -279,17 +384,21 @@ export const Notes = ({
   if (!show) return null;
 
   return (
-    <div className="flex flex-col h-full w-full bg-transparent">
+    <div className="flex flex-col h-full w-full bg-card">
       {!hideHeader && (
-        <div className="flex justify-between items-center px-5 py-4 border-b border-white/5 bg-background-primary/30 backdrop-blur-md shrink-0 z-20">
-          <h3 className="text-sm font-black tracking-wide text-text-primary flex items-center gap-2">
-            {selectedTask ? "Task Notes" : "Workspace Notes"}
+        <div className="flex justify-between items-center px-5 py-4 border-b border-border bg-card/80 backdrop-blur-md shrink-0 z-20">
+          <h3 className="text-sm font-black tracking-wide text-foreground flex items-center gap-2">
+            {selectedTaskId === "all"
+              ? "All Notes"
+              : selectedTaskId === "general" || !selectedTaskId
+              ? "General Notes"
+              : `${selectedTask?.title || "Task"} Notes`}
           </h3>
           {onClose && (
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 rounded-full text-text-muted hover:text-text-primary hover:bg-background-secondary transition-colors active:scale-95"
+              className="p-1.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors active:scale-95"
             >
               <X className="w-4 h-4" />
             </button>
@@ -297,13 +406,17 @@ export const Notes = ({
         </div>
       )}
 
-      <div className="px-5 py-3 border-b border-white/5 shrink-0 bg-background-primary/20 backdrop-blur-sm z-10">
+      <div className="px-5 py-3 border-b border-border shrink-0 bg-muted/20 z-10">
         <div className="flex justify-between items-center text-xs mb-3">
-          <span className="flex items-center gap-1.5 font-bold text-text-muted uppercase tracking-wider">
+          <span className="flex items-center gap-1.5 font-bold text-muted-foreground uppercase tracking-wider">
             <Link size={12} strokeWidth={2.5} /> Link Context
           </span>
           {filteredNotes.length > 0 && (
-            <button onClick={handleDeleteGroup} className="text-[11px] font-bold text-red-400 bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 hover:text-red-300 px-2 py-1 rounded transition-all duration-300">
+            <button
+              type="button"
+              onClick={handleDeleteGroup}
+              className="text-[11px] font-bold text-destructive bg-destructive/10 border border-destructive/20 hover:bg-destructive/20 px-2 py-1 rounded transition-all duration-200"
+            >
               Clear All
             </button>
           )}
@@ -311,64 +424,194 @@ export const Notes = ({
 
         <div className="relative">
           <button
+            type="button"
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-            className="w-full flex items-center justify-between p-2.5 rounded-xl border border-white/5 bg-background-primary/50 hover:bg-background-secondary/40 text-text-primary text-xs font-semibold transition-all duration-300 shadow-sm"
+            className="w-full flex items-center justify-between p-2.5 rounded-xl border border-border bg-secondary/50 hover:bg-secondary/80 text-foreground text-xs font-semibold transition-all duration-200 shadow-2xs"
           >
             <div className="flex items-center gap-2 truncate">
-              <FolderOpen size={14} className="text-button-primary shrink-0" />
+              {selectedTaskId === "all" ? (
+                <Layers size={14} className="text-primary shrink-0" />
+              ) : selectedTaskId === "general" || !selectedTaskId ? (
+                <FileText size={14} className="text-primary shrink-0" />
+              ) : (
+                <ListTodo size={14} className="text-primary shrink-0" />
+              )}
               <span className="truncate">
-                {selectedTask ? selectedTask.title || selectedTask.text : "General Notes (No Task)"}
+                {selectedTaskId === "all"
+                  ? "All Notes"
+                  : selectedTaskId === "general" || !selectedTaskId
+                  ? "General Notes (No Task)"
+                  : selectedTask?.title || selectedTask?.text || "Task Notes"}
               </span>
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
-              <span className="px-1.5 py-0.5 rounded-md bg-white/5 text-[10px] text-text-muted">
-                {selectedTaskId ? (noteCounts[selectedTaskId] || 0) : (noteCounts["general"] || 0)}
+              <span className="px-1.5 py-0.5 rounded-md bg-muted text-[10px] text-muted-foreground font-mono">
+                {selectedTaskId === "all"
+                  ? notes.length
+                  : selectedTaskId === "general" || !selectedTaskId
+                  ? (noteCounts["general"] || 0)
+                  : (noteCounts[selectedTaskId] || 0)}
               </span>
-              <ChevronDown size={14} className={`text-text-muted transition-transform duration-300 ${isDropdownOpen ? "rotate-180" : ""}`} />
+              <ChevronDown
+                size={14}
+                className={`text-muted-foreground transition-transform duration-200 ${
+                  isDropdownOpen ? "rotate-180" : ""
+                }`}
+              />
             </div>
           </button>
 
           {isDropdownOpen && (
-            <div className="absolute top-full left-0 right-0 mt-2 p-1.5 bg-background-primary/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl z-50 flex flex-col gap-1 max-h-56 overflow-y-auto custom-scrollbar">
-              <button
-                onClick={() => { setSelectedTaskId(null); setIsDropdownOpen(false); setEditingId(null); }}
-                className={`flex items-center justify-between p-2 rounded-lg text-xs transition-colors ${!selectedTaskId ? "bg-button-primary/20 text-button-primary font-bold" : "text-text-secondary hover:bg-white/5"}`}
-              >
-                <span>General Notes</span>
-                <span className="text-[10px] opacity-70">({noteCounts["general"] || 0})</span>
-              </button>
-
-              {todos.map((todo) => (
+            <>
+              {/* Dismiss backdrop */}
+              <div
+                className="fixed inset-0 z-40"
+                onClick={() => setIsDropdownOpen(false)}
+              />
+              <div className="absolute top-full left-0 right-0 mt-1.5 p-1.5 bg-popover text-popover-foreground border border-border rounded-xl shadow-xl z-50 flex flex-col gap-1 max-h-64 overflow-y-auto custom-scrollbar">
+                {/* All Notes Option */}
                 <button
-                  key={todo.id}
-                  onClick={() => { setSelectedTaskId(todo.id); setIsDropdownOpen(false); setEditingId(null); }}
-                  className={`flex items-center justify-between p-2 rounded-lg text-xs text-left transition-colors ${selectedTaskId === todo.id ? "bg-button-primary/20 text-button-primary font-bold" : "text-text-secondary hover:bg-white/5"}`}
+                  type="button"
+                  onClick={() => {
+                    setSelectedTaskId("all");
+                    setIsDropdownOpen(false);
+                    setEditingId(null);
+                  }}
+                  className={`flex items-center justify-between p-2 rounded-lg text-xs font-medium transition-colors ${
+                    selectedTaskId === "all"
+                      ? "bg-primary text-primary-foreground font-semibold shadow-2xs"
+                      : "text-foreground hover:bg-secondary"
+                  }`}
                 >
-                  <span className="truncate pr-2">{todo.title || todo.text}</span>
-                  <span className="text-[10px] opacity-70 shrink-0">({noteCounts[todo.id] || 0})</span>
+                  <div className="flex items-center gap-2 truncate">
+                    <Layers size={13} className="shrink-0 opacity-80" />
+                    <span className="truncate">All Notes</span>
+                  </div>
+                  <span
+                    className={`text-[10px] shrink-0 font-mono ${
+                      selectedTaskId === "all"
+                        ? "text-primary-foreground/90 font-bold"
+                        : "text-muted-foreground"
+                    }`}
+                  >
+                    ({notes.length})
+                  </span>
                 </button>
-              ))}
-            </div>
+
+                {/* General Notes Option */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedTaskId("general");
+                    setIsDropdownOpen(false);
+                    setEditingId(null);
+                  }}
+                  className={`flex items-center justify-between p-2 rounded-lg text-xs font-medium transition-colors ${
+                    selectedTaskId === "general" || !selectedTaskId
+                      ? "bg-primary text-primary-foreground font-semibold shadow-2xs"
+                      : "text-foreground hover:bg-secondary"
+                  }`}
+                >
+                  <div className="flex items-center gap-2 truncate">
+                    <FileText size={13} className="shrink-0 opacity-80" />
+                    <span className="truncate">General Notes</span>
+                  </div>
+                  <span
+                    className={`text-[10px] shrink-0 font-mono ${
+                      selectedTaskId === "general" || !selectedTaskId
+                        ? "text-primary-foreground/90 font-bold"
+                        : "text-muted-foreground"
+                    }`}
+                  >
+                    ({noteCounts["general"] || 0})
+                  </span>
+                </button>
+
+                {/* Tasks Section */}
+                {allAvailableTasks.length > 0 && (
+                  <>
+                    <div className="pt-2 pb-1 px-2 border-t border-border/60 text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
+                      <span>Tasks</span>
+                      <span>({allAvailableTasks.length})</span>
+                    </div>
+                    {allAvailableTasks.map((task) => {
+                      const isSelected = String(selectedTaskId) === String(task.id);
+                      const isCompleted =
+                        task.status === "completed" || task.status === "Completed";
+                      return (
+                        <button
+                          key={task.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedTaskId(task.id);
+                            setIsDropdownOpen(false);
+                            setEditingId(null);
+                          }}
+                          className={`flex items-center justify-between p-2 rounded-lg text-xs text-left font-medium transition-colors ${
+                            isSelected
+                              ? "bg-primary text-primary-foreground font-semibold shadow-2xs"
+                              : "text-foreground hover:bg-secondary"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 truncate min-w-0 pr-2">
+                            {isCompleted ? (
+                              <CheckCircle2
+                                size={13}
+                                className={`shrink-0 ${
+                                  isSelected
+                                    ? "text-primary-foreground"
+                                    : "text-emerald-500"
+                                }`}
+                              />
+                            ) : (
+                              <ListTodo
+                                size={13}
+                                className={`shrink-0 ${
+                                  isSelected
+                                    ? "text-primary-foreground"
+                                    : "text-primary"
+                                }`}
+                              />
+                            )}
+                            <span className="truncate">{task.title}</span>
+                          </div>
+                          <span
+                            className={`text-[10px] shrink-0 font-mono ${
+                              isSelected
+                                ? "text-primary-foreground/90 font-bold"
+                                : "text-muted-foreground"
+                            }`}
+                          >
+                            ({noteCounts[task.id] || 0})
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </>
+                )}
+              </div>
+            </>
           )}
         </div>
       </div>
 
       <div className="flex-1 flex flex-col min-h-0 relative">
-        <div className="flex justify-between items-center p-3 px-5 border-b border-white/5 bg-background-secondary/10 shrink-0 gap-2">
+        <div className="flex justify-between items-center p-3 px-5 border-b border-border bg-muted/20 shrink-0 gap-2">
           <div className="relative flex-1">
-            <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted" />
+            <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input
               type="text"
               placeholder="Search in context..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-7 pr-3 py-1.5 bg-background-primary/30 border border-white/5 rounded-lg text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:border-button-primary/50 transition-colors"
+              className="w-full pl-7 pr-3 py-1.5 bg-background border border-border rounded-lg text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition-colors"
             />
           </div>
 
           <button
+            type="button"
             onClick={handleCreateNote}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-button-primary hover:bg-button-primary-hover text-white text-xs font-bold transition-all shadow-sm shrink-0"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold transition-all shadow-2xs shrink-0 cursor-pointer"
           >
             <Plus size={14} strokeWidth={2.5} /> New Note
           </button>
@@ -377,11 +620,11 @@ export const Notes = ({
         <div className="flex-1 flex flex-col min-h-0">
           {editingId && currentNote ? (
             <div className="flex-1 flex flex-col p-4 sm:p-5 overflow-y-auto custom-scrollbar relative" onPaste={handlePaste} onDrop={handleDrop}>
-              <div className="flex items-center justify-between gap-2 mb-3 pb-2.5 border-b border-white/5">
+              <div className="flex items-center justify-between gap-2 mb-3 pb-2.5 border-b border-border">
                 <button
                   type="button"
                   onClick={() => setEditingId(null)}
-                  className="flex items-center gap-1.5 text-xs text-button-primary hover:text-button-primary-hover font-semibold px-2.5 py-1 rounded-lg bg-button-primary/10 hover:bg-button-primary/20 transition-all cursor-pointer"
+                  className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 font-semibold px-2.5 py-1 rounded-lg bg-primary/10 hover:bg-primary/20 transition-all cursor-pointer"
                 >
                   <ArrowLeft size={13} />
                   <span>All Notes</span>
@@ -389,7 +632,7 @@ export const Notes = ({
                 <button
                   type="button"
                   onClick={() => setEditingId(null)}
-                  className="text-xs text-text-muted hover:text-text-primary font-medium px-2 py-1 rounded hover:bg-white/5 transition-colors cursor-pointer"
+                  className="text-xs text-muted-foreground hover:text-foreground font-medium px-2 py-1 rounded hover:bg-secondary transition-colors cursor-pointer"
                 >
                   Done
                 </button>
@@ -400,7 +643,7 @@ export const Notes = ({
                 placeholder="Note Title..."
                 value={localTitle}
                 onChange={handleTitleChange}
-                className="w-full bg-transparent border-none text-base sm:text-lg font-bold text-text-primary placeholder:text-text-muted focus:outline-none mb-3"
+                className="w-full bg-transparent border-none text-base sm:text-lg font-bold text-foreground placeholder:text-muted-foreground focus:outline-none mb-3"
               />
 
               <MenuBar editor={editor} />
@@ -410,18 +653,18 @@ export const Notes = ({
               </div>
             </div>
           ) : (
-            <div className="flex-1 flex flex-col overflow-y-auto custom-scrollbar p-3 space-y-2 bg-background-secondary/5">
+            <div className="flex-1 flex flex-col overflow-y-auto custom-scrollbar p-3 space-y-2 bg-muted/10">
               {filteredNotes.length === 0 ? (
-                <div className="p-8 text-center text-text-muted text-xs flex flex-col items-center justify-center flex-1 my-auto">
+                <div className="p-8 text-center text-muted-foreground text-xs flex flex-col items-center justify-center flex-1 my-auto">
                   <NotebookPen size={28} className="mb-3 opacity-40 text-primary" />
-                  <p className="font-semibold text-text-secondary text-sm">No notes found</p>
-                  <p className="text-xs text-text-muted mt-1 max-w-xs">
+                  <p className="font-semibold text-foreground text-sm">No notes found</p>
+                  <p className="text-xs text-muted-foreground mt-1 max-w-xs">
                     Create a note to jot down thoughts, ideas, or references during this session.
                   </p>
                   <button
                     type="button"
                     onClick={handleCreateNote}
-                    className="mt-4 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-button-primary hover:bg-button-primary-hover text-white text-xs font-bold transition-all shadow-sm"
+                    className="mt-4 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold transition-all shadow-2xs cursor-pointer"
                   >
                     <Plus size={14} strokeWidth={2.5} /> Create Note
                   </button>
@@ -433,18 +676,27 @@ export const Notes = ({
                     const dateStr = note.updatedAt
                       ? new Date(note.updatedAt).toLocaleDateString([], { month: "short", day: "numeric" })
                       : "";
+                    const rawTaskId =
+                      note.taskId ||
+                      (typeof note.task === "object" ? note.task?._id : note.task);
+                    const linkedTask = rawTaskId
+                      ? allAvailableTasks.find(
+                          (item) => String(item.id) === String(rawTaskId)
+                        )
+                      : null;
+
                     return (
                       <div
                         key={note.id}
                         onClick={() => setEditingId(note.id)}
                         className={`group p-3 rounded-xl border text-left cursor-pointer transition-all duration-200 relative ${
                           isSelected
-                            ? "bg-button-primary/10 border-button-primary/30 shadow-sm"
-                            : "bg-background-primary/30 border-white/5 hover:border-white/15 hover:bg-background-secondary/40"
+                            ? "bg-primary/10 border-primary/30 shadow-xs"
+                            : "bg-card border-border/60 hover:border-border hover:bg-secondary/40"
                         }`}
                       >
                         <div className="flex justify-between items-start mb-1.5">
-                          <span className="text-xs font-bold truncate block flex-1 text-text-primary group-hover:text-button-primary transition-colors">
+                          <span className="text-xs font-bold truncate block flex-1 text-foreground group-hover:text-primary transition-colors">
                             {note.title?.trim() || "Untitled Note"}
                           </span>
                           <button
@@ -453,25 +705,38 @@ export const Notes = ({
                               e.stopPropagation();
                               handleDelete(note.id);
                             }}
-                            className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 text-text-muted rounded transition-opacity"
+                            className="opacity-0 group-hover:opacity-100 p-1 hover:text-destructive text-muted-foreground rounded transition-opacity"
                             title="Delete note"
                           >
                             <Trash2 size={12} />
                           </button>
                         </div>
 
-                        <div className="text-[11px] text-text-muted line-clamp-2 opacity-75 mb-2 leading-relaxed">
+                        <div className="text-[11px] text-muted-foreground line-clamp-2 opacity-80 mb-2 leading-relaxed">
                           {note.content?.replace(/<[^>]*>?/gm, "").trim() || "Empty note content..."}
                         </div>
 
-                        <div className="flex items-center justify-between text-[10px] text-text-muted opacity-60">
-                          {dateStr && (
-                            <div className="flex items-center gap-1">
-                              <Clock size={10} />
-                              <span>{dateStr}</span>
-                            </div>
-                          )}
-                          <span className="text-button-primary font-medium opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
+                        <div className="flex items-center justify-between text-[10px] text-muted-foreground opacity-70">
+                          <div className="flex items-center gap-2">
+                            {dateStr && (
+                              <div className="flex items-center gap-1">
+                                <Clock size={10} />
+                                <span>{dateStr}</span>
+                              </div>
+                            )}
+                            {selectedTaskId === "all" && (
+                              <span
+                                className={`px-1.5 py-0.5 rounded text-[10px] font-medium truncate max-w-[120px] ${
+                                  linkedTask
+                                    ? "bg-primary/10 text-primary"
+                                    : "bg-muted text-muted-foreground"
+                                }`}
+                              >
+                                {linkedTask ? linkedTask.title : "General"}
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-primary font-medium opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
                             Edit note →
                           </span>
                         </div>
