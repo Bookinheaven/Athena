@@ -66,14 +66,19 @@ const userSchema = new mongoose.Schema({
     default: true,
   },
   settings: {
+    theme: {
+      type: String,
+      default: "dark",
+      trim: true,
+    },
     session: {
       breakDuration: { type: Number, default: 300 },
       autoStartBreaks: { type: Boolean, default: true },
       breaksNumber: { type: Number, default: 4 },
-      isSoundEnabled: {type: Boolean, default: false },
+      isSoundEnabled: { type: Boolean, default: false },
       skipBreaks: { type: Boolean, default: true },
       confirmReset: { type: Boolean, default: true },
-      soundOnTransition : { type: Boolean, default: false },
+      soundOnTransition: { type: Boolean, default: false },
     }
   },
 },

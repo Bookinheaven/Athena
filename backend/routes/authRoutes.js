@@ -1,6 +1,6 @@
 import express from 'express';
 import AuthController from '../controllers/authController.js';
-import { registerValidation, loginValidation, passwordResetValidation } from '../middlewares/validation.js';
+import { registerValidation, loginValidation, passwordResetValidation, changePasswordValidation } from '../middlewares/validation.js';
 import auth from '../middlewares/authMiddleware.js';
 
 const router = express.Router();
@@ -16,6 +16,7 @@ router.post('/reset-password', passwordResetValidation, AuthController.resetPass
 
 // Protected routes
 router.get('/me', auth, AuthController.getCurrentUser);
+router.post('/change-password', auth, changePasswordValidation, AuthController.changePassword);
 router.post('/logout', auth, AuthController.logout);
 
 // Route to check if user is authenticated

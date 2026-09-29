@@ -1,8 +1,9 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import authService from "../services/authService";
 import { normalizeUser, clearUserTransientState } from "../services/userStateService";
+import { useUIStore } from "@/stores/uiStore";
 
-const AuthContext = createContext();
+export const AuthContext = createContext();
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -20,10 +21,13 @@ export const AuthProvider = ({ children }) => {
     const checkAuth = async () => {
       try {
         const userData = await authService.getCurrentUser();
-        setUser(normalizeUser(userData));
+        const normalized = normalizeUser(userData);
+        setUser(normalized);
+        useUIStore.getState().initSidebarForUser(normalized?.id || normalized?._id);
       } catch (error) {
         setUser(null);
         clearUserTransientState();
+        useUIStore.getState().initSidebarForUser(null);
       } finally {
         setLoading(false);
       }
@@ -36,6 +40,7 @@ export const AuthProvider = ({ children }) => {
     const userData = await authService.login(credentials);
     const normalized = normalizeUser(userData.user);
     setUser(normalized);
+    useUIStore.getState().initSidebarForUser(normalized?.id || normalized?._id);
     return {
       ...userData,
       user: normalized,
@@ -68,6 +73,7 @@ export const AuthProvider = ({ children }) => {
     if (res?.success && res.user) {
       const normalized = normalizeUser(res.user);
       setUser(normalized);
+      useUIStore.getState().initSidebarForUser(normalized?.id || normalized?._id);
       return {
         ...res,
         user: normalized,
@@ -82,6 +88,7 @@ export const AuthProvider = ({ children }) => {
     } finally {
       clearUserTransientState();
       setUser(null);
+      useUIStore.getState().initSidebarForUser(null);
     }
   };
 

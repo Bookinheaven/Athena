@@ -7,14 +7,10 @@ import {
   History,
   TrendingUp,
   Settings,
-  Users,
-  Palette,
   LogOut,
-  Command,
 } from "lucide-react";
 import { useAuth } from "@contexts/AuthContext";
 import { useMultiAccount } from "@contexts/MultiAccountContext";
-import { useTheme } from "@contexts/ThemeContext";
 import { useUIStore } from "@/stores/uiStore";
 import { APP_CONFIG } from "@/config/branding";
 import { ConfirmModal } from "@/components/ConfirmModal";
@@ -25,6 +21,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Separator } from "@/components/ui/separator";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 
 const mainNavItems = [
@@ -36,14 +33,19 @@ const mainNavItems = [
 ];
 
 const secondaryNavItems = [
-  { to: "/profile", icon: Settings, label: "Settings" },
+  { to: "/settings", icon: Settings, label: "Settings" },
 ];
+
+const getInitials = (name) => {
+  if (!name) return "U";
+  return name.split(" ").map((p) => p[0]).join("").toUpperCase().slice(0, 2);
+};
 
 export const Sidebar = ({ className }) => {
   const { user, logout } = useAuth();
   const { clearAccountToken } = useMultiAccount();
-  const { setShowThemeModal } = useTheme();
   const { sidebarCollapsed } = useUIStore();
+  const userId = user?._id || user?.id;
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -52,11 +54,8 @@ export const Sidebar = ({ className }) => {
 
   const handleLogoutConfirm = async () => {
     try {
-      const userId = user?._id || user?.id;
       await logout();
-      if (userId) {
-        clearAccountToken(userId);
-      }
+      if (userId) clearAccountToken(userId);
       navigate("/login");
     } catch (error) {
       console.error("Logout error:", error);
@@ -86,7 +85,9 @@ export const Sidebar = ({ className }) => {
           <Icon
             className={cn(
               "h-4 w-4 shrink-0 transition-colors duration-150",
-              isActive ? "text-sidebar-accent-foreground" : "text-sidebar-foreground/70 group-hover:text-sidebar-accent-foreground"
+              isActive
+                ? "text-sidebar-accent-foreground"
+                : "text-sidebar-foreground/70 group-hover:text-sidebar-accent-foreground"
             )}
           />
         </div>
@@ -115,94 +116,6 @@ export const Sidebar = ({ className }) => {
     return <React.Fragment key={label + to}>{content}</React.Fragment>;
   };
 
-  const utilityItems = [
-    {
-      id: "accounts",
-      icon: Users,
-      label: "Work Accounts",
-      onClick: () => setShowSwitcherModal(true),
-    },
-    {
-      id: "theme",
-      icon: Palette,
-      label: "Theme",
-      onClick: () => setShowThemeModal(true),
-    },
-    {
-      id: "commands",
-      icon: Command,
-      label: "Commands",
-      shortcut: "⌘K",
-      onClick: () =>
-        window.dispatchEvent(
-          new KeyboardEvent("keydown", {
-            key: "k",
-            metaKey: true,
-            bubbles: true,
-          })
-        ),
-    },
-    {
-      id: "logout",
-      icon: LogOut,
-      label: "Logout",
-      destructive: true,
-      onClick: () => setShowLogoutModal(true),
-    },
-  ];
-
-  const renderUtilityButton = (item) => {
-    const Icon = item.icon;
-    const button = (
-      <button
-        key={item.id}
-        onClick={item.onClick}
-        aria-label={item.label}
-        className={cn(
-          "group relative flex items-center h-9 w-full rounded-md text-xs transition-colors duration-150 cursor-pointer select-none overflow-hidden",
-          item.destructive
-            ? "text-sidebar-foreground/70 hover:bg-destructive/10 hover:text-destructive"
-            : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-        )}
-      >
-        <div className="w-9 h-9 flex items-center justify-center shrink-0">
-          <Icon className="h-4 w-4 shrink-0" />
-        </div>
-        <span
-          className={cn(
-            "truncate whitespace-nowrap transition-opacity duration-150 ml-0.5",
-            sidebarCollapsed ? "opacity-0 pointer-events-none" : "opacity-100"
-          )}
-        >
-          {item.label}
-        </span>
-        {item.shortcut && (
-          <kbd
-            className={cn(
-              "ml-auto mr-2 text-[10px] font-mono text-sidebar-foreground/50 bg-sidebar-accent/50 border border-sidebar-border px-1 py-0.5 rounded leading-none transition-opacity duration-150",
-              sidebarCollapsed ? "opacity-0 pointer-events-none" : "opacity-100"
-            )}
-          >
-            {item.shortcut}
-          </kbd>
-        )}
-      </button>
-    );
-
-    if (sidebarCollapsed) {
-      return (
-        <Tooltip key={item.id}>
-          <TooltipTrigger render={button} />
-          <TooltipContent side="right" className="font-medium text-xs">
-            {item.shortcut ? `${item.label} (${item.shortcut})` : item.label}
-          </TooltipContent>
-        </Tooltip>
-      );
-    }
-
-    return button;
-  };
-
   return (
     <>
       <aside
@@ -212,7 +125,7 @@ export const Sidebar = ({ className }) => {
           className
         )}
       >
-        {/* Brand Header (Branding & Workspace identity only) */}
+        {/* Brand Header */}
         <div className="h-12 flex items-center px-2.5 border-b border-sidebar-border shrink-0 overflow-hidden">
           <div className="flex items-center w-full min-w-0">
             <div className="w-9 h-9 flex items-center justify-center shrink-0">
@@ -229,8 +142,8 @@ export const Sidebar = ({ className }) => {
               <span className="font-semibold text-xs tracking-tight text-sidebar-foreground leading-none">
                 {APP_CONFIG.name}
               </span>
-              <span className="text-[10px] text-sidebar-foreground/70 leading-none mt-1 font-normal">
-                Workspace
+              <span className="text-[10px] text-sidebar-foreground/50 leading-none mt-1 font-normal">
+                {APP_CONFIG.version}
               </span>
             </div>
           </div>
@@ -250,13 +163,91 @@ export const Sidebar = ({ className }) => {
           {secondaryNavItems.map(renderNavItem)}
         </nav>
 
-        {/* Secondary / Utility Actions */}
-        <div className="p-2.5 border-t border-sidebar-border shrink-0 space-y-0.5 overflow-hidden">
-          {utilityItems.map(renderUtilityButton)}
+        {/* User Identity Footer */}
+        <div className="border-t border-sidebar-border shrink-0 overflow-hidden">
+          {sidebarCollapsed ? (
+            /* Collapsed: avatar + separator + logout icon */
+            <div className="flex flex-col items-center py-2 gap-0.5">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => navigate("/profile")}
+                    className="w-9 h-9 flex items-center justify-center rounded-md hover:bg-sidebar-accent/50 transition-colors cursor-pointer focus-visible:outline-none"
+                    aria-label="Profile"
+                  >
+                    <Avatar className="h-6 w-6 border border-sidebar-border/60 bg-sidebar-accent">
+                      <AvatarImage src={user?.avatar} alt={user?.fullName || "User"} />
+                      <AvatarFallback className="bg-sidebar-accent text-sidebar-accent-foreground font-semibold text-[9px]">
+                        {getInitials(user?.fullName || user?.username)}
+                      </AvatarFallback>
+                    </Avatar>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right" className="font-medium text-xs">
+                  {user?.fullName || user?.username || "Profile"}
+                </TooltipContent>
+              </Tooltip>
+
+              <div className="w-5 h-px bg-sidebar-border/50 my-0.5" />
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => setShowLogoutModal(true)}
+                    aria-label="Log out"
+                    className="w-9 h-9 flex items-center justify-center rounded-md text-sidebar-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer focus-visible:outline-none"
+                  >
+                    <LogOut className="h-4 w-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right" className="font-medium text-xs">
+                  Log out
+                </TooltipContent>
+              </Tooltip>
+            </div>
+          ) : (
+            /* Expanded: user card + always-visible labeled logout row */
+            <div className="p-2 space-y-0.5">
+              {/* User identity → profile */}
+              <button
+                onClick={() => navigate("/profile")}
+                aria-label="Go to profile"
+                className="w-full flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-sidebar-accent/40 transition-colors cursor-pointer text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-sidebar-ring group/card"
+              >
+                <Avatar className="h-7 w-7 border border-sidebar-border/60 bg-sidebar-accent shrink-0">
+                  <AvatarImage src={user?.avatar} alt={user?.fullName || "User"} />
+                  <AvatarFallback className="bg-sidebar-accent text-sidebar-accent-foreground font-semibold text-[10px]">
+                    {getInitials(user?.fullName || user?.username)}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[12px] font-semibold text-sidebar-foreground leading-none truncate group-hover/card:text-sidebar-accent-foreground transition-colors">
+                    {user?.fullName || user?.username || "Account"}
+                  </p>
+                  <p className="text-[10px] text-sidebar-foreground/45 leading-none mt-1 truncate font-normal">
+                    {user?.email || "workspace"}
+                  </p>
+                </div>
+              </button>
+
+              {/* Logout — always visible, labeled, styled as destructive action */}
+              <button
+                onClick={() => setShowLogoutModal(true)}
+                aria-label="Log out"
+                className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-sidebar-foreground/45 hover:text-destructive hover:bg-destructive/10 transition-all duration-150 cursor-pointer group/logout focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-destructive/40"
+              >
+                <div className="w-7 h-7 flex items-center justify-center rounded-md group-hover/logout:bg-destructive/10 transition-colors shrink-0">
+                  <LogOut className="h-3.5 w-3.5 transition-transform duration-200 group-hover/logout:-translate-x-0.5" />
+                </div>
+                <span className="text-[12px] font-medium leading-none tracking-tight">
+                  Log out
+                </span>
+              </button>
+            </div>
+          )}
         </div>
       </aside>
 
-      {/* Account Switcher and Logout Modals */}
       <ConfirmModal
         isOpen={showLogoutModal}
         title={`Logout ${APP_CONFIG.shortName}`}

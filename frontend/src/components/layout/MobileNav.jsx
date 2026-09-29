@@ -6,6 +6,7 @@ import {
   Target,
   History,
   TrendingUp,
+  User,
   Settings,
 } from "lucide-react";
 import { useUIStore } from "@/stores/uiStore";
@@ -85,6 +86,20 @@ export const MobileNav = () => {
             className={cn(
               "flex items-center h-8.5 rounded-md px-2.5 text-[13px] transition-colors",
               location.pathname === "/profile"
+                ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground font-normal"
+            )}
+          >
+            <User className="h-4 w-4 mr-2.5 shrink-0" />
+            <span>Profile</span>
+          </NavLink>
+
+          <NavLink
+            to="/settings"
+            onClick={handleNavClick}
+            className={cn(
+              "flex items-center h-8.5 rounded-md px-2.5 text-[13px] transition-colors",
+              location.pathname.startsWith("/settings")
                 ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
                 : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground font-normal"
             )}

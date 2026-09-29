@@ -133,6 +133,33 @@ class AuthController {
     }
   }
 
+  // Change password (authenticated)
+  static async changePassword(req, res) {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Validation failed',
+          errors: errors.array()
+        });
+      }
+
+      const { currentPassword, newPassword } = req.body;
+      const result = await AuthService.changePassword(req.user._id, currentPassword, newPassword);
+
+      res.status(200).json({
+        success: true,
+        message: result.message
+      });
+    } catch (error) {
+      res.status(400).json({
+        success: false,
+        message: error.message
+      });
+    }
+  }
+
   // Get current user
   static async getCurrentUser(req, res) {
     try {
@@ -193,7 +220,8 @@ class AuthController {
           username: user.username,
           email: user.email,
           fullName: user.fullName,
-          type: user.type
+          type: user.type,
+          settings: user.settings
         },
         token
       });

@@ -19,6 +19,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 
 import FocusSession from "@/pages/user/focus/FocusSession";
 import Profile from "@/pages/user/profile/Profile";
+import Settings from "@/pages/user/settings/Settings";
 import Planner from "@/pages/user/planner/Planner";
 import UserLayout from "@/pages/layouts/UserLayout";
 import AdminLayout from "@/pages/layouts/AdminLayout";
@@ -32,8 +33,8 @@ import ThemeSelectorModal from "@/components/customs/ThemeSelectorModal";
 
 function App() {
   return (
-    <ThemeProvider>
-      <AuthProvider>
+    <AuthProvider>
+      <ThemeProvider>
         <MultiAccountProvider>
           <Router>
             <GlobalShortcutsManager />
@@ -56,6 +57,8 @@ function App() {
                       <Route path="/focus-page" element={<FocusSession />} />
                       <Route path="/planner" element={<Planner />} />
                       <Route path="/profile" element={<Profile />} />
+                      <Route path="/settings" element={<Settings />} />
+                      <Route path="/settings/:category" element={<Settings />} />
                       <Route path="/sessions" element={<SessionHistory />} />
                     </Route>
                     <Route element={<RoleRoute allowedRoles={["admin"]} />}>
@@ -69,8 +72,8 @@ function App() {
             </div>
           </Router>
         </MultiAccountProvider>
-      </AuthProvider>
-    </ThemeProvider>
+      </ThemeProvider>
+    </AuthProvider>
   );
 }
 

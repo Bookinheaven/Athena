@@ -101,5 +101,28 @@ export function useFocusSettings(userId) {
     }
   }, []);
 
-  return { settings, setSetting, saveSettingsToBackend, isLoading };
+  const resetSettings = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const res = await userService.resetSettings('session');
+      const s = res?.settings || DEFAULTS;
+      const merged = {};
+      for (const [k, def] of Object.entries(DEFAULTS)) {
+        const val = s[k] ?? def;
+        const scopedKey = getUserScopedKey(k, userId);
+        writeLocal(scopedKey, val);
+        merged[k] = val;
+      }
+      setSettings(merged);
+      return merged;
+    } catch (err) {
+      console.error('[useFocusSettings] Reset failed:', err);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [userId]);
+
+  return { settings, setSetting, saveSettingsToBackend, resetSettings, isLoading };
 }
+

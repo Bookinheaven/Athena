@@ -1,4 +1,7 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import { AuthContext } from './AuthContext';
+import { getUserScopedKey } from '../services/userStateService';
+import userService from '../services/userService';
 
 export const AVAILABLE_THEMES = [
   {
@@ -126,15 +129,47 @@ export const useTheme = () => {
 };
 
 export const ThemeProvider = ({ children }) => {
-  const [theme, setTheme] = useState(() => {
-    const savedTheme = localStorage.getItem('athena-theme');
-    return savedTheme || 'dark';
+  const auth = useContext(AuthContext);
+  const user = auth?.user;
+  const userId = user?._id || user?.id;
+
+  const currentUserIdRef = useRef(userId);
+  currentUserIdRef.current = userId;
+
+  const [theme, setThemeState] = useState(() => {
+    const saved = userId
+      ? localStorage.getItem(getUserScopedKey('athena-theme', userId))
+      : localStorage.getItem('athena-theme');
+    return saved || user?.settings?.theme || 'dark';
   });
 
   const [showThemeModal, setShowThemeModal] = useState(false);
 
+  // Sync theme when user identity or backend theme changes
   useEffect(() => {
-    localStorage.setItem('athena-theme', theme);
+    if (!userId) {
+      const fallback = localStorage.getItem('athena-theme') || 'dark';
+      setThemeState(fallback);
+      return;
+    }
+
+    const backendTheme = user?.settings?.theme;
+    const cachedTheme = localStorage.getItem(getUserScopedKey('athena-theme', userId));
+    const targetTheme = backendTheme || cachedTheme || 'dark';
+
+    setThemeState(targetTheme);
+    localStorage.setItem(getUserScopedKey('athena-theme', userId), targetTheme);
+  }, [userId, user?.settings?.theme]);
+
+  // Apply DOM classes on theme change
+  useEffect(() => {
+    const activeUserId = currentUserIdRef.current;
+    if (activeUserId) {
+      localStorage.setItem(getUserScopedKey('athena-theme', activeUserId), theme);
+    } else {
+      localStorage.setItem('athena-theme', theme);
+    }
+
     const root = document.documentElement;
 
     const allThemeClasses = AVAILABLE_THEMES
@@ -171,13 +206,36 @@ export const ThemeProvider = ({ children }) => {
     }
   }, [theme]);
 
-  const toggleTheme = () => {
-    setTheme(prev => prev === 'light' ? 'dark' : 'light');
-  };
+  const setTheme = useCallback((newTheme) => {
+    setThemeState(newTheme);
+
+    const activeUserId = currentUserIdRef.current;
+    if (activeUserId) {
+      localStorage.setItem(getUserScopedKey('athena-theme', activeUserId), newTheme);
+      userService.updateSettings({ theme: newTheme }, 'theme').catch((err) => {
+        console.error('[ThemeContext] Failed to persist theme to backend:', err);
+      });
+    } else {
+      localStorage.setItem('athena-theme', newTheme);
+    }
+  }, []);
+
+  const toggleTheme = useCallback(() => {
+    setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
+  }, [setTheme]);
 
   return (
-    <ThemeContext.Provider value={{ theme, setTheme, toggleTheme, showThemeModal, setShowThemeModal, availableThemes: AVAILABLE_THEMES }}>
+    <ThemeContext.Provider
+      value={{
+        theme,
+        setTheme,
+        toggleTheme,
+        showThemeModal,
+        setShowThemeModal,
+        availableThemes: AVAILABLE_THEMES
+      }}
+    >
       {children}
     </ThemeContext.Provider>
   );
-};
+};

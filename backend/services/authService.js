@@ -155,7 +155,8 @@ class AuthService {
         fullName: user.fullName,
         createdAt: user.createdAt,
         lastLogin: user.lastLogin,
-        type: user.type
+        type: user.type,
+        settings: user.settings
       }
     };
   }
@@ -207,6 +208,32 @@ class AuthService {
       throw new Error('User not found');
     }
     return user;
+  }
+
+  // Change authenticated password
+  static async changePassword(userId, currentPassword, newPassword) {
+    if (!currentPassword || !newPassword) {
+      throw new Error('Current password and new password are required');
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    const isMatch = await user.comparePassword(currentPassword);
+    if (!isMatch) {
+      throw new Error('Current password is incorrect');
+    }
+
+    if (currentPassword === newPassword) {
+      throw new Error('New password must be different from current password');
+    }
+
+    user.password = newPassword;
+    await user.save();
+
+    return { message: 'Password changed successfully' };
   }
 }
 
