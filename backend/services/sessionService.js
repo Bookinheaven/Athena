@@ -170,8 +170,13 @@ class SessionService {
     }
 
     let transitionedToCompleted = false;
-    if (status === "completed" || status === "skipped") {
-      const completionType = status === "skipped" ? "skipped" : "completed";
+    if (status === "completed" || status === "skipped" || status === "abandoned") {
+      const completionType =
+        status === "skipped"
+          ? "skipped"
+          : status === "abandoned"
+          ? "abandoned"
+          : "completed";
       const transitionSet = {
         status: "completed",
         completionType,
@@ -253,11 +258,75 @@ class SessionService {
     if (!userId) {
       throw new Error("User not found.");
     }
-    const session = await Session.findOne({
+    const sessions = await Session.find({
       userId,
       status: "active",
-    }).populate("scheduleBlockId");
-    return session;
+    })
+      .sort({ createdAt: -1 })
+      .populate("scheduleBlockId");
+
+    if (!sessions || sessions.length === 0) {
+      return null;
+    }
+
+    const latest = sessions[0];
+
+    // Clean up older duplicate active sessions if any exist
+    if (sessions.length > 1) {
+      const olderIds = sessions.slice(1).map((s) => s._id);
+      await Session.updateMany(
+        { _id: { $in: olderIds } },
+        {
+          $set: {
+            status: "completed",
+            completionType: "abandoned",
+            endedAt: new Date(),
+          },
+        }
+      );
+    }
+
+    // Auto-complete if all segments are already completed
+    const allSegmentsDone =
+      latest.sessionSegments?.length > 0 &&
+      latest.sessionSegments.every((s) => s.completedAt);
+
+    if (allSegmentsDone) {
+      await Session.updateOne(
+        { _id: latest._id },
+        {
+          $set: {
+            status: "completed",
+            completionType: "completed",
+            endedAt: latest.endedAt || new Date(),
+          },
+        }
+      );
+      return null;
+    }
+
+    // Check if session is stale/abandoned after long inactivity
+    const plannedSecs = latest.plannedDuration || 1500;
+    const lastActiveDate = latest.updatedAt || latest.startedAt || latest.createdAt;
+    const lastActiveMs = new Date(lastActiveDate).getTime();
+    const nowMs = Date.now();
+    const maxInactiveMs = Math.max(plannedSecs * 1000 + 2 * 60 * 60 * 1000, 4 * 60 * 60 * 1000);
+
+    if (nowMs - lastActiveMs > maxInactiveMs) {
+      await Session.updateOne(
+        { _id: latest._id },
+        {
+          $set: {
+            status: "completed",
+            completionType: "abandoned",
+            endedAt: new Date(lastActiveMs),
+          },
+        }
+      );
+      return null;
+    }
+
+    return latest;
   }
 
   async sessions(userId) {

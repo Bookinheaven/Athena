@@ -131,9 +131,22 @@ export function transition(state, event) {
       // payload: { session }
       // The backend session becomes the single source of truth.
       const { session } = payload;
-      if (!session) return noChange(state);
+      if (!session || session.status === 'completed' || session.status === 'abandoned' || session.status === 'skipped') {
+        return {
+          state:   { ...INITIAL_STATE, phase: PHASES.IDLE },
+          effects: [],
+        };
+      }
 
       const segments     = normaliseSegments(session.sessionSegments || []);
+      const allComplete  = segments.length > 0 && segments.every((s) => s.completedAt);
+      if (allComplete) {
+        return {
+          state:   { ...INITIAL_STATE, phase: PHASES.IDLE },
+          effects: [],
+        };
+      }
+
       const segmentIndex = findCurrentSegmentIndex(segments);
 
       return {
@@ -174,9 +187,23 @@ export function transition(state, event) {
         sessionId       = null,
       } = payload.context || {};
 
+      const effects = [];
+      const sessionToAbandon =
+        payload?.existingSessionToAbandon?.sessionId ||
+        (state.backendCreated ? state.sessionId : null);
+      if (sessionToAbandon) {
+        effects.push({
+          type:    EFFECTS.PATCH_ABANDON,
+          payload: { sessionId: sessionToAbandon },
+        });
+      }
+      if (state.phase === PHASES.RUNNING || state.phase === PHASES.PAUSED) {
+        effects.push({ type: EFFECTS.STOP_TIMER });
+      }
+
       return {
         state: {
-          ...state,
+          ...INITIAL_STATE,
           phase:           PHASES.IDLE,
           sessionId,
           sessionTitle:    title,
@@ -189,8 +216,13 @@ export function transition(state, event) {
           backendCreated:  false,
           segments:        [],        // segments created by hook before START
           completionError: null,
+          todos:           [],
+          pauseEvents:     [],
+          pauseStartedAt:  null,
+          sessionStats:    { ...INITIAL_STATE.sessionStats },
+          segmentIndex:    0,
         },
-        effects: [],
+        effects,
       };
     }
 
@@ -430,17 +462,30 @@ export function transition(state, event) {
     // ── Stop / Reset ──────────────────────────────────────────────────────────
 
     case EVENTS.STOP: {
-      // User explicitly stops (marks as skipped on backend via caller)
+      const effects = [{ type: EFFECTS.STOP_TIMER }];
+      if (state.sessionId && state.backendCreated) {
+        effects.push({
+          type:    EFFECTS.PATCH_ABANDON,
+          payload: { sessionId: state.sessionId },
+        });
+      }
       return {
         state:   { ...INITIAL_STATE },
-        effects: [{ type: EFFECTS.STOP_TIMER }],
+        effects,
       };
     }
 
     case EVENTS.RESET: {
+      const effects = [{ type: EFFECTS.RESET_TIMER }];
+      if (state.sessionId && state.backendCreated) {
+        effects.push({
+          type:    EFFECTS.PATCH_ABANDON,
+          payload: { sessionId: state.sessionId },
+        });
+      }
       return {
         state:   { ...INITIAL_STATE },
-        effects: [{ type: EFFECTS.RESET_TIMER }],
+        effects,
       };
     }
 

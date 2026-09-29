@@ -498,3 +498,298 @@ describe('SESSION_CREATED', () => {
     expect(next.sessionId).toBe('new_sid');
   });
 });
+
+// ── Section 16: Task Transition & Abandon Semantics ──────────────────────────
+
+describe('Task Transition & Abandon Semantics', () => {
+  it('STOP emits PATCH_ABANDON when session was backendCreated', () => {
+    const state = {
+      ...INITIAL_STATE,
+      phase: PHASES.RUNNING,
+      sessionId: 'sess_123',
+      backendCreated: true,
+    };
+    const { state: next, effects } = transition(state, { type: EVENTS.STOP });
+    expect(next.phase).toBe(PHASES.IDLE);
+    expect(effects).toContainEqual({
+      type: EFFECTS.PATCH_ABANDON,
+      payload: { sessionId: 'sess_123' },
+    });
+    expect(effects).toContainEqual({ type: EFFECTS.STOP_TIMER });
+  });
+
+  it('NO_SESSION clears previous session todos, pauseEvents, and stats', () => {
+    const dirtyState = {
+      ...INITIAL_STATE,
+      phase: PHASES.COMPLETED,
+      sessionId: 'old_sess',
+      sessionTitle: 'Task A',
+      taskIds: ['task_a'],
+      todos: [{ id: '1', title: 'Todo A' }],
+      pauseEvents: [{ id: 'p1' }],
+      sessionStats: { ...INITIAL_STATE.sessionStats, pauseCount: 3 },
+      segmentIndex: 2,
+    };
+
+    const newContext = {
+      taskIds: ['task_b'],
+      title: 'Task B',
+      source: 'today',
+      plannedDuration: 1500,
+    };
+
+    const { state: next } = transition(dirtyState, {
+      type: EVENTS.NO_SESSION,
+      payload: { context: newContext },
+    });
+
+    expect(next.phase).toBe(PHASES.IDLE);
+    expect(next.sessionTitle).toBe('Task B');
+    expect(next.taskIds).toEqual(['task_b']);
+    expect(next.todos).toEqual([]);
+    expect(next.pauseEvents).toEqual([]);
+    expect(next.sessionStats.pauseCount).toBe(0);
+    expect(next.segmentIndex).toBe(0);
+    expect(next.sessionId).toBeNull();
+  });
+
+  it('SESSION_LOADED ignores terminal (completed/abandoned/skipped) sessions', () => {
+    const loading = { ...INITIAL_STATE, phase: PHASES.LOADING };
+    const terminalSession = {
+      sessionId: 'old_done',
+      status: 'completed',
+      completionType: 'completed',
+      sessionSegments: [{ type: 'focus', totalDuration: 1500, completedAt: T1 }],
+    };
+
+    const { state: next } = transition(loading, {
+      type: EVENTS.SESSION_LOADED,
+      payload: { session: terminalSession },
+    });
+
+    expect(next.phase).toBe(PHASES.IDLE);
+    expect(next.sessionId).toBeNull();
+  });
+
+  it('SESSION_LOADED ignores sessions where all segments are completed', () => {
+    const loading = { ...INITIAL_STATE, phase: PHASES.LOADING };
+    const allDoneSession = {
+      sessionId: 'all_done',
+      status: 'active', // mislabeled as active
+      sessionSegments: [
+        { type: 'focus', totalDuration: 1500, completedAt: T1 },
+        { type: 'break', totalDuration: 300, completedAt: T2 },
+      ],
+    };
+
+    const { state: next } = transition(loading, {
+      type: EVENTS.SESSION_LOADED,
+      payload: { session: allDoneSession },
+    });
+
+    expect(next.phase).toBe(PHASES.IDLE);
+    expect(next.sessionId).toBeNull();
+  });
+});
+
+// ── Section 17: Focus Session Selection & Duration Regression Tests ─────────
+
+describe('Focus Session Selection & Duration Regression Tests', () => {
+  // Test A: No active session + Task B + 45 min
+  it('A: No active session + Task B + 45 min -> one new session, Task B, 2700s', () => {
+    const idleState = { ...INITIAL_STATE, phase: PHASES.IDLE };
+    const navContext = {
+      taskIds: ['task_b_id'],
+      title: 'Task B',
+      source: 'planner',
+      plannedDuration: 2700, // 45m
+    };
+
+    // 1. Transition with NO_SESSION (navContext)
+    const { state: prepared, effects: prepEffects } = transition(idleState, {
+      type: EVENTS.NO_SESSION,
+      payload: { context: navContext },
+    });
+
+    expect(prepared.phase).toBe(PHASES.IDLE);
+    expect(prepared.sessionTitle).toBe('Task B');
+    expect(prepared.taskIds).toEqual(['task_b_id']);
+    expect(prepared.plannedDuration).toBe(2700);
+    expect(prepared.backendCreated).toBe(false);
+    expect(prepEffects).toEqual([]);
+
+    // 2. Start session
+    const segments = [{ id: 's1', type: 'focus', duration: 0, totalDuration: 2700, label: 'Focus' }];
+    const { state: running, effects: startEffects } = transition(prepared, {
+      type: EVENTS.START,
+      payload: { segments, startedAtIso: T1 },
+    });
+
+    expect(running.phase).toBe(PHASES.RUNNING);
+    expect(running.plannedDuration).toBe(2700);
+    expect(running.sessionTitle).toBe('Task B');
+    expect(startEffects).toContainEqual({ type: EFFECTS.POST_SESSION });
+    expect(startEffects).toContainEqual({ type: EFFECTS.START_TIMER, payload: { segmentIndex: 0 } });
+  });
+
+  // Test B: Paused Task A + explicit Task B + 45 min
+  it('B: Paused Task A + explicit Task B + 45 min -> Task A abandoned, one new session for Task B at 2700s', () => {
+    const pausedTaskA = {
+      ...INITIAL_STATE,
+      phase: PHASES.PAUSED,
+      sessionId: 'sess_task_a',
+      sessionTitle: 'Check 1',
+      taskIds: ['task_a_id'],
+      plannedDuration: 1500,
+      backendCreated: true,
+    };
+
+    const newNavContext = {
+      taskIds: ['task_b_id'],
+      title: 'Frontend Refactor',
+      source: 'planner',
+      plannedDuration: 2700, // 45m
+    };
+
+    // Transition with NO_SESSION when explicit new task requested
+    const { state: prepared, effects: prepEffects } = transition(pausedTaskA, {
+      type: EVENTS.NO_SESSION,
+      payload: { context: newNavContext },
+    });
+
+    // Old session Task A is terminated/abandoned
+    expect(prepEffects).toContainEqual({
+      type: EFFECTS.PATCH_ABANDON,
+      payload: { sessionId: 'sess_task_a' },
+    });
+    expect(prepEffects).toContainEqual({ type: EFFECTS.STOP_TIMER });
+
+    // State is reset for Task B with 45m duration
+    expect(prepared.phase).toBe(PHASES.IDLE);
+    expect(prepared.sessionTitle).toBe('Frontend Refactor');
+    expect(prepared.plannedDuration).toBe(2700);
+    expect(prepared.backendCreated).toBe(false);
+
+    // New session starts
+    const segments = [{ id: 's1', type: 'focus', duration: 0, totalDuration: 2700, label: 'Focus' }];
+    const { state: running, effects: startEffects } = transition(prepared, {
+      type: EVENTS.START,
+      payload: { segments, startedAtIso: T1 },
+    });
+
+    expect(running.phase).toBe(PHASES.RUNNING);
+    expect(running.sessionTitle).toBe('Frontend Refactor');
+    expect(running.plannedDuration).toBe(2700);
+    expect(startEffects).toContainEqual({ type: EFFECTS.POST_SESSION });
+  });
+
+  // Test C: Paused Task A + return to Focus with no new context
+  it('C: Paused Task A + return to Focus with no new context -> Task A remains intact', () => {
+    const pausedTaskA = {
+      ...INITIAL_STATE,
+      phase: PHASES.PAUSED,
+      sessionId: 'sess_task_a',
+      sessionTitle: 'Check 1',
+      taskIds: ['task_a_id'],
+      plannedDuration: 1500,
+      backendCreated: true,
+      segments: [{ id: 's1', type: 'focus', duration: 300, totalDuration: 1500, elapsedAtPause: 300 }],
+      segmentIndex: 0,
+    };
+
+    // When returning to Focus without new context, no NO_SESSION or START is dispatched.
+    // When RESUME is clicked, Task A resumes without resetting
+    const { state: resumed, effects } = transition(pausedTaskA, {
+      type: EVENTS.RESUME,
+      payload: { resumedAtMs: 123456789 },
+    });
+
+    expect(resumed.phase).toBe(PHASES.RUNNING);
+    expect(resumed.sessionId).toBe('sess_task_a');
+    expect(resumed.sessionTitle).toBe('Check 1');
+    expect(resumed.plannedDuration).toBe(1500);
+    expect(effects).toContainEqual({ type: EFFECTS.START_TIMER, payload: { segmentIndex: 0 } });
+    expect(effects).not.toContainEqual({ type: EFFECTS.POST_SESSION });
+  });
+
+  // Test D: Completed Task A + Task B + 25 min
+  it('D: Completed Task A + Task B + 25 min -> Task B, 25 min (1500s)', () => {
+    const completedTaskA = {
+      ...INITIAL_STATE,
+      phase: PHASES.COMPLETED,
+      sessionId: 'sess_task_a',
+      sessionTitle: 'Task A',
+      plannedDuration: 3000,
+      backendCreated: true,
+    };
+
+    const newNavContext = {
+      taskIds: ['task_b_id'],
+      title: 'Task B',
+      source: 'planner',
+      plannedDuration: 1500, // 25m
+    };
+
+    const { state: prepared, effects: prepEffects } = transition(completedTaskA, {
+      type: EVENTS.NO_SESSION,
+      payload: { context: newNavContext },
+    });
+
+    expect(prepared.phase).toBe(PHASES.IDLE);
+    expect(prepared.sessionTitle).toBe('Task B');
+    expect(prepared.plannedDuration).toBe(1500);
+    // Completed session was already finished, not running or paused
+    expect(prepEffects).not.toContainEqual({ type: EFFECTS.STOP_TIMER });
+
+    const segments = [{ id: 's1', type: 'focus', duration: 0, totalDuration: 1500, label: 'Focus' }];
+    const { state: running, effects: startEffects } = transition(prepared, {
+      type: EVENTS.START,
+      payload: { segments, startedAtIso: T1 },
+    });
+
+    expect(running.phase).toBe(PHASES.RUNNING);
+    expect(running.sessionTitle).toBe('Task B');
+    expect(running.plannedDuration).toBe(1500);
+    expect(startEffects).toContainEqual({ type: EFFECTS.POST_SESSION });
+  });
+
+  // Test E: No duplicate POST /api/session
+  it('E: No duplicate POST_SESSION effect after backendCreated is true', () => {
+    const idleState = { ...INITIAL_STATE, phase: PHASES.IDLE, plannedDuration: 2700 };
+    const segments = [{ id: 's1', type: 'focus', duration: 0, totalDuration: 2700, label: 'Focus' }];
+
+    // First start triggers POST_SESSION
+    const { state: running1, effects: eff1 } = transition(idleState, {
+      type: EVENTS.START,
+      payload: { segments, startedAtIso: T1 },
+    });
+    expect(eff1).toContainEqual({ type: EFFECTS.POST_SESSION });
+
+    // Backend confirms creation
+    const { state: runningCreated } = transition(running1, {
+      type: EVENTS.SESSION_CREATED,
+      payload: { sessionId: 'new_sess_id' },
+    });
+    expect(runningCreated.backendCreated).toBe(true);
+
+    // Pause and Resume do NOT emit POST_SESSION
+    const { state: paused } = transition(runningCreated, {
+      type: EVENTS.PAUSE,
+      payload: { pausedAtMs: 1000, elapsedSeconds: 10 },
+    });
+    const { state: resumed, effects: effResume } = transition(paused, {
+      type: EVENTS.RESUME,
+      payload: { resumedAtMs: 2000 },
+    });
+    expect(effResume).not.toContainEqual({ type: EFFECTS.POST_SESSION });
+
+    // Transitioning from READY to START for next segment does NOT emit POST_SESSION
+    const readyState = { ...resumed, phase: PHASES.READY, segmentIndex: 1 };
+    const { state: nextSegRunning, effects: effNextSeg } = transition(readyState, {
+      type: EVENTS.START,
+      payload: { segments, startedAtIso: T2 },
+    });
+    expect(effNextSeg).not.toContainEqual({ type: EFFECTS.POST_SESSION });
+  });
+});
+

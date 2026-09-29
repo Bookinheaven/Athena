@@ -17,10 +17,15 @@
 export function createSegments(totalFocusDuration, breakDuration, maxBreaks) {
   const MIN_FOCUS_SEGMENT = 25 * 60; // 25 minutes minimum per focus block
 
-  const possibleBreaks = Math.min(
-    maxBreaks,
-    Math.floor(totalFocusDuration / (MIN_FOCUS_SEGMENT + breakDuration)),
-  );
+  // To fit k breaks, we need at least (k + 1) focus segments of MIN_FOCUS_SEGMENT:
+  // (k + 1) * MIN_FOCUS_SEGMENT + k * breakDuration <= totalFocusDuration
+  const possibleBreaks =
+    totalFocusDuration < MIN_FOCUS_SEGMENT * 2 + breakDuration
+      ? 0
+      : Math.min(
+          maxBreaks,
+          Math.floor((totalFocusDuration - MIN_FOCUS_SEGMENT) / (MIN_FOCUS_SEGMENT + breakDuration)),
+        );
 
   const totalBreakTime    = possibleBreaks * breakDuration;
   const totalFocusTime    = totalFocusDuration - totalBreakTime;

@@ -55,7 +55,7 @@ export function useFocusTimer({ timerRef, runtimeState }) {
     return () => cancelAnimationFrame(rafRef.current);
   }, [isRunning, timerRef, currentSegment]);
 
-  // Also recover elapsed on visibility restore
+  // Also recover elapsed on visibility restore or window focus
   useEffect(() => {
     const onVisible = () => {
       if (!timerRef.current) return;
@@ -64,7 +64,11 @@ export function useFocusTimer({ timerRef, runtimeState }) {
       setElapsed(val);
     };
     document.addEventListener('visibilitychange', onVisible);
-    return () => document.removeEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
+    };
   }, [timerRef]);
 
   const clampedElapsed = Math.min(elapsed, totalDuration);

@@ -169,20 +169,22 @@ export const Sidebar = ({ className }) => {
             /* Collapsed: avatar + separator + logout icon */
             <div className="flex flex-col items-center py-2 gap-0.5">
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={() => navigate("/profile")}
-                    className="w-9 h-9 flex items-center justify-center rounded-md hover:bg-sidebar-accent/50 transition-colors cursor-pointer focus-visible:outline-none"
-                    aria-label="Profile"
-                  >
-                    <Avatar className="h-6 w-6 border border-sidebar-border/60 bg-sidebar-accent">
-                      <AvatarImage src={user?.avatar} alt={user?.fullName || "User"} />
-                      <AvatarFallback className="bg-sidebar-accent text-sidebar-accent-foreground font-semibold text-[9px]">
-                        {getInitials(user?.fullName || user?.username)}
-                      </AvatarFallback>
-                    </Avatar>
-                  </button>
-                </TooltipTrigger>
+                <TooltipTrigger
+                  render={
+                    <button
+                      onClick={() => navigate("/profile")}
+                      className="w-9 h-9 flex items-center justify-center rounded-md hover:bg-sidebar-accent/50 transition-colors cursor-pointer focus-visible:outline-none"
+                      aria-label="Profile"
+                    >
+                      <Avatar className="h-6 w-6 border border-sidebar-border/60 bg-sidebar-accent">
+                        <AvatarImage src={user?.avatar} alt={user?.fullName || "User"} />
+                        <AvatarFallback className="bg-sidebar-accent text-sidebar-accent-foreground font-semibold text-[9px]">
+                          {getInitials(user?.fullName || user?.username)}
+                        </AvatarFallback>
+                      </Avatar>
+                    </button>
+                  }
+                />
                 <TooltipContent side="right" className="font-medium text-xs">
                   {user?.fullName || user?.username || "Profile"}
                 </TooltipContent>
@@ -191,15 +193,17 @@ export const Sidebar = ({ className }) => {
               <div className="w-5 h-px bg-sidebar-border/50 my-0.5" />
 
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={() => setShowLogoutModal(true)}
-                    aria-label="Log out"
-                    className="w-9 h-9 flex items-center justify-center rounded-md text-sidebar-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer focus-visible:outline-none"
-                  >
-                    <LogOut className="h-4 w-4" />
-                  </button>
-                </TooltipTrigger>
+                <TooltipTrigger
+                  render={
+                    <button
+                      onClick={() => setShowLogoutModal(true)}
+                      aria-label="Log out"
+                      className="w-9 h-9 flex items-center justify-center rounded-md text-sidebar-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer focus-visible:outline-none"
+                    >
+                      <LogOut className="h-4 w-4" />
+                    </button>
+                  }
+                />
                 <TooltipContent side="right" className="font-medium text-xs">
                   Log out
                 </TooltipContent>

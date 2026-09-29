@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { ArrowLeft, Clock, Target, CalendarDays, Loader2, CheckCircle, X, FileText, CheckCircle2, Zap, Coffee, Maximize2 } from "lucide-react";
 import sessionService from "../../../../services/sessionService.js";
-import { useNotes } from "../focus/hooks/useNotes.js";
+import { useNotes } from "@/features/focus";
 import { useEffect, useState } from "react";
 
 const formatTime = (seconds) => {

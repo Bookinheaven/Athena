@@ -1,38 +1,53 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useLocation } from "react-router-dom";
-import { useAuth } from "@contexts/AuthContext";
-import { useFocusRuntime } from "@/features/focus/hooks/useFocusRuntime.js";
-import { useFocusTimer } from "@/features/focus/hooks/useFocusTimer.js";
-import { useFocusSettings } from "@/features/focus/hooks/useFocusSettings.js";
-import { PHASES } from "@/features/focus/runtime/constants.js";
-import { FocusWorkspace } from "@/features/focus/components/FocusWorkspace.jsx";
-import { useNotes } from "./hooks/useNotes.js";
+import {
+  useFocus,
+  useFocusTimer,
+  PHASES,
+  FocusWorkspace,
+  useNotes,
+} from "@/features/focus";
 import sessionService from "@services/sessionService.js";
 import taskService from "@services/taskService.js";
 
 const FocusSession = () => {
   const location = useLocation();
-  const { user } = useAuth();
-  const userId = user?._id || user?.id;
+  const {
+    runtime,
+    settings,
+    modifySettings,
+    userId,
+    sessionReview,
+    updateReview: handleReviewUpdate,
+    toggleReviewDistraction: handleDistractionToggle,
+    submitSessionReview: handleFinalSaveAndStartNew,
+    isSubmittingReview,
+  } = useFocus();
 
   // Navigation context passed by Today / Planner / Timeline
   const navContext = location.state || null;
+  const navContextHandledRef = useRef(null);
 
-  // Focus settings
-  const { settings, setSetting, saveSettingsToBackend } = useFocusSettings(userId);
+  // Explicit user intent to start a new task session
+  const isExplicitTaskRequest = Boolean(
+    navContext &&
+      navContext.source &&
+      (navContext.title || (navContext.taskIds && navContext.taskIds.length > 0))
+  );
 
-  // Sound handler
-  const handleSoundEvent = useCallback(({ event: soundEvent }) => {
-    if (!settings.isSoundEnabled || !settings.soundOnTransition) return;
-  }, [settings.isSoundEnabled, settings.soundOnTransition]);
+  // If arriving with navigation context and runtime can accept new session (idle or completed)
+  // or user explicitly initiated a new focus session for a task
+  const canStartNew = runtime.isIdle || runtime.isCompleted || isExplicitTaskRequest;
 
-  // Focus runtime
-  const runtime = useFocusRuntime({
-    context: navContext,
-    settings,
-    onSoundEvent: handleSoundEvent,
-    userId,
-  });
+  useEffect(() => {
+    if (navContext && canStartNew && navContextHandledRef.current !== navContext) {
+      navContextHandledRef.current = navContext;
+      runtime.commands.startWithContext(navContext);
+      try {
+        window.history.replaceState({}, document.title);
+      } catch {}
+    }
+  }, [navContext, canStartNew, runtime.commands]);
 
   const {
     phase,
@@ -51,46 +66,43 @@ const FocusSession = () => {
   // Scratchpad notes
   const { notes, createNote, updateNote, deleteNote } = useNotes();
 
-  // Session review & distractions state
-  const [sessionReview, setSessionReview] = useState({
-    mood: null,
-    focus: null,
-    distractions: "",
-  });
-
-  const handleReviewUpdate = useCallback((field, value) => {
-    setSessionReview((p) => ({ ...p, [field]: value }));
-  }, []);
-
-  const handleDistractionToggle = useCallback((distraction) => {
-    setSessionReview((p) => {
-      const current = (p.distractions || "")
-        .split(",")
-        .map((d) => d.trim().toLowerCase())
-        .filter(Boolean);
-      const lower = distraction.toLowerCase();
-      const updated = current.includes(lower)
-        ? current.filter((d) => d !== lower)
-        : [...current, distraction];
-      return { ...p, distractions: updated.join(", ") };
-    });
-  }, []);
-
-  // Todo checklist synced with backend
+  // Todo checklist synced with Focus runtime
   const [newTodo, setNewTodo] = useState("");
+  const hasHydratedTasksRef = useRef(null);
 
-  const updateTodos = useCallback((newTodos) => {
-    commands.setTodos(newTodos);
-  }, [commands]);
+  const updateTodos = useCallback(
+    (newTodos) => {
+      commands.setTodos(newTodos);
+    },
+    [commands]
+  );
 
-  // Sync tasks from backend into todos when Focus loads
+  // Reset hydration tracker when sessionId changes
+  useEffect(() => {
+    hasHydratedTasksRef.current = null;
+  }, [sessionId]);
+
+  // Sync tasks from backend into runtime todos only once if todos are empty
   useEffect(() => {
     if (phase === PHASES.LOADING || phase === PHASES.IDLE) return;
+    if (hasHydratedTasksRef.current === (sessionId || "active")) return;
+    if (todos && todos.length > 0) {
+      hasHydratedTasksRef.current = sessionId || "active";
+      return;
+    }
+
     const fetchTasks = async () => {
       try {
+        hasHydratedTasksRef.current = sessionId || "active";
         const tasks = await taskService.getTasks();
-        const mapped = tasks.map((t) => ({
-          id: t._id,
+        const relevantIds = runtime.taskIds || [];
+        const filtered =
+          relevantIds.length > 0
+            ? tasks.filter((t) => relevantIds.includes(t._id || t.id))
+            : tasks.filter((t) => t.status !== "completed" && t.status !== "cancelled");
+
+        const mapped = filtered.map((t) => ({
+          id: t._id || t.id,
           title: t.title,
           status:
             t.status === "completed"
@@ -102,13 +114,17 @@ const FocusSession = () => {
               : "Not Started",
           createdAt: t.createdAt,
         }));
-        updateTodos(mapped);
+
+        if (mapped.length > 0) {
+          updateTodos(mapped);
+        }
       } catch (err) {
         console.error("Failed to fetch tasks for Focus:", err);
       }
     };
+
     fetchTasks();
-  }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [phase, sessionId, runtime.taskIds, todos, updateTodos]);
 
   const handleAddTodo = useCallback(async () => {
     if (!newTodo.trim()) return;
@@ -128,9 +144,11 @@ const FocusSession = () => {
         dueDate: new Date(),
         priority: "medium",
       });
-      updateTodos(
-        todos.map((t) => (t.id === optimisticId ? { ...t, id: created._id } : t))
-      );
+      if (created?._id) {
+        updateTodos(
+          todos.map((t) => (t.id === optimisticId ? { ...t, id: created._id } : t))
+        );
+      }
     } catch (err) {
       console.error("Failed to create task in DB:", err);
     }
@@ -166,35 +184,6 @@ const FocusSession = () => {
       }
     },
     [todos, updateTodos]
-  );
-
-  // Save feedback and complete session
-  const handleFinalSaveAndStartNew = useCallback(async () => {
-    await commands.forceSave();
-    if (sessionId) {
-      try {
-        await sessionService.sessionFeedback({
-          sessionId,
-          feedback: sessionReview,
-        });
-      } catch (err) {
-        console.error("Feedback save failed:", err);
-      }
-    }
-    commands.stop();
-    setSessionReview({ mood: null, focus: null, distractions: "" });
-    createNote({ title: "", content: "<p></p>", task: null }).catch(console.error);
-  }, [commands, sessionId, sessionReview, createNote]);
-
-  // Settings persistence
-  const modifySettings = useCallback(
-    async (changed) => {
-      for (const [k, v] of Object.entries(changed)) {
-        setSetting(k, v);
-      }
-      await saveSettingsToBackend(changed);
-    },
-    [setSetting, saveSettingsToBackend]
   );
 
   return (

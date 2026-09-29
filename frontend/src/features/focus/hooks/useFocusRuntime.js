@@ -87,9 +87,10 @@ export function useFocusRuntime({ context = {}, settings = {}, onSoundEvent, use
    */
   const save = useCallback(async (type, payload) => {
     const state = runtimeStateRef.current;
-    if (!state.sessionId) return;
+    const targetSessionId = payload?.sessionId || state.sessionId;
+    if (!targetSessionId) return;
 
-    const base = { sessionId: state.sessionId };
+    const base = { sessionId: targetSessionId };
 
     switch (type) {
       case 'pause':
@@ -148,6 +149,13 @@ export function useFocusRuntime({ context = {}, settings = {}, onSoundEvent, use
         await sessionService.updateProgress({ ...base, todos: payload.todos });
         break;
 
+      case 'abandon':
+        await sessionService.updateProgress({
+          ...base,
+          status: 'abandoned',
+        });
+        break;
+
       default:
         break;
     }
@@ -173,6 +181,28 @@ export function useFocusRuntime({ context = {}, settings = {}, onSoundEvent, use
   }, []);
 
   /**
+   * Check whether the active segment has elapsed its planned duration.
+   * Prevents relying exclusively on setTimeout in background/throttled scenarios.
+   */
+  const checkSegmentCompletion = useCallback(() => {
+    const current = runtimeStateRef.current;
+    if (current.phase !== PHASES.RUNNING) return;
+    const seg = current.segments[current.segmentIndex];
+    if (!seg || seg.completedAt) return;
+
+    const timer = timerRef.current;
+    if (!timer) return;
+    const elapsed = timer.getElapsedSeconds();
+    if (elapsed >= seg.totalDuration) {
+      clearCompletionTimeout();
+      dispatch({
+        type:    EVENTS.SEGMENT_COMPLETE,
+        payload: { completedAtIso: new Date().toISOString() },
+      });
+    }
+  }, [clearCompletionTimeout, dispatch]);
+
+  /**
    * Schedule a single wall-clock setTimeout that fires when the segment
    * should complete. This replaces the RAF-based timeLeft check.
    *
@@ -185,8 +215,16 @@ export function useFocusRuntime({ context = {}, settings = {}, onSoundEvent, use
     const seg     = state.segments[segmentIndex];
     if (!seg || seg.completedAt) return;
 
-    const elapsed = recoverElapsed(seg);
+    const elapsed = timerRef.current ? timerRef.current.getElapsedSeconds() : recoverElapsed(seg);
     const remaining = Math.max(0, seg.totalDuration - elapsed);
+
+    if (remaining <= 0) {
+      dispatch({
+        type:    EVENTS.SEGMENT_COMPLETE,
+        payload: { completedAtIso: new Date().toISOString() },
+      });
+      return;
+    }
 
     completionRef.current = setTimeout(() => {
       // Check guard again in case something changed (STOP, RESET)
@@ -200,6 +238,12 @@ export function useFocusRuntime({ context = {}, settings = {}, onSoundEvent, use
       });
     }, remaining * 1000);
   }, [clearCompletionTimeout, dispatch]);
+
+  useEffect(() => {
+    return () => {
+      clearCompletionTimeout();
+    };
+  }, [clearCompletionTimeout]);
 
   const startTimer = useCallback((segmentIndex) => {
     const state  = runtimeStateRef.current;
@@ -251,12 +295,20 @@ export function useFocusRuntime({ context = {}, settings = {}, onSoundEvent, use
       case EFFECTS.FETCH_ACTIVE_SESSION: {
         sessionService.getActiveSession()
           .then((session) => {
-            if (session?.status === 'active') {
+            const hasExplicitNewTask = Boolean(
+              contextRef.current?.source &&
+              (contextRef.current?.title || contextRef.current?.taskIds?.length)
+            );
+
+            if (session?.status === 'active' && !hasExplicitNewTask) {
               dispatch({ type: EVENTS.SESSION_LOADED, payload: { session } });
             } else {
               dispatch({
                 type:    EVENTS.NO_SESSION,
-                payload: { context: contextRef.current },
+                payload: {
+                  context: contextRef.current,
+                  existingSessionToAbandon: session?.status === 'active' && hasExplicitNewTask ? session : null,
+                },
               });
             }
           })
@@ -346,6 +398,11 @@ export function useFocusRuntime({ context = {}, settings = {}, onSoundEvent, use
             payload: { error: err },
           });
         });
+        break;
+
+      case EFFECTS.PATCH_ABANDON:
+        queueRef.current?.enqueue('abandon', payload);
+        queueRef.current?.flush();
         break;
 
       case EFFECTS.PATCH_TITLE:
@@ -459,6 +516,37 @@ export function useFocusRuntime({ context = {}, settings = {}, onSoundEvent, use
     };
   }, []);
 
+  // ── Immediate recalculation on visibility / focus resume ─────────────────────
+  useEffect(() => {
+    const onResume = () => {
+      if (document.visibilityState === 'visible') {
+        checkSegmentCompletion();
+      }
+    };
+    const onWindowFocus = () => {
+      checkSegmentCompletion();
+    };
+
+    document.addEventListener('visibilitychange', onResume);
+    window.addEventListener('focus', onWindowFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', onResume);
+      window.removeEventListener('focus', onWindowFocus);
+    };
+  }, [checkSegmentCompletion]);
+
+  // ── Periodic completion check (safeguard against throttled setTimeout) ───────
+  useEffect(() => {
+    if (runtimeState.phase !== PHASES.RUNNING) return;
+
+    const interval = setInterval(() => {
+      checkSegmentCompletion();
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [runtimeState.phase, checkSegmentCompletion]);
+
   // ── Public commands (typed, stable references) ───────────────────────────────
 
   const commands = {
@@ -536,6 +624,16 @@ export function useFocusRuntime({ context = {}, settings = {}, onSoundEvent, use
     getElapsed: useCallback(() => {
       return timerRef.current?.getElapsedSeconds() ?? 0;
     }, []),
+
+    // Start with navigation context from external pages (Today / Planner)
+    startWithContext: useCallback((navCtx) => {
+      if (!navCtx) return;
+      contextRef.current = navCtx;
+      dispatch({
+        type: EVENTS.NO_SESSION,
+        payload: { context: navCtx },
+      });
+    }, [dispatch]),
   };
 
   // ── Derived helpers ──────────────────────────────────────────────────────────
