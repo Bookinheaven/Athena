@@ -16,6 +16,7 @@ export const FocusWorkspace = ({
   timerData,
   settings,
   modifySettings,
+  resetSettings,
   notesProps,
   todos,
   newTodo,
@@ -111,7 +112,6 @@ export const FocusWorkspace = ({
     todos: false,
     notes: false,
     distraction: false,
-    workflow: false,
     settings: false,
   });
 
@@ -338,8 +338,6 @@ export const FocusWorkspace = ({
             setSelectedDuration={setSelectedDuration}
             showQuotes={showQuotes}
             setShowQuotes={setShowQuotes}
-            showWorkflow={activeDrawers.workflow}
-            setShowWorkflow={() => toggleDrawer("workflow")}
             onDistractionToggle={onDistractionToggle}
           />
         )}
@@ -362,6 +360,7 @@ export const FocusWorkspace = ({
           plannedDuration: runtime.state.plannedDuration,
           settings,
           onSave: modifySettings,
+          onReset: resetSettings,
         }}
         sessionReview={sessionReview}
         onDistractionToggle={onDistractionToggle}

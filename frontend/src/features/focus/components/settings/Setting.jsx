@@ -62,6 +62,7 @@ export const Settings = ({
   show,
   onClose,
   onSave,
+  onReset,
   initialValues,
   plannedDuration = 1500,
   hideHeader = false,
@@ -85,19 +86,23 @@ export const Settings = ({
     if (onSave) onSave(newDraft);
   };
 
-  const handleResetDefaults = () => {
-    const defaults = {
-      breakDuration: 5 * 60,
-      autoStartBreaks: true,
-      breaksNumber: 4,
-      skipBreaks: false,
-      confirmReset: true,
-      soundOnTransition: true,
-      isSoundEnabled: true,
-    };
-    setDraft(defaults);
-    if (onSave) onSave(defaults);
-    toast.success("Settings reset to defaults");
+  const handleResetDefaults = async () => {
+    if (draft.confirmReset) {
+      if (!window.confirm("Reset all focus settings back to system defaults?")) {
+        return;
+      }
+    }
+
+    try {
+      if (onReset) {
+        const defaults = await onReset();
+        if (defaults) setDraft(defaults);
+      }
+      toast.success("Settings reset to defaults");
+    } catch (err) {
+      console.error("[Settings] Failed to reset settings:", err);
+      toast.error("Failed to reset settings");
+    }
   };
 
   if (!show) return null;

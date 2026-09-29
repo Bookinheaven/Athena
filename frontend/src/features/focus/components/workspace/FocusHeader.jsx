@@ -9,7 +9,6 @@ import {
   Quote,
   NotebookPen,
   AlertCircle,
-  Blocks,
   Loader2,
   CheckCircle,
   AlertTriangle,
@@ -278,18 +277,6 @@ export const FocusHeader = ({
           title="Log Distraction"
         >
           <AlertCircle size={18} />
-        </button>
-
-        <button
-          onClick={() => toggleDrawer("workflow")}
-          className={`p-2 rounded-xl transition-all ${
-            activeDrawers.workflow
-              ? "bg-primary text-primary-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
-          }`}
-          title="Workflow Resources"
-        >
-          <Blocks size={18} />
         </button>
 
         <button

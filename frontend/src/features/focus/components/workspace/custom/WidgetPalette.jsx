@@ -7,7 +7,6 @@ import {
   NotebookPen,
   Activity,
   AlertCircle,
-  Blocks,
   Quote,
   BarChart3,
   Plus,
@@ -77,15 +76,6 @@ export const WIDGET_METADATA = {
     minHeight: 192,
     defaultWidth: 432,
     defaultHeight: 256,
-  },
-  workflow: {
-    title: "Workflow Dock",
-    icon: Blocks,
-    description: "Quick access links to project resources",
-    minWidth: 320,
-    minHeight: 96,
-    defaultWidth: 1168,
-    defaultHeight: 128,
   },
   motivation: {
     title: "Daily Inspiration",

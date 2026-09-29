@@ -3,7 +3,6 @@ import { FocusTaskCard } from "../../task/FocusTaskCard.jsx";
 import { FocusTimerDisplay } from "../FocusTimerDisplay.jsx";
 import { FocusControls } from "../FocusControls.jsx";
 import { MotivationalBanner } from "../../shared/MotivationalBanner.jsx";
-import { WorkflowDockV2 } from "../../shared/WorkflowDockV2.jsx";
 
 export const StandardWorkspace = ({
   runtime,
@@ -17,8 +16,6 @@ export const StandardWorkspace = ({
   setSelectedDuration,
   showQuotes,
   setShowQuotes,
-  showWorkflow,
-  setShowWorkflow,
   onDistractionToggle,
 }) => {
   const {
@@ -30,7 +27,6 @@ export const StandardWorkspace = ({
     isRunning,
     isPaused,
     isIdle,
-    isCompleted,
     isCompleting,
     commands,
     state,
@@ -56,7 +52,6 @@ export const StandardWorkspace = ({
       <FocusTaskCard
         taskTitle={activeTaskTitle}
         setTaskTitle={(t) => commands.setTitle(t)}
-        onTitleSet={() => {}}
         navContext={navContext}
         isScheduled={state.isScheduled}
         scheduleBlock={state.scheduleBlockId}
@@ -88,7 +83,6 @@ export const StandardWorkspace = ({
         isRunning={isRunning}
         isPaused={isPaused}
         isCompleting={isCompleting}
-        isCompleted={isCompleted}
         currentSegment={currentSegment}
         onStart={handleStart}
         onPause={() => commands.pause()}
@@ -96,18 +90,12 @@ export const StandardWorkspace = ({
         onStop={handleStop}
         onReset={handleReset}
         onSkipBreak={() => commands.skipBreak()}
-        onReview={() => {}}
         onSelectPauseReason={(reason) => onDistractionToggle(reason)}
       />
 
       <MotivationalBanner
         show={showQuotes}
         onClose={() => setShowQuotes(false)}
-      />
-
-      <WorkflowDockV2
-        show={showWorkflow}
-        onClose={() => setShowWorkflow(false)}
       />
     </div>
   );

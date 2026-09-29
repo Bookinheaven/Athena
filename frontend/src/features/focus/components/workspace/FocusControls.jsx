@@ -24,7 +24,6 @@ export const FocusControls = ({
   isRunning,
   isPaused,
   isCompleting,
-  isCompleted,
   currentSegment,
   onStart,
   onPause,
@@ -32,7 +31,6 @@ export const FocusControls = ({
   onStop,
   onReset,
   onSkipBreak,
-  onReview,
   onSelectPauseReason,
 }) => {
   const [activeReason, setActiveReason] = useState("Break");
@@ -46,16 +44,7 @@ export const FocusControls = ({
   return (
     <div className="flex flex-col items-center justify-center gap-4 mt-6 select-none w-full max-w-md mx-auto">
       <div className="flex items-center gap-3 p-1.5 rounded-full bg-secondary/40 backdrop-blur-xl border border-border/50 shadow-lg">
-        {isCompleted ? (
-          <button
-            type="button"
-            onClick={onReview}
-            className="flex items-center gap-2.5 px-8 py-3 rounded-full bg-emerald-500 text-white font-bold text-sm shadow-md hover:bg-emerald-600 active:scale-95 transition-all"
-          >
-            <Sparkles size={18} />
-            <span>Review Session</span>
-          </button>
-        ) : isCompleting ? (
+        {isCompleting ? (
           <div className="flex items-center gap-2.5 px-8 py-3 rounded-full bg-primary/80 text-primary-foreground font-bold text-sm shadow-md cursor-wait">
             <Loader2 size={18} className="animate-spin" />
             <span>Completing...</span>

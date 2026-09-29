@@ -1,11 +1,10 @@
 import React from "react";
-import { Clock, Calendar, CheckCircle2, Target, Coffee } from "lucide-react";
+import { Clock, Calendar, Target, Coffee } from "lucide-react";
 import { EditableTitle } from "./EditableTitle.jsx";
 
 export const FocusTaskCard = ({
   taskTitle,
   setTaskTitle,
-  onTitleSet,
   navContext,
   isScheduled,
   scheduleBlock,
@@ -40,7 +39,6 @@ export const FocusTaskCard = ({
   const scheduledTimeInterval =
     startTimeStr && endTimeStr ? `${startTimeStr} – ${endTimeStr}` : null;
 
-  const completedTodos = todos.filter((t) => t.status === "Completed").length;
   const isBreak = currentSegment?.type === "break";
 
   return (
@@ -80,15 +78,6 @@ export const FocusTaskCard = ({
           </div>
         )}
 
-        {/* {todos.length > 0 && (
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-secondary/60 border border-border/40 text-muted-foreground text-xs font-medium">
-            <CheckCircle2 size={12} className="text-emerald-400" />
-            <span>
-              {completedTodos} / {todos.length} done
-            </span>
-          </div>
-        )} */}
-
         {totalSegments > 1 && (
           <div
             className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${isBreak
@@ -116,7 +105,6 @@ export const FocusTaskCard = ({
       <EditableTitle
         title={taskTitle}
         setTitle={setTaskTitle}
-        titleSet={onTitleSet}
         className="w-full"
       />
 

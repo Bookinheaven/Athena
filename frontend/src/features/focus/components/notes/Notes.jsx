@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import {
   X,
   Trash2,
@@ -26,7 +26,6 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
-import taskService from "@services/taskService.js";
 
 const MenuBar = ({ editor }) => {
   if (!editor) return null;
@@ -103,7 +102,6 @@ export const Notes = ({
   deleteNote,
 }) => {
   const [selectedTaskId, setSelectedTaskId] = useState("all");
-  const [userTasks, setUserTasks] = useState([]);
   const [editingId, setEditingId] = useState(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -111,43 +109,80 @@ export const Notes = ({
   const titleDebounceRef = useRef(null);
   const [localTitle, setLocalTitle] = useState("");
 
+  const pendingChangesRef = useRef({ id: null, title: undefined, content: undefined });
   const previousEditingId = useRef(editingId);
   const notesRef = useRef(notes);
-
-  useEffect(() => {
-    let mounted = true;
-    taskService
-      .getTasks()
-      .then((res) => {
-        if (!mounted) return;
-        const list = Array.isArray(res?.data)
-          ? res.data
-          : Array.isArray(res)
-          ? res
-          : [];
-        setUserTasks(list);
-      })
-      .catch((err) => {
-        console.error("[Notes] Failed to load tasks:", err);
-      });
-    return () => {
-      mounted = false;
-    };
-  }, []);
 
   useEffect(() => {
     notesRef.current = notes;
   }, [notes]);
 
+  const flushPendingSave = useCallback(() => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+    }
+    if (titleDebounceRef.current) {
+      clearTimeout(titleDebounceRef.current);
+      titleDebounceRef.current = null;
+    }
+
+    const pending = pendingChangesRef.current;
+    if (!pending.id) return;
+
+    const payload = {};
+    if (pending.content !== undefined) payload.content = pending.content;
+    if (pending.title !== undefined) payload.title = pending.title;
+
+    if (Object.keys(payload).length > 0) {
+      const targetId = pending.id;
+      pendingChangesRef.current = { id: null, title: undefined, content: undefined };
+      updateNote(targetId, payload);
+    }
+  }, [updateNote]);
+
+  // Flush pending changes before editingId changes
+  useEffect(() => {
+    return () => {
+      flushPendingSave();
+    };
+  }, [editingId, flushPendingSave]);
+
+  // Flush pending changes when drawer closes or unmounts
+  useEffect(() => {
+    if (!show) {
+      flushPendingSave();
+    }
+  }, [show, flushPendingSave]);
+
+  useEffect(() => {
+    return () => {
+      flushPendingSave();
+    };
+  }, [flushPendingSave]);
+
   useEffect(() => {
     const prevId = previousEditingId.current;
     if (prevId && prevId !== editingId) {
-      const prevNote = notesRef.current.find(n => n.id === prevId);
+      const prevNote = notesRef.current.find((n) => n.id === prevId);
       if (prevNote) {
+        const hasPendingTitle =
+          pendingChangesRef.current.id === prevId &&
+          Boolean(pendingChangesRef.current.title?.trim());
+        const hasPendingContent =
+          pendingChangesRef.current.id === prevId &&
+          Boolean(
+            pendingChangesRef.current.content &&
+            pendingChangesRef.current.content !== "<p></p>"
+          );
+
         const isEmpty =
           (!prevNote.title || !prevNote.title.trim()) &&
           (!prevNote.content || prevNote.content === "<p></p>") &&
-          !localTitle.trim();
+          !localTitle.trim() &&
+          !hasPendingTitle &&
+          !hasPendingContent;
+
         const isCurrentlyEditing = prevId === editingId;
         if (isEmpty && !isCurrentlyEditing) {
           deleteNote(prevId);
@@ -160,7 +195,7 @@ export const Notes = ({
 
   const allAvailableTasks = useMemo(() => {
     const map = new Map();
-    // 1. Tasks from tasks prop
+    // 1. Tasks from tasks prop (hydrated by useFocusTasks)
     (tasks || []).forEach((t) => {
       const id = String(t._id || t.id);
       if (id) {
@@ -172,19 +207,7 @@ export const Notes = ({
         });
       }
     });
-    // 2. Tasks from userTasks (taskService)
-    userTasks.forEach((t) => {
-      const id = String(t._id || t.id);
-      if (id && !map.has(id)) {
-        map.set(id, {
-          id,
-          _id: id,
-          title: t.title || t.name || "Untitled Task",
-          status: t.status,
-        });
-      }
-    });
-    // 3. Todos from session checklist
+    // 2. Todos from session checklist
     (todos || []).forEach((t) => {
       const id = String(t.id || t._id);
       if (id) {
@@ -197,7 +220,7 @@ export const Notes = ({
         });
       }
     });
-    // 4. Notes referencing tasks
+    // 3. Notes referencing tasks
     notes.forEach((n) => {
       const raw = n.taskId || (typeof n.task === "object" ? n.task?._id : n.task);
       if (raw) {
@@ -212,7 +235,7 @@ export const Notes = ({
       }
     });
     return Array.from(map.values());
-  }, [tasks, userTasks, todos, notes]);
+  }, [tasks, todos, notes]);
 
   const selectedTask = useMemo(
     () => allAvailableTasks.find((t) => String(t.id) === String(selectedTaskId)),
@@ -267,16 +290,24 @@ export const Notes = ({
     content: "",
     onUpdate: ({ editor }) => {
       if (!editingId) return;
-      clearTimeout(debounceRef.current);
+      const html = editor.getHTML();
+      pendingChangesRef.current.id = editingId;
+      pendingChangesRef.current.content = html;
+
+      if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(() => {
-        updateNote(editingId, {
-          content: editor.getHTML(),
-        });
+        flushPendingSave();
       }, 800);
     },
     editorProps: {
       attributes: {
         class: "ProseMirror prose prose-invert max-w-none focus:outline-none text-[15px] leading-relaxed cursor-text min-h-[150px]",
+      },
+      handleDOMEvents: {
+        blur: () => {
+          flushPendingSave();
+          return false;
+        },
       },
     },
   });
@@ -298,9 +329,13 @@ export const Notes = ({
     const newTitle = e.target.value;
     setLocalTitle(newTitle);
 
-    clearTimeout(titleDebounceRef.current);
+    if (!editingId) return;
+    pendingChangesRef.current.id = editingId;
+    pendingChangesRef.current.title = newTitle;
+
+    if (titleDebounceRef.current) clearTimeout(titleDebounceRef.current);
     titleDebounceRef.current = setTimeout(() => {
-      updateNote(editingId, { title: newTitle });
+      flushPendingSave();
     }, 600);
   };
 
@@ -336,12 +371,17 @@ export const Notes = ({
   };
 
   const handleCreateNote = async () => {
+    flushPendingSave();
     if (editingId) {
-      const activeNote = notes.find(n => n.id === editingId);
-      const isEmpty = !activeNote?.title?.trim() && (!activeNote?.content || activeNote?.content === "<p></p>");
+      const activeNote = notes.find((n) => n.id === editingId);
+      const isEmpty =
+        !activeNote?.title?.trim() &&
+        (!activeNote?.content || activeNote?.content === "<p></p>");
       if (isEmpty) return;
     }
-    const existingEmptyNote = filteredNotes.find(n => !n.title?.trim() && (!n.content || n.content === "<p></p>"));
+    const existingEmptyNote = filteredNotes.find(
+      (n) => !n.title?.trim() && (!n.content || n.content === "<p></p>")
+    );
     if (existingEmptyNote) {
       setEditingId(existingEmptyNote.id);
       return;
@@ -362,6 +402,11 @@ export const Notes = ({
   };
 
   const handleDelete = async (id) => {
+    if (pendingChangesRef.current.id === id) {
+      pendingChangesRef.current = { id: null, title: undefined, content: undefined };
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (titleDebounceRef.current) clearTimeout(titleDebounceRef.current);
+    }
     await deleteNote(id);
     if (editingId === id) setEditingId(null);
   };
@@ -371,9 +416,12 @@ export const Notes = ({
       selectedTaskId === "all"
         ? "All Notes"
         : selectedTask
-        ? `"${selectedTask.title || selectedTask.text}"`
-        : "General Notes";
+          ? `"${selectedTask.title || selectedTask.text}"`
+          : "General Notes";
     if (window.confirm(`Delete all notes for ${contextName}?`)) {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (titleDebounceRef.current) clearTimeout(titleDebounceRef.current);
+      pendingChangesRef.current = { id: null, title: undefined, content: undefined };
       for (let note of filteredNotes) {
         await deleteNote(note.id);
       }
@@ -391,8 +439,8 @@ export const Notes = ({
             {selectedTaskId === "all"
               ? "All Notes"
               : selectedTaskId === "general" || !selectedTaskId
-              ? "General Notes"
-              : `${selectedTask?.title || "Task"} Notes`}
+                ? "General Notes"
+                : `${selectedTask?.title || "Task"} Notes`}
           </h3>
           {onClose && (
             <button
@@ -440,8 +488,8 @@ export const Notes = ({
                 {selectedTaskId === "all"
                   ? "All Notes"
                   : selectedTaskId === "general" || !selectedTaskId
-                  ? "General Notes (No Task)"
-                  : selectedTask?.title || selectedTask?.text || "Task Notes"}
+                    ? "General Notes (No Task)"
+                    : selectedTask?.title || selectedTask?.text || "Task Notes"}
               </span>
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
@@ -449,14 +497,13 @@ export const Notes = ({
                 {selectedTaskId === "all"
                   ? notes.length
                   : selectedTaskId === "general" || !selectedTaskId
-                  ? (noteCounts["general"] || 0)
-                  : (noteCounts[selectedTaskId] || 0)}
+                    ? (noteCounts["general"] || 0)
+                    : (noteCounts[selectedTaskId] || 0)}
               </span>
               <ChevronDown
                 size={14}
-                className={`text-muted-foreground transition-transform duration-200 ${
-                  isDropdownOpen ? "rotate-180" : ""
-                }`}
+                className={`text-muted-foreground transition-transform duration-200 ${isDropdownOpen ? "rotate-180" : ""
+                  }`}
               />
             </div>
           </button>
@@ -477,22 +524,20 @@ export const Notes = ({
                     setIsDropdownOpen(false);
                     setEditingId(null);
                   }}
-                  className={`flex items-center justify-between p-2 rounded-lg text-xs font-medium transition-colors ${
-                    selectedTaskId === "all"
+                  className={`flex items-center justify-between p-2 rounded-lg text-xs font-medium transition-colors ${selectedTaskId === "all"
                       ? "bg-primary text-primary-foreground font-semibold shadow-2xs"
                       : "text-foreground hover:bg-secondary"
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center gap-2 truncate">
                     <Layers size={13} className="shrink-0 opacity-80" />
                     <span className="truncate">All Notes</span>
                   </div>
                   <span
-                    className={`text-[10px] shrink-0 font-mono ${
-                      selectedTaskId === "all"
+                    className={`text-[10px] shrink-0 font-mono ${selectedTaskId === "all"
                         ? "text-primary-foreground/90 font-bold"
                         : "text-muted-foreground"
-                    }`}
+                      }`}
                   >
                     ({notes.length})
                   </span>
@@ -506,22 +551,20 @@ export const Notes = ({
                     setIsDropdownOpen(false);
                     setEditingId(null);
                   }}
-                  className={`flex items-center justify-between p-2 rounded-lg text-xs font-medium transition-colors ${
-                    selectedTaskId === "general" || !selectedTaskId
+                  className={`flex items-center justify-between p-2 rounded-lg text-xs font-medium transition-colors ${selectedTaskId === "general" || !selectedTaskId
                       ? "bg-primary text-primary-foreground font-semibold shadow-2xs"
                       : "text-foreground hover:bg-secondary"
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center gap-2 truncate">
                     <FileText size={13} className="shrink-0 opacity-80" />
                     <span className="truncate">General Notes</span>
                   </div>
                   <span
-                    className={`text-[10px] shrink-0 font-mono ${
-                      selectedTaskId === "general" || !selectedTaskId
+                    className={`text-[10px] shrink-0 font-mono ${selectedTaskId === "general" || !selectedTaskId
                         ? "text-primary-foreground/90 font-bold"
                         : "text-muted-foreground"
-                    }`}
+                      }`}
                   >
                     ({noteCounts["general"] || 0})
                   </span>
@@ -547,40 +590,36 @@ export const Notes = ({
                             setIsDropdownOpen(false);
                             setEditingId(null);
                           }}
-                          className={`flex items-center justify-between p-2 rounded-lg text-xs text-left font-medium transition-colors ${
-                            isSelected
+                          className={`flex items-center justify-between p-2 rounded-lg text-xs text-left font-medium transition-colors ${isSelected
                               ? "bg-primary text-primary-foreground font-semibold shadow-2xs"
                               : "text-foreground hover:bg-secondary"
-                          }`}
+                            }`}
                         >
                           <div className="flex items-center gap-2 truncate min-w-0 pr-2">
                             {isCompleted ? (
                               <CheckCircle2
                                 size={13}
-                                className={`shrink-0 ${
-                                  isSelected
+                                className={`shrink-0 ${isSelected
                                     ? "text-primary-foreground"
                                     : "text-emerald-500"
-                                }`}
+                                  }`}
                               />
                             ) : (
                               <ListTodo
                                 size={13}
-                                className={`shrink-0 ${
-                                  isSelected
+                                className={`shrink-0 ${isSelected
                                     ? "text-primary-foreground"
                                     : "text-primary"
-                                }`}
+                                  }`}
                               />
                             )}
                             <span className="truncate">{task.title}</span>
                           </div>
                           <span
-                            className={`text-[10px] shrink-0 font-mono ${
-                              isSelected
+                            className={`text-[10px] shrink-0 font-mono ${isSelected
                                 ? "text-primary-foreground/90 font-bold"
                                 : "text-muted-foreground"
-                            }`}
+                              }`}
                           >
                             ({noteCounts[task.id] || 0})
                           </span>
@@ -643,6 +682,7 @@ export const Notes = ({
                 placeholder="Note Title..."
                 value={localTitle}
                 onChange={handleTitleChange}
+                onBlur={flushPendingSave}
                 className="w-full bg-transparent border-none text-base sm:text-lg font-bold text-foreground placeholder:text-muted-foreground focus:outline-none mb-3"
               />
 
@@ -681,19 +721,18 @@ export const Notes = ({
                       (typeof note.task === "object" ? note.task?._id : note.task);
                     const linkedTask = rawTaskId
                       ? allAvailableTasks.find(
-                          (item) => String(item.id) === String(rawTaskId)
-                        )
+                        (item) => String(item.id) === String(rawTaskId)
+                      )
                       : null;
 
                     return (
                       <div
                         key={note.id}
                         onClick={() => setEditingId(note.id)}
-                        className={`group p-3 rounded-xl border text-left cursor-pointer transition-all duration-200 relative ${
-                          isSelected
+                        className={`group p-3 rounded-xl border text-left cursor-pointer transition-all duration-200 relative ${isSelected
                             ? "bg-primary/10 border-primary/30 shadow-xs"
                             : "bg-card border-border/60 hover:border-border hover:bg-secondary/40"
-                        }`}
+                          }`}
                       >
                         <div className="flex justify-between items-start mb-1.5">
                           <span className="text-xs font-bold truncate block flex-1 text-foreground group-hover:text-primary transition-colors">
@@ -726,11 +765,10 @@ export const Notes = ({
                             )}
                             {selectedTaskId === "all" && (
                               <span
-                                className={`px-1.5 py-0.5 rounded text-[10px] font-medium truncate max-w-[120px] ${
-                                  linkedTask
+                                className={`px-1.5 py-0.5 rounded text-[10px] font-medium truncate max-w-[120px] ${linkedTask
                                     ? "bg-primary/10 text-primary"
                                     : "bg-muted text-muted-foreground"
-                                }`}
+                                  }`}
                               >
                                 {linkedTask ? linkedTask.title : "General"}
                               </span>

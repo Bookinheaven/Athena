@@ -11,7 +11,7 @@ export function FocusProvider({ children, initialContext }) {
   const { user } = useAuth();
   const userId = user?._id || user?.id;
 
-  const { settings, setSetting, saveSettingsToBackend } = useFocusSettings(userId);
+  const { settings, setSetting, saveSettingsToBackend, resetSettings } = useFocusSettings(userId);
 
   const handleSoundEvent = useCallback(({ event: soundEvent }) => {
     if (!settings.isSoundEnabled || !settings.soundOnTransition) return;
@@ -100,6 +100,7 @@ export function FocusProvider({ children, initialContext }) {
       settings,
       setSetting,
       saveSettingsToBackend,
+      resetSettings,
       modifySettings,
       userId,
       sessionReview,
@@ -114,6 +115,7 @@ export function FocusProvider({ children, initialContext }) {
       settings,
       setSetting,
       saveSettingsToBackend,
+      resetSettings,
       modifySettings,
       userId,
       sessionReview,

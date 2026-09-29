@@ -66,7 +66,6 @@ export const ZenWorkspace = ({
         <FocusTaskCard
           taskTitle={activeTaskTitle}
           setTaskTitle={(t) => commands.setTitle(t)}
-          onTitleSet={() => {}}
           navContext={navContext}
           isScheduled={state.isScheduled}
           scheduleBlock={state.scheduleBlockId}
@@ -99,7 +98,6 @@ export const ZenWorkspace = ({
         isRunning={isRunning}
         isPaused={isPaused}
         isCompleting={isCompleting}
-        isCompleted={isCompleted}
         currentSegment={currentSegment}
         onStart={handleStart}
         onPause={() => commands.pause()}
@@ -107,7 +105,6 @@ export const ZenWorkspace = ({
         onStop={handleStop}
         onReset={handleReset}
         onSkipBreak={() => commands.skipBreak()}
-        onReview={() => {}}
         onSelectPauseReason={(reason) => onDistractionToggle(reason)}
       />
     </div>

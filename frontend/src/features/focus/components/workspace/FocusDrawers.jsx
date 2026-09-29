@@ -179,6 +179,7 @@ export const FocusDrawers = ({
               <Notes
                 notes={notesProps.notes}
                 todos={todos}
+                tasks={notesProps.tasks}
                 createNote={notesProps.createNote}
                 updateNote={notesProps.updateNote}
                 deleteNote={notesProps.deleteNote}
@@ -292,6 +293,7 @@ export const FocusDrawers = ({
                 plannedDuration={settingsProps.plannedDuration}
                 initialValues={settingsProps.settings}
                 onSave={settingsProps.onSave}
+                onReset={settingsProps.onReset}
                 show={true}
                 hideHeader={true}
                 onClose={() => closeDrawer("settings")}

@@ -16,7 +16,6 @@ import { CurrentProgress } from "../../progress/CurrentProgress.jsx";
 import { Notes } from "../../notes/Notes.jsx";
 import { DistractionsWidget } from "./widgets/DistractionsWidget.jsx";
 import { SessionStatsWidget } from "./widgets/SessionStatsWidget.jsx";
-import { WorkflowDockV2 } from "../../shared/WorkflowDockV2.jsx";
 import { MotivationalBanner } from "../../shared/MotivationalBanner.jsx";
 import toast from "react-hot-toast";
 
@@ -29,8 +28,7 @@ export const DEFAULT_CUSTOM_LAYOUT = [
   { id: "notes", visible: true, x: 752, y: 208, width: 432, height: 416, zIndex: 2 },
   { id: "progress", visible: false, x: 16, y: 640, width: 352, height: 256, zIndex: 1 },
   { id: "distractions", visible: false, x: 752, y: 640, width: 432, height: 256, zIndex: 1 },
-  { id: "workflow", visible: true, x: 16, y: 816, width: 1168, height: 128, zIndex: 1 },
-  { id: "motivation", visible: false, x: 16, y: 960, width: 1168, height: 96, zIndex: 1 },
+  { id: "motivation", visible: false, x: 16, y: 816, width: 1168, height: 96, zIndex: 1 },
 ];
 
 function sanitizeLayout(rawLayout) {
@@ -427,7 +425,6 @@ export const CustomWorkspace = ({
             <FocusTaskCard
               taskTitle={activeTaskTitle}
               setTaskTitle={(t) => commands.setTitle(t)}
-              onTitleSet={() => {}}
               navContext={navContext}
               isScheduled={state.isScheduled}
               scheduleBlock={state.scheduleBlockId}
@@ -469,7 +466,6 @@ export const CustomWorkspace = ({
               isRunning={isRunning}
               isPaused={isPaused}
               isCompleting={isCompleting}
-              isCompleted={isCompleted}
               currentSegment={currentSegment}
               onStart={handleStart}
               onPause={() => commands.pause()}
@@ -477,7 +473,6 @@ export const CustomWorkspace = ({
               onStop={handleStop}
               onReset={handleReset}
               onSkipBreak={() => commands.skipBreak()}
-              onReview={() => {}}
               onSelectPauseReason={(reason) => onDistractionToggle(reason)}
             />
           </div>
@@ -522,6 +517,7 @@ export const CustomWorkspace = ({
                 <Notes
                   notes={notesProps.notes}
                   todos={todos}
+                  tasks={notesProps.tasks}
                   createNote={notesProps.createNote}
                   updateNote={notesProps.updateNote}
                   deleteNote={notesProps.deleteNote}
@@ -552,13 +548,6 @@ export const CustomWorkspace = ({
               sessionReview={sessionReview}
               onDistractionToggle={onDistractionToggle}
             />
-          </div>
-        );
-
-      case "workflow":
-        return (
-          <div className="p-2 sm:p-3 h-full flex items-center justify-center">
-            <WorkflowDockV2 show={true} />
           </div>
         );
 
