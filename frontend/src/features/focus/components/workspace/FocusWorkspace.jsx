@@ -27,6 +27,7 @@ export const FocusWorkspace = ({
   onReviewUpdate,
   onDistractionToggle,
   onFinalSaveAndStartNew,
+  isSubmittingReview = false,
   navContext,
 }) => {
   const containerRef = useRef(null);
@@ -175,11 +176,15 @@ export const FocusWorkspace = ({
   }, [isRunning, isPaused, commands, handleStart]);
 
   const handleStop = useCallback(() => {
-    if (settings.confirmReset && isRunning) {
-      if (!window.confirm("Stop and discard the current session?")) return;
+    if (isRunning || isPaused) {
+      if (settings.confirmReset) {
+        if (!window.confirm("Stop current session and reflect on your focus?")) return;
+      }
+      commands.discard();
+    } else {
+      commands.stop();
     }
-    commands.stop();
-  }, [settings.confirmReset, isRunning, commands]);
+  }, [settings.confirmReset, isRunning, isPaused, commands]);
 
   const handleReset = useCallback(() => {
     if (settings.confirmReset && (isRunning || isPaused)) {
@@ -259,7 +264,7 @@ export const FocusWorkspace = ({
       <main className="flex-1 flex flex-col items-center justify-center px-2 sm:px-4 py-4 w-full relative z-10">
         {/* Completion review */}
         {isCompleted || isCompleting ? (
-          <div className="w-full max-w-xl mx-auto p-6 sm:p-8 rounded-3xl bg-card border border-border shadow-xl animate-in zoom-in-95 duration-300">
+          <div className="w-full max-w-xl mx-auto p-4 sm:p-6 md:p-8 rounded-3xl bg-card border border-border shadow-2xl animate-in zoom-in-95 duration-300 max-h-[92vh] overflow-y-auto custom-scrollbar">
             {isCompleting && completionError ? (
               <div className="flex flex-col items-center gap-4 py-8 text-center">
                 <AlertCircle className="text-destructive w-10 h-10" />
@@ -278,6 +283,9 @@ export const FocusWorkspace = ({
                 onUpdate={onReviewUpdate}
                 onDistractionToggle={onDistractionToggle}
                 onNewSession={onFinalSaveAndStartNew}
+                isSubmitting={isSubmittingReview}
+                isDiscarded={runtime.state.completionType === "abandoned"}
+                onSkipReview={() => commands.stop()}
               />
             )}
           </div>

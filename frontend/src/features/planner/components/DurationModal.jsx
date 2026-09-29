@@ -84,7 +84,7 @@ export default function DurationModal({
                 max={999}
                 value={duration || ""}
                 onChange={(e) => setDuration(parseInt(e.target.value) || 0)}
-                className="pl-9 pr-12 h-10 rounded-xl"
+                className="pl-9 pr-12 h-10 rounded-xl tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               />
               <span className="text-xs font-medium text-muted-foreground absolute right-3 pointer-events-none">
                 min

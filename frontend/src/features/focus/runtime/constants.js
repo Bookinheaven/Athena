@@ -40,6 +40,7 @@ export const EVENTS = Object.freeze({
   RESUME: 'RESUME',
   SKIP_BREAK: 'SKIP_BREAK',
   STOP: 'STOP',
+  DISCARD: 'DISCARD',
   RESET: 'RESET',
 
   // Internal — emitted by timer/effect layer, not by UI directly

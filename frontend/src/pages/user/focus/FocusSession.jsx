@@ -213,6 +213,7 @@ const FocusSession = () => {
       onReviewUpdate={handleReviewUpdate}
       onDistractionToggle={handleDistractionToggle}
       onFinalSaveAndStartNew={handleFinalSaveAndStartNew}
+      isSubmittingReview={isSubmittingReview}
       navContext={navContext}
     />
   );

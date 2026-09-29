@@ -1,5 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { Clock, Plus, Minus, Target, Coffee } from "lucide-react";
+import { Button } from "@/components/ui/button.jsx";
+import { Input } from "@/components/ui/input.jsx";
 
 const RADIUS = 45;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
@@ -127,70 +129,94 @@ export const FocusTimerDisplay = ({
       {/* Duration picker before start */}
       {isIdle && elapsed === 0 && (
         <div className="mt-4 flex flex-col items-center gap-3">
-          <div className="flex items-center gap-2">
-            {presetDurations.map((p) => (
-              <button
-                key={p.seconds}
-                type="button"
-                onClick={() => {
-                  setShowCustomInput(false);
-                  onSelectDuration(p.seconds);
-                }}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all border ${
-                  plannedDuration === p.seconds && !showCustomInput
-                    ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                    : "bg-secondary/60 text-secondary-foreground border-border/40 hover:bg-secondary"
-                }`}
-              >
-                {p.label}
-              </button>
-            ))}
-            <button
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            {presetDurations.map((p) => {
+              const isSelected = plannedDuration === p.seconds && !showCustomInput;
+              return (
+                <Button
+                  key={p.seconds}
+                  type="button"
+                  variant={isSelected ? "default" : "secondary"}
+                  size="sm"
+                  onClick={() => {
+                    setShowCustomInput(false);
+                    onSelectDuration(p.seconds);
+                  }}
+                  className={`h-7 px-3 rounded-xl text-xs font-bold transition-all ${
+                    isSelected
+                      ? "shadow-xs"
+                      : "text-muted-foreground hover:text-foreground border border-border/40"
+                  }`}
+                >
+                  {p.label}
+                </Button>
+              );
+            })}
+            <Button
               type="button"
+              variant={showCustomInput ? "default" : "secondary"}
+              size="sm"
               onClick={() => setShowCustomInput(!showCustomInput)}
-              className={`flex items-center gap-1 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all border ${
+              className={`h-7 px-3 rounded-xl text-xs font-bold gap-1 transition-all ${
                 showCustomInput
-                  ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                  : "bg-secondary/60 text-secondary-foreground border-border/40 hover:bg-secondary"
+                  ? "shadow-xs"
+                  : "text-muted-foreground hover:text-foreground border border-border/40"
               }`}
             >
-              <Clock size={12} />
+              <Clock className="w-3 h-3" />
               <span>Custom</span>
-            </button>
+            </Button>
           </div>
 
           {showCustomInput && (
-            <div className="flex items-center gap-3 p-2 bg-secondary/40 border border-border/50 rounded-2xl">
-              <button
+            <div className="flex items-center gap-2 p-1.5 px-2 bg-secondary/50 border border-border/60 rounded-2xl shadow-xs animate-in fade-in-50 zoom-in-95 duration-150">
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon"
                 onClick={() => setCustomMinutes((m) => Math.max(5, m - 5))}
-                className="w-8 h-8 rounded-xl bg-secondary flex items-center justify-center text-foreground hover:bg-secondary/80 active:scale-95"
+                className="h-7 w-7 rounded-xl hover:bg-background/60 active:scale-95 text-foreground shrink-0"
+                title="Decrease 5 min"
               >
-                <Minus size={14} />
-              </button>
-              <input
-                type="number"
-                min="5"
-                max="360"
-                value={customMinutes}
-                onChange={(e) => setCustomMinutes(Math.max(1, Number(e.target.value) || 1))}
-                className="w-14 text-center font-bold text-sm bg-transparent text-foreground border-none outline-none tabular-nums"
-              />
-              <span className="text-xs text-muted-foreground mr-1">min</span>
-              <button
+                <Minus className="w-3.5 h-3.5" />
+              </Button>
+
+              <div className="relative flex items-center">
+                <Input
+                  type="number"
+                  min="5"
+                  max="360"
+                  value={customMinutes}
+                  onChange={(e) => setCustomMinutes(Math.max(1, Number(e.target.value) || 1))}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleApplyCustom();
+                  }}
+                  className="h-7 w-16 text-center font-bold text-xs pr-6 rounded-xl bg-background/60 border-border/60 focus-visible:ring-1 tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                />
+                <span className="text-[10px] font-semibold text-muted-foreground absolute right-2 pointer-events-none select-none">
+                  min
+                </span>
+              </div>
+
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon"
                 onClick={() => setCustomMinutes((m) => Math.min(360, m + 5))}
-                className="w-8 h-8 rounded-xl bg-secondary flex items-center justify-center text-foreground hover:bg-secondary/80 active:scale-95"
+                className="h-7 w-7 rounded-xl hover:bg-background/60 active:scale-95 text-foreground shrink-0"
+                title="Increase 5 min"
               >
-                <Plus size={14} />
-              </button>
-              <button
+                <Plus className="w-3.5 h-3.5" />
+              </Button>
+
+              <Button
                 type="button"
+                size="sm"
                 onClick={handleApplyCustom}
-                className="px-3 py-1 bg-primary text-primary-foreground text-xs font-bold rounded-xl hover:opacity-90 transition-opacity"
+                className="h-7 px-2.5 rounded-xl font-bold text-xs shadow-2xs shrink-0"
               >
                 Set
-              </button>
+              </Button>
             </div>
           )}
         </div>

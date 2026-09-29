@@ -153,6 +153,11 @@ export function useFocusRuntime({ context = {}, settings = {}, onSoundEvent, use
         await sessionService.updateProgress({
           ...base,
           status: 'abandoned',
+          segment: payload?.segmentIndex !== undefined ? {
+            segmentIndex: payload.segmentIndex,
+            duration: payload.elapsedSeconds,
+          } : undefined,
+          sessionStats: payload?.sessionStats || state.sessionStats,
         });
         break;
 
@@ -590,6 +595,17 @@ export function useFocusRuntime({ context = {}, settings = {}, onSoundEvent, use
 
     stop: useCallback(() => {
       dispatch({ type: EVENTS.STOP });
+    }, [dispatch]),
+
+    discard: useCallback(() => {
+      const elapsed = timerRef.current?.getElapsedSeconds() ?? 0;
+      dispatch({
+        type: EVENTS.DISCARD,
+        payload: {
+          elapsedSeconds: elapsed,
+          segmentIndex: runtimeStateRef.current.segmentIndex,
+        },
+      });
     }, [dispatch]),
 
     reset: useCallback(() => {

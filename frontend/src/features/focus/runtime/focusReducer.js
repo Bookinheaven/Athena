@@ -55,6 +55,7 @@ export const INITIAL_STATE = {
   // UI feedback
   saveStatus:       'idle',   // 'idle' | 'saving' | 'saved' | 'error'
   completionError:  null,
+  completionType:   null,     // 'completed' | 'abandoned' | null
 };
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -413,6 +414,7 @@ export function transition(state, event) {
           state: {
             ...state,
             phase: PHASES.COMPLETING,
+            completionType: 'completed',
             segments,
             sessionStats,
           },
@@ -463,7 +465,44 @@ export function transition(state, event) {
       };
     }
 
-    // ── Stop / Reset ──────────────────────────────────────────────────────────
+    // ── Stop / Discard / Reset ───────────────────────────────────────────────
+
+    case EVENTS.DISCARD: {
+      if (state.phase !== PHASES.RUNNING && state.phase !== PHASES.PAUSED) {
+        return noChange(state);
+      }
+
+      const { elapsedSeconds = 0 } = payload;
+      const segments = snapshotElapsed(
+        state.segments,
+        state.segmentIndex,
+        elapsedSeconds
+      );
+
+      const effects = [{ type: EFFECTS.STOP_TIMER }];
+
+      if (state.sessionId && state.backendCreated) {
+        effects.push({
+          type: EFFECTS.PATCH_ABANDON,
+          payload: {
+            sessionId: state.sessionId,
+            segmentIndex: state.segmentIndex,
+            elapsedSeconds,
+            sessionStats: state.sessionStats,
+          },
+        });
+      }
+
+      return {
+        state: {
+          ...state,
+          phase: PHASES.COMPLETED,
+          completionType: 'abandoned',
+          segments,
+        },
+        effects,
+      };
+    }
 
     case EVENTS.STOP: {
       const effects = [{ type: EFFECTS.STOP_TIMER }];
