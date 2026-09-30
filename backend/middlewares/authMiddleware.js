@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import User from "../models/userModel.js";
 import env from "../config/env.js";
+import { isValidTimezone } from "../utils/dateUtils.js";
 
 const auth = async (req, res, next) => {
   try {
@@ -31,6 +32,22 @@ const auth = async (req, res, next) => {
     }
 
     req.user = user;
+
+    const headerTz = req.headers["x-timezone"];
+    const validHeaderTz = headerTz && isValidTimezone(headerTz) ? headerTz.trim() : null;
+
+    if (!user.settings?.timezone) {
+      // Unset preference: lazy-populate from client header if valid, otherwise default to "UTC"
+      const detectedTz = validHeaderTz || "UTC";
+      user.settings = user.settings || {};
+      user.settings.timezone = detectedTz;
+      User.updateOne({ _id: user._id }, { $set: { "settings.timezone": detectedTz } }).catch(() => null);
+      req.timezone = detectedTz;
+    } else {
+      // Persisted user preference is authoritative across all devices
+      req.timezone = user.settings.timezone;
+    }
+
     next();
   } catch (error) {
     res.status(401).json({

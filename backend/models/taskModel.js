@@ -54,6 +54,11 @@ const taskSchema = new mongoose.Schema(
       type: Date,
     },
 
+    customPlannedDate: {
+      type: String,
+      trim: true,
+    },
+
     tags: {
       type: [String],
       default: [],

@@ -111,7 +111,7 @@ export default function TaskModal({
       } else if (planMode === "tomorrow") {
         finalPlannedDate = getTomorrowDate();
       } else if (planMode === "custom" && customPlannedDate) {
-        finalPlannedDate = new Date(customPlannedDate + "T12:00:00");
+        finalPlannedDate = customPlannedDate;
       }
 
       let finalDueDate = undefined;

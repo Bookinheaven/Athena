@@ -4,8 +4,12 @@ class StreakController {
   
   async getSummary(req, res) {
     try {
-      const userId = req.user.id;
-      const data = await StreakService.getSummaryData(userId);
+      const userId = req.user.id || req.user._id;
+      const data = await StreakService.getSummaryData(
+        userId,
+        new Date(),
+        req.timezone
+      );
       res.status(200).json(data);
     } catch (error) {
       console.error("Streak summary error:", error);
@@ -32,7 +36,12 @@ class StreakController {
     try {
       const { year, month } = req.query;
       const userId = req.user.id || req.user._id;
-      const days = await StreakService.getMonthlyStats(userId, year, month);
+      const days = await StreakService.getMonthlyStats(
+        userId,
+        year,
+        month,
+        req.timezone
+      );
       res.json(days);
     } catch (err) {
       res.status(500).json({

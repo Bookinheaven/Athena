@@ -1,7 +1,8 @@
 import User from "../models/userModel.js";
+import { isValidTimezone } from "../utils/dateUtils.js";
 
 class UserService {
-    allowedSettings = ["session", "theme"];
+    allowedSettings = ["session", "theme", "timezone"];
 
     allowedSessionKeys = [
         "breakDuration",
@@ -15,6 +16,7 @@ class UserService {
 
     defaultSettings = {
         theme: "dark",
+        timezone: "UTC",
         session: {
             breakDuration: 300,
             autoStartBreaks: true,
@@ -53,6 +55,7 @@ class UserService {
             lastLogin: user.lastLogin,
             settings: {
                 theme: user.settings?.theme || this.defaultSettings.theme,
+                timezone: user.settings?.timezone || this.defaultSettings.timezone,
                 session: {
                     ...this.defaultSettings.session,
                     ...(user.settings?.session?.toObject ? user.settings.session.toObject() : user.settings?.session || {})
@@ -136,6 +139,7 @@ class UserService {
         const userSettings = user.settings || {};
         const fullSettings = {
             theme: userSettings.theme || this.defaultSettings.theme,
+            timezone: userSettings.timezone || this.defaultSettings.timezone,
             session: {
                 ...this.defaultSettings.session,
                 ...(userSettings.session?.toObject ? userSettings.session.toObject() : userSettings.session || {})
@@ -190,6 +194,12 @@ class UserService {
                 throw new Error("Theme identifier too long");
             }
             updateFields["settings.theme"] = cleanTheme;
+        } else if (type === "timezone") {
+            const tzVal = typeof settings === "string" ? settings : (settings.timezone || settings.name);
+            if (!tzVal || !isValidTimezone(tzVal)) {
+                throw new Error("Invalid IANA timezone");
+            }
+            updateFields["settings.timezone"] = tzVal.trim();
         } else if (!type) {
             if (settings.theme !== undefined) {
                 const themeVal = typeof settings.theme === "string" 
@@ -198,6 +208,13 @@ class UserService {
                 if (typeof themeVal === "string" && themeVal.trim().length <= 50) {
                     updateFields["settings.theme"] = themeVal.trim();
                 }
+            }
+            if (settings.timezone !== undefined) {
+                const tzVal = typeof settings.timezone === "string" ? settings.timezone : (settings.timezone?.timezone || settings.timezone?.name);
+                if (typeof tzVal !== "string" || !isValidTimezone(tzVal)) {
+                    throw new Error("Invalid IANA timezone preference");
+                }
+                updateFields["settings.timezone"] = tzVal.trim();
             }
             if (settings.session && typeof settings.session === "object") {
                 for (const key of Object.keys(settings.session)) {
@@ -233,6 +250,7 @@ class UserService {
 
         const updatedSettings = {
             theme: user.settings?.theme || this.defaultSettings.theme,
+            timezone: user.settings?.timezone || this.defaultSettings.timezone,
             session: {
                 ...this.defaultSettings.session,
                 ...(user.settings?.session?.toObject ? user.settings.session.toObject() : user.settings?.session || {})
@@ -255,7 +273,8 @@ class UserService {
             update = { 
                 $set: { 
                     "settings.session": defaults.session,
-                    "settings.theme": defaults.theme
+                    "settings.theme": defaults.theme,
+                    "settings.timezone": defaults.timezone
                 } 
             };
         } else {
@@ -277,6 +296,7 @@ class UserService {
         }
         const currentSettings = {
             theme: user.settings?.theme || this.defaultSettings.theme,
+            timezone: user.settings?.timezone || this.defaultSettings.timezone,
             session: {
                 ...this.defaultSettings.session,
                 ...(user.settings?.session?.toObject ? user.settings.session.toObject() : user.settings?.session || {})

@@ -28,8 +28,13 @@ class SessionController {
         sessionId: req.params.id,
       });
       if (transitionedToCompleted) {
-        await StreakService.dailyStreakUpdate(userId, session.duration / 60);
-        await StreakService.processDailyStreak(userId);
+        await StreakService.dailyStreakUpdate(
+          userId,
+          session.duration / 60,
+          new Date(),
+          req.timezone
+        );
+        await StreakService.processDailyStreak(userId, new Date(), req.timezone);
       }
 
       res.json({ success: true, session });
@@ -80,6 +85,21 @@ class SessionController {
       console.error("Error in getSessions:", error);
       res.status(500).json({
         message: "Server error while fetching sessions.",
+        error: error.message,
+      });
+    }
+  }
+
+  async getHistory(req, res) {
+    try {
+      const userId = req.user._id;
+      const history = await SessionService.history(userId, req.query);
+      res.status(200).json({ success: true, ...history });
+    } catch (error) {
+      console.error("Error in getHistory:", error);
+      res.status(500).json({
+        success: false,
+        message: "Server error while fetching session history.",
         error: error.message,
       });
     }

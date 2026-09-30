@@ -8,9 +8,17 @@ export default class RequestService {
   ) {
     const url = `${API_BASE_URL}${endpoint}`;
 
+    let userTimezone = "UTC";
+    try {
+      userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+    } catch {
+      // fallback
+    }
+
     const config = {
       headers: {
         "Content-Type": "application/json",
+        "x-timezone": userTimezone,
       },
       credentials: "include",
       ...options,

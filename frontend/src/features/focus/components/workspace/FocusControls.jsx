@@ -91,7 +91,7 @@ export const FocusControls = ({
           </button>
         )}
 
-        {isBreak && !isCompleted && (
+        {isBreak && (
           <button
             type="button"
             onClick={onSkipBreak}

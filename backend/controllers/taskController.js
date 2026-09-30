@@ -3,7 +3,12 @@ import TaskService from "../services/taskService.js";
 class TaskController {
   async createTask(req, res) {
     try {
-      const task = await TaskService.createTask(req.user.id, req.body);
+      const task = await TaskService.createTask(
+        req.user.id,
+        req.body,
+        new Date(),
+        req.timezone
+      );
 
       res.status(201).json(task);
     } catch (error) {
@@ -26,7 +31,9 @@ class TaskController {
       const task = await TaskService.updateTask(
         req.user.id,
         req.params.id,
-        req.body
+        req.body,
+        new Date(),
+        req.timezone
       );
 
       res.json(task);

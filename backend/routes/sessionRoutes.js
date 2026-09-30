@@ -10,6 +10,7 @@ router.post("/:id/feedback", auth, sessionController.feedbackSession);
 router.get("/active", auth, sessionController.getActiveSession);
 
 router.get("/all", auth, sessionController.getSessions);
+router.get("/history", auth, sessionController.getHistory);
 
 router.get("/insights", auth, sessionController.getInsights);
 router.get("/today", auth, sessionController.getTodaysInsights);

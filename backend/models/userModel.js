@@ -71,6 +71,11 @@ const userSchema = new mongoose.Schema({
       default: "dark",
       trim: true,
     },
+    timezone: {
+      type: String,
+      default: null,
+      trim: true,
+    },
     session: {
       breakDuration: { type: Number, default: 300 },
       autoStartBreaks: { type: Boolean, default: true },

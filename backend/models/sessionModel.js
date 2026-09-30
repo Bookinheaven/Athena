@@ -59,6 +59,21 @@ const segmentsSchema = new mongoose.Schema(
 { _id: false }
 );
 
+const scheduleSnapshotSchema = new mongoose.Schema(
+  {
+    scheduleBlockId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "ScheduleBlock",
+      default: null,
+    },
+    date: { type: Date, default: null },
+    startTime: { type: Date, default: null },
+    endTime: { type: Date, default: null },
+    durationMinutes: { type: Number, default: 0 },
+  },
+  { _id: false }
+);
+
 const sessionSchema = new mongoose.Schema({
 
   sessionId: {
@@ -76,6 +91,11 @@ const sessionSchema = new mongoose.Schema({
   scheduleBlockId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "ScheduleBlock",
+    default: null
+  },
+
+  scheduleSnapshot: {
+    type: scheduleSnapshotSchema,
     default: null
   },
 

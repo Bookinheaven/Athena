@@ -13,6 +13,11 @@ const dailyStatsSchema = new mongoose.Schema({
     required:true
   },
 
+  productDate:{
+    type:String,
+    index:true
+  },
+
   focusMinutes:{
     type:Number,
     default:0
@@ -28,31 +33,66 @@ const dailyStatsSchema = new mongoose.Schema({
     default:0
   },
 
+  totalPlanned:{
+    type:Number,
+    default:0
+  },
+
+  effectivePlanned:{
+    type:Number,
+    default:0
+  },
+
+  tasksPartiallyCompleted:{
+    type:Number,
+    default:0
+  },
+
+  tasksRescheduled:{
+    type:Number,
+    default:0
+  },
+
+  tasksMissed:{
+    type:Number,
+    default:0
+  },
+
+  tasksCancelled:{
+    type:Number,
+    default:0
+  },
+
   dailyTargetMinutes:{
     type:Number,
-    required:true
+    default:25
   },
 
   streakRate:{
     type:Number,
-    required:true
+    default:0
+  },
+
+  completionRate:{
+    type:Number,
+    default:0
   },
 
   state:{
     type:String,
-    enum:["green","yellow","red"],
-    required:true
+    enum:["green","yellow","red","neutral"],
+    default:"neutral"
   },
 
   resultType:{
     type:String,
-    enum:["success","partial","failed","freeze_saved"],
-    required:true
+    enum:["success","partial","failed","neutral","freeze_saved"],
+    default:"neutral"
   },
 
   streakCount:{
     type:Number,
-    required:true
+    default:0
   },
 
   usedFreeze:{

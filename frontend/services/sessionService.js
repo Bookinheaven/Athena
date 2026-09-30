@@ -21,6 +21,11 @@ class SessionService extends RequestService {
     return this.request("/session/all", { method: "GET" });
   }
 
+  getHistory(queryParams = {}) {
+    const query = new URLSearchParams(queryParams).toString();
+    return this.request(`/session/history${query ? `?${query}` : ""}`, { method: "GET" });
+  }
+
   getInsights() {
     return this.request("/session/insights", { method: "GET" });
   }

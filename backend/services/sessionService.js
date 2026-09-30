@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import Session from "../models/sessionModel.js";
 import ScheduleBlock from "../models/scheduleBlockModel.js";
 import Task from "../models/taskModel.js";
+import { parseDateRange } from "../utils/dateUtils.js";
 
 class SessionService {
   async start(userId, payload) {
@@ -104,6 +105,15 @@ class SessionService {
           scheduleBlockId: resolvedScheduleBlock
             ? resolvedScheduleBlock._id
             : null,
+          scheduleSnapshot: resolvedScheduleBlock
+            ? {
+                scheduleBlockId: resolvedScheduleBlock._id,
+                date: resolvedScheduleBlock.date,
+                startTime: resolvedScheduleBlock.startTime,
+                endTime: resolvedScheduleBlock.endTime,
+                durationMinutes: resolvedScheduleBlock.durationMinutes,
+              }
+            : null,
           title: title || (resolvedScheduleBlock ? "Focus Session" : "Untitled Work"),
           taskIds: effectiveTaskIds,
           sessionType:
@@ -137,6 +147,11 @@ class SessionService {
     const session = await Session.findOne({ sessionId, userId });
     if (!session) {
       throw new Error("Session not found");
+    }
+
+    // Historical execution immutability: terminal completed sessions cannot have their execution facts mutated
+    if (session.status === "completed") {
+      return { session, transitionedToCompleted: false };
     }
 
     const updateData = {};
@@ -337,6 +352,98 @@ class SessionService {
       .sort({ createdAt: -1 })
       .populate("scheduleBlockId");
     return session;
+  }
+
+  /**
+   * Filtered, paginated history query service for historical sessions.
+   *
+   * @param {string | mongoose.Types.ObjectId} userId
+   * @param {object} [query={}]
+   * @param {number} [query.page=1]
+   * @param {number} [query.limit=20]
+   * @param {string} [query.startDate]
+   * @param {string} [query.endDate]
+   * @param {string} [query.taskId]
+   * @param {string} [query.status]
+   * @param {string} [query.completionType]
+   * @returns {Promise<{ sessions: Array, pagination: object }>}
+   */
+  async history(userId, query = {}) {
+    if (!userId) {
+      throw new Error("User not found.");
+    }
+
+    const page = Math.max(1, parseInt(query.page, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(query.limit, 10) || 20));
+    const skip = (page - 1) * limit;
+
+    const filter = { userId };
+
+    if (query.startDate || query.endDate) {
+      const { start, end } = parseDateRange(query.startDate, query.endDate);
+      const dateFilter = {};
+      if (start) dateFilter.$gte = start;
+      if (end) dateFilter.$lte = end;
+
+      // Filter against startedAt, falling back to createdAt for legacy sessions without startedAt
+      filter.$or = [
+        { startedAt: dateFilter },
+        { startedAt: { $exists: false }, createdAt: dateFilter },
+        { startedAt: null, createdAt: dateFilter },
+      ];
+    }
+
+    if (query.taskId) {
+      if (!mongoose.Types.ObjectId.isValid(query.taskId)) {
+        throw new Error("Invalid taskId format");
+      }
+      filter.taskIds = query.taskId;
+    }
+
+    if (query.status) {
+      filter.status = query.status;
+    }
+
+    if (query.completionType) {
+      filter.completionType = query.completionType;
+    }
+
+    const [sessions, total] = await Promise.all([
+      Session.find(filter)
+        .sort({ startedAt: -1, createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate("scheduleBlockId"),
+      Session.countDocuments(filter),
+    ]);
+
+    // Backward compatibility: If an older session has scheduleBlockId populated but no scheduleSnapshot,
+    // synthesize scheduleSnapshot so clients receive a reliable, uniform contract.
+    const normalizedSessions = sessions.map((s) => {
+      const obj = s.toObject ? s.toObject() : s;
+      if (!obj.scheduleSnapshot && obj.scheduleBlockId) {
+        obj.scheduleSnapshot = {
+          scheduleBlockId: obj.scheduleBlockId._id || obj.scheduleBlockId,
+          date: obj.scheduleBlockId.date || null,
+          startTime: obj.scheduleBlockId.startTime || null,
+          endTime: obj.scheduleBlockId.endTime || null,
+          durationMinutes: obj.scheduleBlockId.durationMinutes || 0,
+        };
+      }
+      return obj;
+    });
+
+    return {
+      sessions: normalizedSessions,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit) || 1,
+        hasNextPage: page < Math.ceil(total / limit),
+        hasPrevPage: page > 1,
+      },
+    };
   }
 
   async getInsights(userId, type = null) {
