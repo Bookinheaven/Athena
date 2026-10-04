@@ -1,7 +1,6 @@
 import StreakService from "../services/streakService.js";
 
 class StreakController {
-  
   async getSummary(req, res) {
     try {
       const userId = req.user.id || req.user._id;
@@ -18,17 +17,18 @@ class StreakController {
       });
     }
   }
-  
+
   async getSpecific(req, res) {
     try {
       const type = req.params.type;
       const userId = req.user.id || req.user._id;
       const data = await StreakService.getSpecificField(userId, type);
-      res.status(200).json({ success:true, ...data.toObject()});
+      const obj = data && typeof data.toObject === "function" ? data.toObject() : (data || {});
+      res.status(200).json({ success: true, ...obj });
     } catch (err) {
       res.status(500).json({
         message: "Failed to fetch streak get Specific",
-      }); 
+      });
     }
   }
 

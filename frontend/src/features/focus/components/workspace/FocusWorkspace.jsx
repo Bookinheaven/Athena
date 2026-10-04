@@ -286,6 +286,12 @@ export const FocusWorkspace = ({
                 isSubmitting={isSubmittingReview}
                 isDiscarded={runtime.state.completionType === "abandoned"}
                 onSkipReview={() => commands.stop()}
+                isSingleTask={Boolean(runtime?.state?.taskIds?.length === 1)}
+                taskTitle={
+                  todos?.find((t) => String(t.id || t._id) === String(runtime?.state?.taskIds?.[0]))?.title ||
+                  notesProps?.tasks?.find((t) => String(t.id || t._id) === String(runtime?.state?.taskIds?.[0]))?.title ||
+                  runtime?.state?.sessionTitle
+                }
               />
             )}
           </div>

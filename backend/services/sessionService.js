@@ -1,11 +1,48 @@
-import mongoose from "mongoose";
-import Session from "../models/sessionModel.js";
-import ScheduleBlock from "../models/scheduleBlockModel.js";
-import Task from "../models/taskModel.js";
-import { parseDateRange } from "../utils/dateUtils.js";
+import sessionRepository from "../repositories/sessionRepository.js";
+import scheduleBlockRepository from "../repositories/scheduleBlockRepository.js";
+import taskRepository from "../repositories/taskRepository.js";
+import taskOccurrenceRepository from "../repositories/taskOccurrenceRepository.js";
+import TaskOccurrenceService from "./taskOccurrenceService.js";
+import TaskService from "./taskService.js";
+import {
+  parseDateRange,
+  resolveUserTimezone,
+  getProductDate,
+  toStartOfDayUTC,
+} from "../utils/dateUtils.js";
+
+const startLocks = new Map();
 
 class SessionService {
   async start(userId, payload) {
+    const userKey = userId?.toString ? userId.toString() : String(userId);
+    let wasConcurrent = false;
+    while (startLocks.has(userKey)) {
+      wasConcurrent = true;
+      try {
+        await startLocks.get(userKey);
+      } catch {
+        break;
+      }
+    }
+
+    let releaseLock;
+    const lockPromise = new Promise((resolve) => {
+      releaseLock = resolve;
+    });
+    startLocks.set(userKey, lockPromise);
+
+    try {
+      return await this._executeStart(userId, payload, wasConcurrent);
+    } finally {
+      releaseLock();
+      if (startLocks.get(userKey) === lockPromise) {
+        startLocks.delete(userKey);
+      }
+    }
+  }
+
+  async _executeStart(userId, payload, wasConcurrent = false) {
     const {
       sessionId,
       title,
@@ -27,14 +64,7 @@ class SessionService {
     let effectiveTaskIds = taskIds || [];
 
     if (scheduleBlockId) {
-      if (!mongoose.Types.ObjectId.isValid(scheduleBlockId)) {
-        throw new Error("Invalid scheduleBlockId format");
-      }
-
-      resolvedScheduleBlock = await ScheduleBlock.findOne({
-        _id: scheduleBlockId,
-        userId,
-      });
+      resolvedScheduleBlock = await scheduleBlockRepository.findById(scheduleBlockId);
 
       if (!resolvedScheduleBlock) {
         throw new Error("ScheduleBlock not found or access denied");
@@ -57,270 +87,252 @@ class SessionService {
       }
 
       // Verify the referenced Task also belongs to this user
-      const task = await Task.findOne({
-        _id: resolvedScheduleBlock.taskId,
-        user: userId,
-      });
+      const task = await taskRepository.findById(userId, resolvedScheduleBlock.taskId);
 
       if (!task) {
         throw new Error("Associated task not found or access denied");
       }
 
-      // Planned duration derived from block (durationMinutes * 60 seconds)
       effectivePlannedDuration = resolvedScheduleBlock.durationMinutes * 60;
 
-      // Ensure taskIds includes the ScheduleBlock's taskId
-      const taskIdStr = resolvedScheduleBlock.taskId.toString();
-      const existingTaskIdStrs = (effectiveTaskIds || []).map((id) =>
-        id.toString()
-      );
+      const taskIdStr = String(resolvedScheduleBlock.taskId);
+      const existingTaskIdStrs = (effectiveTaskIds || []).map((id) => String(id));
       if (!existingTaskIdStrs.includes(taskIdStr)) {
         effectiveTaskIds = [resolvedScheduleBlock.taskId, ...effectiveTaskIds];
       }
     }
 
-    // if current session is same session as before and it is active then send it back.
+    // 1. If exact requested session already exists and is active, return it
     const oldSession = await this.getSession(userId, sessionId);
-
     if (oldSession && oldSession.status === "active") return oldSession;
 
-    // Close any active sessions (marked abandoned; do not auto-complete their schedule blocks)
-    await Session.updateMany(
-      { userId, status: "active" },
-      {
-        $set: {
-          status: "completed",
-          completionType: "abandoned",
-          endedAt: new Date(),
-        },
+    // 2. Concurrency guard: if another start call was in flight concurrently for this user
+    if (wasConcurrent) {
+      const activeSession = await sessionRepository.findActiveSession(userId).catch(() => null);
+      if (activeSession) {
+        return activeSession;
       }
-    );
+    }
 
-    const session = await Session.findOneAndUpdate(
-      { sessionId, userId },
+    return await sessionRepository.create(
+      userId,
       {
-        $setOnInsert: {
-          userId,
-          sessionId,
-          scheduleBlockId: resolvedScheduleBlock
-            ? resolvedScheduleBlock._id
-            : null,
-          scheduleSnapshot: resolvedScheduleBlock
-            ? {
-                scheduleBlockId: resolvedScheduleBlock._id,
-                date: resolvedScheduleBlock.date,
-                startTime: resolvedScheduleBlock.startTime,
-                endTime: resolvedScheduleBlock.endTime,
-                durationMinutes: resolvedScheduleBlock.durationMinutes,
-              }
-            : null,
-          title: title || (resolvedScheduleBlock ? "Focus Session" : "Untitled Work"),
-          taskIds: effectiveTaskIds,
-          sessionType:
-            payload.sessionType || (resolvedScheduleBlock ? "task" : "quick"),
-          status: "active",
-          startedAt: new Date(),
-          sessionSegments,
-          plannedDuration: effectivePlannedDuration,
-          totalBreakMinutes,
-          totalFocusMinutes,
-          pauseEvents: pauseEvents || [],
-        },
+        ...payload,
+        plannedDuration: effectivePlannedDuration,
+        taskIds: effectiveTaskIds,
       },
-      { upsert: true, new: true }
-    ).populate("scheduleBlockId");
+      resolvedScheduleBlock
+    );
+  }
+
+  async getSession(userId, sessionId) {
+    return await sessionRepository.findByClientSessionId(userId, sessionId);
+  }
+
+  async update(userId, payload) {
+    const { sessionId } = payload;
+    if (!sessionId) {
+      throw new Error("Session id required");
+    }
+
+    const pgResult = await sessionRepository.update(userId, sessionId, payload);
+    if (pgResult && pgResult.session) {
+      return pgResult;
+    }
+
+    throw new Error("Session not found");
+  }
+
+  async checkpointProgress(userId, payload) {
+    const { sessionId } = payload;
+    if (!sessionId) {
+      const err = new Error("Session ID is required");
+      err.statusCode = 400;
+      throw err;
+    }
+
+    const session = await sessionRepository.checkpoint(userId, sessionId, payload);
+    if (!session) {
+      const err = new Error("Session not found or access denied");
+      err.statusCode = 404;
+      throw err;
+    }
 
     return session;
   }
 
-  async getSession(userId, sessionId) {
-    return await Session.findOne({ userId, sessionId }).populate(
-      "scheduleBlockId"
-    );
+  async feedback(userId, payload) {
+    const { sessionId, feedback, timezone } = payload;
+    let targetSession = await this.getSession(userId, sessionId);
+    if (!targetSession) {
+      const err = new Error("Session not found");
+      err.statusCode = 404;
+      throw err;
+    }
+
+    const taskOutcome =
+      payload.taskOutcome ||
+      payload.sessionTaskOutcome ||
+      feedback?.taskOutcome ||
+      feedback?.sessionTaskOutcome;
+
+    if (taskOutcome) {
+      await this.recordTaskOutcome(userId, {
+        sessionId,
+        taskOutcome,
+        timezone,
+      });
+    }
+
+    if (feedback) {
+      const pgFeedback = await sessionRepository.recordFeedback(userId, sessionId, feedback);
+      if (pgFeedback) return pgFeedback;
+    }
+
+    return targetSession;
   }
 
-  async update(userId, payload) {
-    const { sessionId, segment, title, status, todos, pauseEvents } = payload;
+  async recordTaskOutcome(userId, payload) {
+    const { sessionId, taskOutcome, timezone, asOfDate } = payload;
     if (!sessionId) {
-      throw new Error("Session id required");
+      const err = new Error("sessionId is required");
+      err.statusCode = 400;
+      throw err;
     }
-    const session = await Session.findOne({ sessionId, userId });
+
+    const validOutcomes = ["completed", "partially_completed", "not_completed"];
+    if (!validOutcomes.includes(taskOutcome)) {
+      const err = new Error(`Invalid task outcome. Allowed: ${validOutcomes.join(", ")}`);
+      err.statusCode = 400;
+      throw err;
+    }
+
+    const session = await this.getSession(userId, sessionId);
     if (!session) {
-      throw new Error("Session not found");
+      const err = new Error("Session not found or access denied");
+      err.statusCode = 404;
+      throw err;
     }
 
-    // Historical execution immutability: terminal completed sessions cannot have their execution facts mutated
-    if (session.status === "completed") {
-      return { session, transitionedToCompleted: false };
+    const effectiveTaskIds = (session.taskIds || []).map((id) => String(id));
+    let singleTaskId = null;
+    if (effectiveTaskIds.length === 1) {
+      singleTaskId = effectiveTaskIds[0];
+    } else if (effectiveTaskIds.length === 0 && session.scheduleBlockId?.taskId) {
+      singleTaskId = String(session.scheduleBlockId.taskId);
     }
 
-    const updateData = {};
-    if (segment) {
-      const existing = session.sessionSegments?.[segment.segmentIndex];
-      if (!existing) {
-        return { session, transitionedToCompleted: false };
-      }
-      const total = existing?.totalDuration || 0;
-      if (segment.duration !== undefined) {
-        updateData[`sessionSegments.${segment.segmentIndex}.duration`] = Math.max(
-          existing?.duration || 0,
-          segment.duration
-        );
-      }
-      if (segment.completedAt) {
-        updateData[`sessionSegments.${segment.segmentIndex}.completedAt`] =
-          segment.completedAt;
-        updateData[`sessionSegments.${segment.segmentIndex}.duration`] = total;
-      }
+    if (!singleTaskId || effectiveTaskIds.length > 1) {
+      return session;
     }
 
-    if (title) {
-      updateData.title = title;
-    }
-    if (Array.isArray(todos)) {
-      updateData.todos = todos;
-    }
-    if (pauseEvents && Array.isArray(pauseEvents)) {
-      updateData.pauseEvents = pauseEvents;
-    }
+    await sessionRepository.recordTaskOutcome(userId, sessionId, taskOutcome);
+    session.sessionTaskOutcome = taskOutcome;
 
-    let transitionedToCompleted = false;
-    if (status === "completed" || status === "skipped" || status === "abandoned") {
-      const completionType =
-        status === "skipped"
-          ? "skipped"
-          : status === "abandoned"
-          ? "abandoned"
-          : "completed";
-      const transitionSet = {
-        status: "completed",
-        completionType,
-        endedAt: new Date(),
-      };
-      if (payload.sessionStats) {
-        transitionSet.sessionStats = payload.sessionStats;
-      }
+    const tz = timezone || (await resolveUserTimezone(userId));
+    const asOf = asOfDate || session.endedAt || session.startedAt || new Date();
+    const currentProductDate = getProductDate(asOf, tz);
+    const currentNormalizedDate = toStartOfDayUTC(currentProductDate, "UTC");
 
-      const transitionResult = await Session.updateOne(
-        { sessionId, userId, status: { $ne: "completed" } },
-        { $set: transitionSet }
+    let targetOcc = await taskOccurrenceRepository.findUserTaskOccurrenceOnDate(
+      userId,
+      singleTaskId,
+      currentProductDate
+    );
+    if (!targetOcc) {
+      const occurrence = await TaskOccurrenceService.getOccurrences(
+        userId,
+        { date: currentProductDate, taskId: singleTaskId },
+        tz
       );
-
-      transitionedToCompleted = transitionResult.modifiedCount === 1;
-
-      // When session successfully transitions to completed, update linked ScheduleBlock
-      if (
-        transitionedToCompleted &&
-        status === "completed" &&
-        session.scheduleBlockId
-      ) {
-        await ScheduleBlock.updateOne(
-          { _id: session.scheduleBlockId, userId, status: "scheduled" },
-          {
-            $set: {
-              status: "completed",
-              sessionId: session._id,
-            },
-          }
-        );
-      }
+      targetOcc = occurrence?.[0] || null;
     }
 
-    const segments = session.sessionSegments || [];
-    const totalDuration = segments.reduce((sum, seg, idx) => {
-      let duration = seg.duration || 0;
-      const total = seg.totalDuration || 0;
-      if (segment && segment.segmentIndex === idx) {
-        if (segment.completedAt) {
-          duration = total;
-        } else if (segment.duration !== undefined) {
-          duration = Math.max(duration, segment.duration);
+    const task = await taskRepository.findById(userId, singleTaskId);
+
+    if (!targetOcc) {
+      if (taskOutcome === "completed") {
+        if (task && (task.plannedDate || task.plannedProductDate) && getProductDate(task.plannedProductDate || task.plannedDate, tz) === currentProductDate) {
+          await TaskOccurrenceService.ensureOccurrence(
+            userId,
+            {
+              taskId: singleTaskId,
+              date: currentNormalizedDate,
+              productDate: currentProductDate,
+              outcome: "completed",
+              taskSnapshot: { title: task.title, priority: task.priority },
+            },
+            tz
+          );
+        }
+        if (task && task.status !== "completed") {
+          await TaskService.updateTask(userId, singleTaskId, { status: "completed" }, asOf, tz);
+        }
+      } else if (taskOutcome === "partially_completed") {
+        if (task && (task.plannedDate || task.plannedProductDate) && getProductDate(task.plannedProductDate || task.plannedDate, tz) === currentProductDate) {
+          await TaskOccurrenceService.ensureOccurrence(
+            userId,
+            {
+              taskId: singleTaskId,
+              date: currentNormalizedDate,
+              productDate: currentProductDate,
+              outcome: "partially_completed",
+              taskSnapshot: { title: task.title, priority: task.priority },
+            },
+            tz
+          );
         }
       }
-      const safe = Math.min(duration, seg.totalDuration || Infinity);
-      return sum + safe;
-    }, 0);
+      return session;
+    }
 
-    updateData.duration = totalDuration;
+    const occId = targetOcc.id || targetOcc._id;
+    if (["rescheduled", "cancelled", "missed"].includes(targetOcc.outcome)) {
+      return session;
+    }
 
-    const updatedSession = await Session.findOneAndUpdate(
-      { sessionId, userId },
-      { $set: updateData },
-      { new: true }
-    ).populate("scheduleBlockId");
+    if (targetOcc.outcome === "completed") {
+      if (taskOutcome === "completed" && task && task.status !== "completed") {
+        await TaskService.updateTask(userId, singleTaskId, { status: "completed" }, asOf, tz);
+      }
+      return session;
+    }
 
-    return {
-      session: updatedSession,
-      transitionedToCompleted,
-    };
-  }
+    if (targetOcc.outcome === "partially_completed" || targetOcc.outcome === "pending") {
+      if (taskOutcome === "completed") {
+        await TaskOccurrenceService.recordOutcome(userId, occId, {
+          outcome: "completed",
+          completedAt: asOf,
+        });
+        if (task && task.status !== "completed") {
+          await TaskService.updateTask(userId, singleTaskId, { status: "completed" }, asOf, tz);
+        }
+      } else if (taskOutcome === "partially_completed") {
+        await TaskOccurrenceService.recordOutcome(userId, occId, {
+          outcome: "partially_completed",
+        });
+      }
+    }
 
-  async feedback(userId, payload) {
-    const { sessionId, feedback } = payload;
-    const session = await Session.findOneAndUpdate(
-      { sessionId, userId },
-      {
-        $set: {
-          sessionFeedback: feedback,
-        },
-      },
-      { new: true }
-    ).populate("scheduleBlockId");
     return session;
   }
 
   async activeSessions(userId) {
-    if (!userId) {
-      throw new Error("User not found.");
-    }
-    const sessions = await Session.find({
-      userId,
-      status: "active",
-    })
-      .sort({ createdAt: -1 })
-      .populate("scheduleBlockId");
+    if (!userId) throw new Error("User not found.");
+    const latest = await sessionRepository.findActiveSession(userId);
+    if (!latest) return null;
 
-    if (!sessions || sessions.length === 0) {
-      return null;
-    }
-
-    const latest = sessions[0];
-
-    // Clean up older duplicate active sessions if any exist
-    if (sessions.length > 1) {
-      const olderIds = sessions.slice(1).map((s) => s._id);
-      await Session.updateMany(
-        { _id: { $in: olderIds } },
-        {
-          $set: {
-            status: "completed",
-            completionType: "abandoned",
-            endedAt: new Date(),
-          },
-        }
-      );
-    }
-
-    // Auto-complete if all segments are already completed
     const allSegmentsDone =
       latest.sessionSegments?.length > 0 &&
       latest.sessionSegments.every((s) => s.completedAt);
 
     if (allSegmentsDone) {
-      await Session.updateOne(
-        { _id: latest._id },
-        {
-          $set: {
-            status: "completed",
-            completionType: "completed",
-            endedAt: latest.endedAt || new Date(),
-          },
-        }
-      );
+      await sessionRepository.update(userId, latest.sessionId || latest.clientSessionId, {
+        status: "completed",
+      }).catch(() => null);
       return null;
     }
 
-    // Check if session is stale/abandoned after long inactivity
     const plannedSecs = latest.plannedDuration || 1500;
     const lastActiveDate = latest.updatedAt || latest.startedAt || latest.createdAt;
     const lastActiveMs = new Date(lastActiveDate).getTime();
@@ -328,16 +340,9 @@ class SessionService {
     const maxInactiveMs = Math.max(plannedSecs * 1000 + 2 * 60 * 60 * 1000, 4 * 60 * 60 * 1000);
 
     if (nowMs - lastActiveMs > maxInactiveMs) {
-      await Session.updateOne(
-        { _id: latest._id },
-        {
-          $set: {
-            status: "completed",
-            completionType: "abandoned",
-            endedAt: new Date(lastActiveMs),
-          },
-        }
-      );
+      await sessionRepository.update(userId, latest.sessionId || latest.clientSessionId, {
+        status: "abandoned",
+      }).catch(() => null);
       return null;
     }
 
@@ -345,114 +350,17 @@ class SessionService {
   }
 
   async sessions(userId) {
-    if (!userId) {
-      throw new Error("User not found.");
-    }
-    const session = await Session.find({ userId })
-      .sort({ createdAt: -1 })
-      .populate("scheduleBlockId");
-    return session;
+    if (!userId) throw new Error("User not found.");
+    return await sessionRepository.findUserSessions(userId);
   }
 
-  /**
-   * Filtered, paginated history query service for historical sessions.
-   *
-   * @param {string | mongoose.Types.ObjectId} userId
-   * @param {object} [query={}]
-   * @param {number} [query.page=1]
-   * @param {number} [query.limit=20]
-   * @param {string} [query.startDate]
-   * @param {string} [query.endDate]
-   * @param {string} [query.taskId]
-   * @param {string} [query.status]
-   * @param {string} [query.completionType]
-   * @returns {Promise<{ sessions: Array, pagination: object }>}
-   */
   async history(userId, query = {}) {
-    if (!userId) {
-      throw new Error("User not found.");
-    }
-
-    const page = Math.max(1, parseInt(query.page, 10) || 1);
-    const limit = Math.min(100, Math.max(1, parseInt(query.limit, 10) || 20));
-    const skip = (page - 1) * limit;
-
-    const filter = { userId };
-
-    if (query.startDate || query.endDate) {
-      const { start, end } = parseDateRange(query.startDate, query.endDate);
-      const dateFilter = {};
-      if (start) dateFilter.$gte = start;
-      if (end) dateFilter.$lte = end;
-
-      // Filter against startedAt, falling back to createdAt for legacy sessions without startedAt
-      filter.$or = [
-        { startedAt: dateFilter },
-        { startedAt: { $exists: false }, createdAt: dateFilter },
-        { startedAt: null, createdAt: dateFilter },
-      ];
-    }
-
-    if (query.taskId) {
-      if (!mongoose.Types.ObjectId.isValid(query.taskId)) {
-        throw new Error("Invalid taskId format");
-      }
-      filter.taskIds = query.taskId;
-    }
-
-    if (query.status) {
-      filter.status = query.status;
-    }
-
-    if (query.completionType) {
-      filter.completionType = query.completionType;
-    }
-
-    const [sessions, total] = await Promise.all([
-      Session.find(filter)
-        .sort({ startedAt: -1, createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .populate("scheduleBlockId"),
-      Session.countDocuments(filter),
-    ]);
-
-    // Backward compatibility: If an older session has scheduleBlockId populated but no scheduleSnapshot,
-    // synthesize scheduleSnapshot so clients receive a reliable, uniform contract.
-    const normalizedSessions = sessions.map((s) => {
-      const obj = s.toObject ? s.toObject() : s;
-      if (!obj.scheduleSnapshot && obj.scheduleBlockId) {
-        obj.scheduleSnapshot = {
-          scheduleBlockId: obj.scheduleBlockId._id || obj.scheduleBlockId,
-          date: obj.scheduleBlockId.date || null,
-          startTime: obj.scheduleBlockId.startTime || null,
-          endTime: obj.scheduleBlockId.endTime || null,
-          durationMinutes: obj.scheduleBlockId.durationMinutes || 0,
-        };
-      }
-      return obj;
-    });
-
-    return {
-      sessions: normalizedSessions,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit) || 1,
-        hasNextPage: page < Math.ceil(total / limit),
-        hasPrevPage: page > 1,
-      },
-    };
+    if (!userId) throw new Error("User not found.");
+    return await sessionRepository.findHistory(userId, query);
   }
 
   async getInsights(userId, type = null) {
-    switch (type) {
-      case "today": {
-      }
-      default: {
-      }
-    }
+    return {};
   }
 }
 

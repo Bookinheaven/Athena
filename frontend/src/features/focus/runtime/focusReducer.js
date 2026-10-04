@@ -1,15 +1,3 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// Focus Session Reducer (Pure)
-//
-// transition(state, event) → { state, effects }
-//
-// RULES:
-//  • No side effects.
-//  • No Date.now() calls — timestamps must arrive in event payloads.
-//  • No API calls, localStorage, setTimeout, etc.
-//  • Every transition must be explicit and traceable.
-//  • Invalid transitions return the current state unchanged.
-// ─────────────────────────────────────────────────────────────────────────────
 
 import { PHASES, EVENTS, EFFECTS } from './constants.js';
 import {
@@ -17,48 +5,54 @@ import {
   findCurrentSegmentIndex,
 } from './segmentUtils.js';
 
-// ── Initial State ────────────────────────────────────────────────────────────
+/**
+ * Focus Session Reducer  
+ * 
+ * This reducer is used by the focus session engine to manage the state of a focus session.
+ * It is a pure function that takes the current state and an event, and returns the new state.
+ */
 
 export const INITIAL_STATE = {
-  phase:            PHASES.IDLE,
+  phase: PHASES.IDLE,
 
   // Session identity
-  sessionId:        null,
-  sessionTitle:     'Untitled Work',
-  isScheduled:      false,
-  scheduleBlockId:  null,
-  plannedDuration:  25 * 60,  // seconds
-  taskIds:          [],
-  sessionType:      'quick',
-  source:           null,     // 'today' | 'planner' | 'timeline' | null
+  sessionId: null,
+  sessionTitle: 'Untitled Work',
+  isScheduled: false,
+  scheduleBlockId: null,
+  plannedDuration: 25 * 60,  // seconds
+  taskIds: [],
+  sessionType: 'quick',
+  source: null, // ['today', 'planner', 'timeline', null]
 
   // Segments
-  segments:         [],
-  segmentIndex:     0,
+  segments: [],
+  segmentIndex: 0,
 
   // Pause tracking
-  pauseStartedAt:   null,   // wall-clock ms — set on PAUSE, cleared on RESUME
-  pauseEvents:      [],     // complete pause records
+  pauseStartedAt: null, // wall-clock ms — set on PAUSE, cleared on RESUME
+  pauseEvents: [], // complete pause records
 
-  // Stats (mirrors backend SessionStats)
+  // Stats
   sessionStats: {
-    pauseCount:              0,
-    totalPauseDuration:      0,
-    focusSegmentsCompleted:  0,
-    breakSegmentsCompleted:  0,
-    interruptions:           0,
+    pauseCount: 0,
+    totalPauseDuration: 0,
+    focusSegmentsCompleted: 0,
+    breakSegmentsCompleted: 0,
+    interruptions: 0,
   },
 
-  todos:            [],
-  backendCreated:   false,
+  todos: [],
+  backendCreated: false,
+  checkpointRevision: 0,
 
   // UI feedback
-  saveStatus:       'idle',   // 'idle' | 'saving' | 'saved' | 'error'
-  completionError:  null,
-  completionType:   null,     // 'completed' | 'abandoned' | null
+  saveStatus: 'idle', // ['idle', 'saving', 'saved', 'error']
+  completionError: null,
+  completionType: null, // ['completed', 'abandoned', null]
 };
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// Helper Methods 
 
 /** Mark segment at index i as started (only sets startedAt the first time). */
 function markSegmentStarted(segments, index, startedAtIso) {
@@ -74,9 +68,9 @@ function markSegmentCompleted(segments, index, completedAtIso) {
     if (i !== index) return seg;
     return {
       ...seg,
-      completedAt:    completedAtIso,
+      completedAt: completedAtIso,
       elapsedAtPause: seg.totalDuration,
-      duration:       seg.totalDuration,
+      duration: seg.totalDuration,
     };
   });
 }
@@ -88,7 +82,7 @@ function snapshotElapsed(segments, index, elapsedSeconds) {
     return {
       ...seg,
       elapsedAtPause: elapsedSeconds,
-      duration:       elapsedSeconds, // backend compat
+      duration: elapsedSeconds, // backend compat
     };
   });
 }
@@ -104,7 +98,7 @@ function updateStatsForCompletion(stats, segType) {
   };
 }
 
-// ── Transition ───────────────────────────────────────────────────────────────
+// Transition 
 
 /**
  * Pure state transition function.
@@ -117,13 +111,11 @@ export function transition(state, event) {
   const { type, payload = {} } = event;
 
   switch (type) {
-
-    // ── Bootstrap ─────────────────────────────────────────────────────────────
-
+    // Bootstrap
     case EVENTS.MOUNT: {
       if (state.phase !== PHASES.IDLE) return noChange(state);
       return {
-        state:   { ...state, phase: PHASES.LOADING },
+        state: { ...state, phase: PHASES.LOADING },
         effects: [{ type: EFFECTS.FETCH_ACTIVE_SESSION }],
       };
     }
@@ -134,16 +126,16 @@ export function transition(state, event) {
       const { session } = payload;
       if (!session || session.status === 'completed' || session.status === 'abandoned' || session.status === 'skipped') {
         return {
-          state:   { ...INITIAL_STATE, phase: PHASES.IDLE },
+          state: { ...INITIAL_STATE, phase: PHASES.IDLE },
           effects: [],
         };
       }
 
-      const segments     = normaliseSegments(session.sessionSegments || []);
-      const allComplete  = segments.length > 0 && segments.every((s) => s.completedAt);
+      const segments = normaliseSegments(session.sessionSegments || []);
+      const allComplete = segments.length > 0 && segments.every((s) => s.completedAt);
       if (allComplete) {
         return {
-          state:   { ...INITIAL_STATE, phase: PHASES.IDLE },
+          state: { ...INITIAL_STATE, phase: PHASES.IDLE },
           effects: [],
         };
       }
@@ -153,43 +145,66 @@ export function transition(state, event) {
       return {
         state: {
           ...state,
-          phase:           PHASES.PAUSED,   // always load as paused — user must resume
-          sessionId:       session.sessionId,
-          sessionTitle:    session.title    || 'Untitled Work',
-          isScheduled:     !!session.scheduleBlockId,
+          phase: PHASES.PAUSED,   // always load as paused (user must resume)
+          sessionId: session.sessionId,
+          sessionTitle: session.title || 'Untitled Work',
+          isScheduled: !!session.scheduleBlockId,
           scheduleBlockId: session.scheduleBlockId || null,
           plannedDuration: session.plannedDuration || state.plannedDuration,
           segments,
           segmentIndex,
-          taskIds:         session.taskIds    || [],
-          sessionType:     session.sessionType || 'quick',
+          taskIds: session.taskIds || [],
+          sessionType: session.sessionType || 'quick',
           todos: (session.todos || []).map((t, idx) => ({
             ...t,
             id: t.id || t._id || `todo-${idx}`,
             _id: t._id || t.id || `todo-${idx}`,
           })),
-          pauseEvents:     session.pauseEvents || [],
-          sessionStats:    session.sessionStats
+          pauseEvents: session.pauseEvents || [],
+          sessionStats: session.sessionStats
             ? { ...INITIAL_STATE.sessionStats, ...session.sessionStats }
             : state.sessionStats,
-          backendCreated:  true,
+          backendCreated: true,
+          checkpointRevision: session.checkpointRevision || 0,
           completionError: null,
-          pauseStartedAt:  null,
+          pauseStartedAt: null,
         },
         effects: [],
       };
     }
 
     case EVENTS.NO_SESSION: {
-      // payload: { context } — navigation context from entry point
+      const incomingContext = payload?.context || {};
+      const isDifferentTask = Boolean(
+        (incomingContext.title && incomingContext.title !== state.sessionTitle) ||
+        (incomingContext.scheduleBlockId && incomingContext.scheduleBlockId !== state.scheduleBlockId) ||
+        (incomingContext.taskIds?.length && JSON.stringify(incomingContext.taskIds) !== JSON.stringify(state.taskIds))
+      );
+      const hasExplicitNewTask = Boolean(
+        incomingContext.source &&
+        (incomingContext.title || incomingContext.taskIds?.length) &&
+        isDifferentTask
+      );
+
+      // Guard: Never reset an in-flight RUNNING or COMPLETING session due to late async bootstrap
+      if (state.phase === PHASES.RUNNING || state.phase === PHASES.COMPLETING) {
+        return noChange(state);
+      }
+
+      // Guard: If PAUSED and there is NO explicit new task switch, preserve the paused session
+      if (state.phase === PHASES.PAUSED && !hasExplicitNewTask) {
+        return noChange(state);
+      }
+
+      // payload: { context } - navigation context from entry point
       // No active backend session. Prepare runtime from context.
       const {
-        taskIds         = [],
+        taskIds = [],
         scheduleBlockId = null,
-        title           = 'Untitled Work',
-        source          = null,
+        title = 'Untitled Work',
+        source = null,
         plannedDuration = 25 * 60,
-        sessionId       = null,
+        sessionId = null,
       } = payload.context || {};
 
       const effects = [];
@@ -198,7 +213,7 @@ export function transition(state, event) {
         (state.backendCreated ? state.sessionId : null);
       if (sessionToAbandon) {
         effects.push({
-          type:    EFFECTS.PATCH_ABANDON,
+          type: EFFECTS.PATCH_ABANDON,
           payload: { sessionId: sessionToAbandon },
         });
       }
@@ -209,23 +224,23 @@ export function transition(state, event) {
       return {
         state: {
           ...INITIAL_STATE,
-          phase:           PHASES.IDLE,
+          phase: PHASES.IDLE,
           sessionId,
-          sessionTitle:    title,
-          isScheduled:     !!scheduleBlockId,
+          sessionTitle: title,
+          isScheduled: !!scheduleBlockId,
           scheduleBlockId: scheduleBlockId || null,
           plannedDuration,
           taskIds,
-          sessionType:     taskIds.length > 0 ? 'task' : 'quick',
+          sessionType: taskIds.length > 0 ? 'task' : 'quick',
           source,
-          backendCreated:  false,
-          segments:        [],        // segments created by hook before START
+          backendCreated: false,
+          segments: [],        // segments created by hook before START
           completionError: null,
-          todos:           [],
-          pauseEvents:     [],
-          pauseStartedAt:  null,
-          sessionStats:    { ...INITIAL_STATE.sessionStats },
-          segmentIndex:    0,
+          todos: [],
+          pauseEvents: [],
+          pauseStartedAt: null,
+          sessionStats: { ...INITIAL_STATE.sessionStats },
+          segmentIndex: 0,
         },
         effects,
       };
@@ -234,24 +249,22 @@ export function transition(state, event) {
     case EVENTS.LOAD_FAILED: {
       // Fall back to IDLE so the user can start a fresh session.
       return {
-        state:   { ...state, phase: PHASES.IDLE },
+        state: { ...state, phase: PHASES.IDLE },
         effects: [],
       };
     }
 
-    // ── Session created callback ───────────────────────────────────────────────
-
+    // Session created callback
     case EVENTS.SESSION_CREATED: {
-      // payload: { sessionId? } — called by effect executor after POST resolves
+      // payload: { sessionId? } - called by effect executor after POST resolves
       const sid = payload.sessionId || state.sessionId;
       return {
-        state:   { ...state, backendCreated: true, sessionId: sid },
+        state: { ...state, backendCreated: true, sessionId: sid },
         effects: [],
       };
     }
 
-    // ── User controls ─────────────────────────────────────────────────────────
-
+    // User controls
     case EVENTS.START: {
       // Allowed from IDLE or READY
       if (state.phase !== PHASES.IDLE && state.phase !== PHASES.READY) {
@@ -277,7 +290,7 @@ export function transition(state, event) {
       effects.push({ type: EFFECTS.START_TIMER, payload: { segmentIndex: state.segmentIndex } });
 
       return {
-        state:   { ...state, phase: PHASES.RUNNING, segments },
+        state: { ...state, phase: PHASES.RUNNING, segments },
         effects,
       };
     }
@@ -289,11 +302,11 @@ export function transition(state, event) {
       const { pausedAtMs, elapsedSeconds } = payload;
 
       const pauseEvent = {
-        id:        `p_${pausedAtMs}`,
+        id: `p_${pausedAtMs}`,
         startTime: new Date(pausedAtMs).toISOString(),
-        endTime:   null,
-        duration:  0,
-        reason:    'Manual Pause',
+        endTime: null,
+        duration: 0,
+        reason: 'Manual Pause',
       };
 
       const segments = snapshotElapsed(
@@ -305,10 +318,10 @@ export function transition(state, event) {
       return {
         state: {
           ...state,
-          phase:          PHASES.PAUSED,
+          phase: PHASES.PAUSED,
           segments,
           pauseStartedAt: pausedAtMs,
-          pauseEvents:    [...state.pauseEvents, pauseEvent],
+          pauseEvents: [...state.pauseEvents, pauseEvent],
           sessionStats: {
             ...state.sessionStats,
             pauseCount: state.sessionStats.pauseCount + 1,
@@ -336,7 +349,7 @@ export function transition(state, event) {
         if (i !== state.pauseEvents.length - 1 || pe.endTime) return pe;
         return {
           ...pe,
-          endTime:  new Date(resumedAtMs).toISOString(),
+          endTime: new Date(resumedAtMs).toISOString(),
           duration: pauseDuration,
         };
       });
@@ -344,7 +357,7 @@ export function transition(state, event) {
       return {
         state: {
           ...state,
-          phase:          PHASES.RUNNING,
+          phase: PHASES.RUNNING,
           pauseStartedAt: null,
           pauseEvents,
           sessionStats: {
@@ -368,13 +381,13 @@ export function transition(state, event) {
       // payload: { skippedAtIso }
       const { skippedAtIso } = payload;
 
-      const segments   = markSegmentCompleted(state.segments, state.segmentIndex, skippedAtIso);
-      const nextIndex  = state.segmentIndex + 1;
-      const isLast     = nextIndex >= segments.length;
+      const segments = markSegmentCompleted(state.segments, state.segmentIndex, skippedAtIso);
+      const nextIndex = state.segmentIndex + 1;
+      const isLast = nextIndex >= segments.length;
 
       if (isLast) {
         return {
-          state:   { ...state, phase: PHASES.COMPLETING, segments },
+          state: { ...state, phase: PHASES.COMPLETING, segments },
           effects: [{ type: EFFECTS.PATCH_COMPLETE }],
         };
       }
@@ -382,7 +395,7 @@ export function transition(state, event) {
       return {
         state: {
           ...state,
-          phase:        PHASES.READY,
+          phase: PHASES.READY,
           segments,
           segmentIndex: nextIndex,
         },
@@ -392,8 +405,7 @@ export function transition(state, event) {
       };
     }
 
-    // ── Timer boundary ────────────────────────────────────────────────────────
-
+    // Timer boundary
     case EVENTS.SEGMENT_COMPLETE: {
       // Guard: only fire from RUNNING, and only once per segment
       if (state.phase !== PHASES.RUNNING) return noChange(state);
@@ -404,8 +416,8 @@ export function transition(state, event) {
       // payload: { completedAtIso }
       const { completedAtIso } = payload;
 
-      const segments     = markSegmentCompleted(state.segments, state.segmentIndex, completedAtIso);
-      const isLast       = state.segmentIndex >= state.segments.length - 1;
+      const segments = markSegmentCompleted(state.segments, state.segmentIndex, completedAtIso);
+      const isLast = state.segmentIndex >= state.segments.length - 1;
       const sessionStats = updateStatsForCompletion(state.sessionStats, currentSeg.type);
 
       if (isLast) {
@@ -433,7 +445,7 @@ export function transition(state, event) {
       return {
         state: {
           ...state,
-          phase:        PHASES.READY,
+          phase: PHASES.READY,
           segments,
           segmentIndex: nextIndex,
           sessionStats,
@@ -446,12 +458,11 @@ export function transition(state, event) {
       };
     }
 
-    // ── Completion responses ──────────────────────────────────────────────────
-
+    // Completion responses
     case EVENTS.COMPLETE_CONFIRMED: {
       if (state.phase !== PHASES.COMPLETING) return noChange(state);
       return {
-        state:   { ...state, phase: PHASES.COMPLETED, completionError: null },
+        state: { ...state, phase: PHASES.COMPLETED, completionError: null },
         effects: [],
       };
     }
@@ -460,13 +471,12 @@ export function transition(state, event) {
       if (state.phase !== PHASES.COMPLETING) return noChange(state);
       const { error } = payload;
       return {
-        state:   { ...state, completionError: error?.message || 'Completion failed' },
+        state: { ...state, completionError: error?.message || 'Completion failed' },
         effects: [],
       };
     }
 
-    // ── Stop / Discard / Reset ───────────────────────────────────────────────
-
+    // Stop / Discard / Reset
     case EVENTS.DISCARD: {
       if (state.phase !== PHASES.RUNNING && state.phase !== PHASES.PAUSED) {
         return noChange(state);
@@ -508,12 +518,12 @@ export function transition(state, event) {
       const effects = [{ type: EFFECTS.STOP_TIMER }];
       if (state.sessionId && state.backendCreated) {
         effects.push({
-          type:    EFFECTS.PATCH_ABANDON,
+          type: EFFECTS.PATCH_ABANDON,
           payload: { sessionId: state.sessionId },
         });
       }
       return {
-        state:   { ...INITIAL_STATE },
+        state: { ...INITIAL_STATE },
         effects,
       };
     }
@@ -522,25 +532,24 @@ export function transition(state, event) {
       const effects = [{ type: EFFECTS.RESET_TIMER }];
       if (state.sessionId && state.backendCreated) {
         effects.push({
-          type:    EFFECTS.PATCH_ABANDON,
+          type: EFFECTS.PATCH_ABANDON,
           payload: { sessionId: state.sessionId },
         });
       }
       return {
-        state:   { ...INITIAL_STATE },
+        state: { ...INITIAL_STATE },
         effects,
       };
     }
 
-    // ── Data mutations ────────────────────────────────────────────────────────
-
+    // Data mutations
     case EVENTS.SET_TITLE: {
       const { title } = payload;
       const effects = state.backendCreated
         ? [{ type: EFFECTS.PATCH_TITLE, payload: { title } }]
         : [];
       return {
-        state:   { ...state, sessionTitle: title },
+        state: { ...state, sessionTitle: title },
         effects,
       };
     }
@@ -551,17 +560,16 @@ export function transition(state, event) {
         ? [{ type: EFFECTS.PATCH_TODOS, payload: { todos } }]
         : [];
       return {
-        state:   { ...state, todos },
+        state: { ...state, todos },
         effects,
       };
     }
 
-    // ── Internal feedback ─────────────────────────────────────────────────────
-
+    // Internal feedback
     case EVENTS.SAVE_STATUS: {
       const { status } = payload;
       return {
-        state:   { ...state, saveStatus: status },
+        state: { ...state, saveStatus: status },
         effects: [],
       };
     }
@@ -571,8 +579,7 @@ export function transition(state, event) {
   }
 }
 
-// ── Utility ───────────────────────────────────────────────────────────────────
-
+// Utility 
 function noChange(state) {
   return { state, effects: [] };
 }

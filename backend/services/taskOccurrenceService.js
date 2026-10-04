@@ -1,45 +1,25 @@
-import mongoose from "mongoose";
-import TaskOccurrence from "../models/taskOccurrenceModel.js";
-import Task from "../models/taskModel.js";
+import taskOccurrenceRepository from "../repositories/taskOccurrenceRepository.js";
+import taskRepository from "../repositories/taskRepository.js";
 import {
   toStartOfDayUTC,
   parseDateRange,
-  isSameDay,
   getProductDate,
   productDateToStart,
   resolveUserTimezone,
 } from "../utils/dateUtils.js";
 
 class TaskOccurrenceService {
-  /**
-   * Helper to create typed operational errors
-   */
   _createError(message, statusCode = 400) {
     const error = new Error(message);
     error.statusCode = statusCode;
     return error;
   }
 
-  /**
-   * Ensure or create a task occurrence for a specific calendar date in user's timezone.
-   *
-   * @param {string | mongoose.Types.ObjectId} userId
-   * @param {object} data
-   * @param {string | mongoose.Types.ObjectId} data.taskId
-   * @param {Date | string} data.date
-   * @param {string} [data.outcome="pending"]
-   * @param {object} [data.taskSnapshot]
-   * @param {string} [timezone]
-   * @returns {Promise<TaskOccurrence>}
-   */
   async ensureOccurrence(userId, data, timezone = null) {
     const { taskId, date, outcome = "pending", taskSnapshot, productDate: explicitProductDate } = data;
 
     if (!taskId) {
       throw this._createError("taskId is required", 400);
-    }
-    if (!mongoose.Types.ObjectId.isValid(taskId)) {
-      throw this._createError("Invalid taskId format", 400);
     }
     if (!date) {
       throw this._createError("date is required", 400);
@@ -47,11 +27,10 @@ class TaskOccurrenceService {
 
     const tz = timezone || (await resolveUserTimezone(userId));
     const productDate = explicitProductDate || getProductDate(date, tz);
-    const normalizedDate = toStartOfDayUTC(productDate, "UTC");
 
     let resolvedSnapshot = taskSnapshot || null;
     if (!resolvedSnapshot) {
-      const task = await Task.findOne({ _id: taskId, user: userId });
+      const task = await taskRepository.findById(userId, taskId);
       if (task) {
         resolvedSnapshot = {
           title: task.title,
@@ -60,42 +39,13 @@ class TaskOccurrenceService {
       }
     }
 
-    const occurrence = await TaskOccurrence.findOneAndUpdate(
-      { userId, taskId, date: normalizedDate },
-      {
-        $setOnInsert: {
-          userId,
-          taskId,
-          date: normalizedDate,
-          outcome,
-          taskSnapshot: resolvedSnapshot,
-        },
-        $set: {
-          productDate,
-        },
-      },
-      { upsert: true, new: true, runValidators: true }
-    );
-
-    return occurrence;
+    return await taskOccurrenceRepository.upsert(userId, taskId, productDate, {
+      outcome,
+      taskSnapshot: resolvedSnapshot,
+    });
   }
 
-  /**
-   * Record or update the outcome of a planned task occurrence.
-   *
-   * @param {string | mongoose.Types.ObjectId} userId
-   * @param {string | mongoose.Types.ObjectId} occurrenceId
-   * @param {object} updateData
-   * @param {string} [updateData.outcome]
-   * @param {Date} [updateData.completedAt]
-   * @param {string} [updateData.notes]
-   * @returns {Promise<TaskOccurrence>}
-   */
   async recordOutcome(userId, occurrenceId, updateData) {
-    if (!mongoose.Types.ObjectId.isValid(occurrenceId)) {
-      throw this._createError("Invalid occurrenceId format", 400);
-    }
-
     const validOutcomes = [
       "pending",
       "completed",
@@ -114,6 +64,11 @@ class TaskOccurrenceService {
       );
     }
 
+    const existing = await taskOccurrenceRepository.findById(occurrenceId);
+    if (!existing || String(existing.userId) !== String(userId)) {
+      throw this._createError("Task occurrence not found or access denied", 404);
+    }
+
     const setPayload = {};
     if (outcome) setPayload.outcome = outcome;
     if (notes !== undefined) setPayload.notes = notes;
@@ -124,56 +79,28 @@ class TaskOccurrenceService {
       setPayload.completedAt = completedAt ? new Date(completedAt) : null;
     }
 
-    const occurrence = await TaskOccurrence.findOneAndUpdate(
-      { _id: occurrenceId, userId },
-      { $set: setPayload },
-      { new: true, runValidators: true }
-    );
-
-    if (!occurrence) {
+    const pgOccurrence = await taskOccurrenceRepository.update(occurrenceId, setPayload);
+    if (!pgOccurrence) {
       throw this._createError("Task occurrence not found or access denied", 404);
     }
 
-    return occurrence;
+    return pgOccurrence;
   }
 
-  /**
-   * Reschedule a task occurrence to a new date in user's timezone.
-   *
-   * Preserves historical truth:
-   * 1. Marks original occurrence as "rescheduled" with rescheduledTo: newDate
-   * 2. Creates/ensures next occurrence for newDate with outcome "pending"
-   * 3. Syncs underlying Task.plannedDate
-   *
-   * @param {string | mongoose.Types.ObjectId} userId
-   * @param {string | mongoose.Types.ObjectId} occurrenceId
-   * @param {Date | string} newDate
-   * @param {string} [timezone]
-   * @returns {Promise<{ originalOccurrence: TaskOccurrence, nextOccurrence: TaskOccurrence }>}
-   */
   async reschedule(userId, occurrenceId, newDate, timezone = null) {
-    if (!mongoose.Types.ObjectId.isValid(occurrenceId)) {
-      throw this._createError("Invalid occurrenceId format", 400);
-    }
     if (!newDate) {
       throw this._createError("newDate is required for rescheduling", 400);
     }
 
     const tz = timezone || (await resolveUserTimezone(userId));
     const targetProductDate = getProductDate(newDate, tz);
-    const targetDate = toStartOfDayUTC(targetProductDate, "UTC");
 
-    const original = await TaskOccurrence.findOne({
-      _id: occurrenceId,
-      userId,
-    });
-
-    if (!original) {
+    const original = await taskOccurrenceRepository.findById(occurrenceId);
+    if (!original || String(original.userId) !== String(userId)) {
       throw this._createError("Task occurrence not found or access denied", 404);
     }
 
-    const originalProductDate =
-      original.productDate || getProductDate(original.date, tz);
+    const originalProductDate = original.productDate || getProductDate(original.date, tz);
     if (originalProductDate === targetProductDate) {
       throw this._createError(
         "Target reschedule date must be different from original date",
@@ -182,61 +109,40 @@ class TaskOccurrenceService {
     }
 
     // 1. Update original occurrence
-    original.outcome = "rescheduled";
-    original.rescheduledTo = targetDate;
-    if (!original.productDate) {
-      original.productDate = originalProductDate;
-    }
-    await original.save();
+    const updatedOriginal = await taskOccurrenceRepository.update(occurrenceId, {
+      outcome: "rescheduled",
+      rescheduledToDate: targetProductDate,
+    });
 
-    // 2. Create/ensure next occurrence
-    const nextOccurrence = await TaskOccurrence.findOneAndUpdate(
-      { userId, taskId: original.taskId, date: targetDate },
+    // 2. Ensure next occurrence
+    const nextOccurrence = await taskOccurrenceRepository.upsert(
+      userId,
+      original.taskId,
+      targetProductDate,
       {
-        $setOnInsert: {
-          userId,
-          taskId: original.taskId,
-          date: targetDate,
-          outcome: "pending",
-          taskSnapshot: original.taskSnapshot,
-        },
-        $set: {
-          productDate: targetProductDate,
-        },
-      },
-      { upsert: true, new: true, runValidators: true }
+        outcome: "pending",
+        taskSnapshot: original.taskSnapshot || { title: original.snapshotTitle, priority: original.snapshotPriority },
+      }
     );
 
-    // 3. Keep Task.plannedDate in sync
+    // 3. Keep Task.plannedProductDate in sync
     if (original.taskId) {
-      await Task.findOneAndUpdate(
-        { _id: original.taskId, user: userId },
-        {
-          $set: {
-            plannedDate: productDateToStart(targetProductDate, tz),
-            customPlannedDate: targetProductDate,
-          },
-        }
-      );
+      await taskRepository.update(userId, original.taskId, {
+        customPlannedDate: targetProductDate,
+        plannedDate: targetProductDate,
+      });
     }
 
     return {
-      originalOccurrence: original,
+      originalOccurrence: updatedOriginal,
       nextOccurrence,
     };
   }
 
-  /**
-   * Synchronize planned date changes on Task to TaskOccurrence.
-   *
-   * @param {string | mongoose.Types.ObjectId} userId
-   * @param {object} task
-   * @param {Date | string | null} [previousPlannedDate]
-   * @param {string} [timezone]
-   * @returns {Promise<TaskOccurrence | object | null>}
-   */
   async syncTaskPlannedDate(userId, task, previousPlannedDate, timezone = null) {
-    if (!task || !task._id) return null;
+    if (!task) return null;
+    const taskId = task.id || task._id;
+    if (!taskId) return null;
 
     const tz = timezone || (await resolveUserTimezone(userId));
     const taskSnapshot = {
@@ -244,28 +150,24 @@ class TaskOccurrenceService {
       priority: task.priority || "medium",
     };
 
-    const planned = task.customPlannedDate || task.plannedDate;
+    const planned = task.customPlannedDate || task.plannedProductDate || task.plannedDate;
     if (!planned) {
       return null;
     }
 
-    const newProductDate = task.customPlannedDate
-      ? task.customPlannedDate
-      : getProductDate(task.plannedDate, tz);
-    const newDate = toStartOfDayUTC(newProductDate, "UTC");
+    const newProductDate = task.customPlannedDate || getProductDate(planned, tz);
+    const newDate = productDateToStart(newProductDate, tz);
 
     if (previousPlannedDate) {
       const oldProductDate = getProductDate(previousPlannedDate, tz);
       if (oldProductDate !== newProductDate) {
-        const oldDate = toStartOfDayUTC(oldProductDate, "UTC");
-        const oldOccurrence = await TaskOccurrence.findOne({
+        const oldOcc = await taskOccurrenceRepository.findUserTaskOccurrenceOnDate(
           userId,
-          taskId: task._id,
-          $or: [{ date: oldDate }, { productDate: oldProductDate }],
-        });
-
-        if (oldOccurrence && oldOccurrence.outcome === "pending") {
-          return await this.reschedule(userId, oldOccurrence._id, newDate, tz);
+          taskId,
+          oldProductDate
+        );
+        if (oldOcc && oldOcc.outcome === "pending") {
+          return await this.reschedule(userId, oldOcc.id, newProductDate, tz);
         }
       }
     }
@@ -273,7 +175,7 @@ class TaskOccurrenceService {
     return await this.ensureOccurrence(
       userId,
       {
-        taskId: task._id,
+        taskId,
         date: newDate,
         productDate: newProductDate,
         outcome: "pending",
@@ -283,16 +185,6 @@ class TaskOccurrenceService {
     );
   }
 
-  /**
-   * Synchronize Task status transitions (completed, cancelled, reopened) with TaskOccurrence.
-   *
-   * @param {string | mongoose.Types.ObjectId} userId
-   * @param {object} task
-   * @param {string} [previousStatus]
-   * @param {Date | string} [asOfDate=new Date()]
-   * @param {string} [timezone]
-   * @returns {Promise<TaskOccurrence | null>}
-   */
   async syncTaskStatus(
     userId,
     task,
@@ -300,50 +192,47 @@ class TaskOccurrenceService {
     asOfDate = new Date(),
     timezone = null
   ) {
-    if (!task || !task._id) return null;
+    if (!task) return null;
+    const taskId = task.id || task._id;
+    if (!taskId) return null;
 
     const tz = timezone || (await resolveUserTimezone(userId));
     const todayProductDate = getProductDate(asOfDate, tz);
-    const today = toStartOfDayUTC(todayProductDate, "UTC");
+    const today = productDateToStart(todayProductDate, tz);
 
     // 1. Task Completed
     if (task.status === "completed") {
-      let occurrence = await TaskOccurrence.findOne({
+      let occurrence = await taskOccurrenceRepository.findUserTaskOccurrenceOnDate(
         userId,
-        taskId: task._id,
-        $or: [{ date: today }, { productDate: todayProductDate }],
-        outcome: { $in: ["pending", "partially_completed"] },
-      });
+        taskId,
+        todayProductDate
+      );
 
-      if (!occurrence && task.plannedDate) {
-        const taskProductDate = getProductDate(task.plannedDate, tz);
-        if (taskProductDate <= todayProductDate) {
-          occurrence = await TaskOccurrence.findOne({
+      if (!occurrence && (task.plannedDate || task.plannedProductDate || task.customPlannedDate)) {
+        const pDate = task.customPlannedDate || getProductDate(task.plannedDate, tz);
+        if (pDate <= todayProductDate) {
+          occurrence = await taskOccurrenceRepository.findUserTaskOccurrenceOnDate(
             userId,
-            taskId: task._id,
-            $or: [
-              { date: toStartOfDayUTC(taskProductDate, "UTC") },
-              { productDate: taskProductDate },
-            ],
-            outcome: { $in: ["pending", "partially_completed"] },
-          });
+            taskId,
+            pDate
+          );
         }
       }
 
-      if (occurrence) {
-        return await this.recordOutcome(userId, occurrence._id, {
+      if (occurrence && ["pending", "partially_completed"].includes(occurrence.outcome)) {
+        return await this.recordOutcome(userId, occurrence.id || occurrence._id, {
           outcome: "completed",
           completedAt: new Date(),
         });
       } else if (
-        task.plannedDate &&
-        getProductDate(task.plannedDate, tz) === todayProductDate
+        (task.plannedProductDate === todayProductDate || task.customPlannedDate === todayProductDate)
       ) {
         return await this.ensureOccurrence(
           userId,
           {
-            taskId: task._id,
+            taskId,
             date: today,
+            productDate: todayProductDate,
             outcome: "completed",
             taskSnapshot: { title: task.title, priority: task.priority },
           },
@@ -357,17 +246,16 @@ class TaskOccurrenceService {
       previousStatus === "completed" &&
       (task.status === "todo" || task.status === "in-progress")
     ) {
-      const todayOccurrence = await TaskOccurrence.findOne({
+      let todayOccurrence = await taskOccurrenceRepository.findUserTaskOccurrenceOnDate(
         userId,
-        taskId: task._id,
-        $or: [{ date: today }, { productDate: todayProductDate }],
-        outcome: "completed",
-      });
+        taskId,
+        todayProductDate
+      );
 
-      if (todayOccurrence) {
+      if (todayOccurrence && todayOccurrence.outcome === "completed") {
         const nextOutcome =
           task.status === "in-progress" ? "partially_completed" : "pending";
-        return await this.recordOutcome(userId, todayOccurrence._id, {
+        return await this.recordOutcome(userId, todayOccurrence.id || todayOccurrence._id, {
           outcome: nextOutcome,
           completedAt: null,
         });
@@ -376,28 +264,23 @@ class TaskOccurrenceService {
 
     // 3. Task Cancelled
     if (task.status === "cancelled") {
-      let occurrence = await TaskOccurrence.findOne({
+      let occurrence = await taskOccurrenceRepository.findUserTaskOccurrenceOnDate(
         userId,
-        taskId: task._id,
-        $or: [{ date: today }, { productDate: todayProductDate }],
-        outcome: { $in: ["pending", "partially_completed"] },
-      });
+        taskId,
+        todayProductDate
+      );
 
-      if (!occurrence && task.plannedDate) {
-        const taskProductDate = getProductDate(task.plannedDate, tz);
-        occurrence = await TaskOccurrence.findOne({
+      if (!occurrence && (task.plannedDate || task.plannedProductDate)) {
+        const pDate = task.customPlannedDate || getProductDate(task.plannedDate, tz);
+        occurrence = await taskOccurrenceRepository.findUserTaskOccurrenceOnDate(
           userId,
-          taskId: task._id,
-          $or: [
-            { date: toStartOfDayUTC(taskProductDate, "UTC") },
-            { productDate: taskProductDate },
-          ],
-          outcome: { $in: ["pending", "partially_completed"] },
-        });
+          taskId,
+          pDate
+        );
       }
 
-      if (occurrence) {
-        return await this.recordOutcome(userId, occurrence._id, {
+      if (occurrence && ["pending", "partially_completed"].includes(occurrence.outcome)) {
+        return await this.recordOutcome(userId, occurrence.id || occurrence._id, {
           outcome: "cancelled",
         });
       }
@@ -408,15 +291,14 @@ class TaskOccurrenceService {
       previousStatus === "cancelled" &&
       (task.status === "todo" || task.status === "in-progress")
     ) {
-      const todayOccurrence = await TaskOccurrence.findOne({
+      let todayOccurrence = await taskOccurrenceRepository.findUserTaskOccurrenceOnDate(
         userId,
-        taskId: task._id,
-        $or: [{ date: today }, { productDate: todayProductDate }],
-        outcome: "cancelled",
-      });
+        taskId,
+        todayProductDate
+      );
 
-      if (todayOccurrence) {
-        return await this.recordOutcome(userId, todayOccurrence._id, {
+      if (todayOccurrence && todayOccurrence.outcome === "cancelled") {
+        return await this.recordOutcome(userId, todayOccurrence.id || todayOccurrence._id, {
           outcome: "pending",
         });
       }
@@ -425,14 +307,6 @@ class TaskOccurrenceService {
     return null;
   }
 
-  /**
-   * Deterministically transitions past pending occurrences to "missed".
-   *
-   * @param {string | mongoose.Types.ObjectId} userId
-   * @param {Date | string} [asOfDate=new Date()]
-   * @param {string} [timezone]
-   * @returns {Promise<object>}
-   */
   async evaluateMissedOccurrences(
     userId,
     asOfDate = new Date(),
@@ -440,87 +314,58 @@ class TaskOccurrenceService {
   ) {
     const tz = timezone || (await resolveUserTimezone(userId));
     const todayProductDate = getProductDate(asOfDate, tz);
-    const todayStart = toStartOfDayUTC(todayProductDate, "UTC");
-
-    return await TaskOccurrence.updateMany(
-      {
-        userId,
-        outcome: "pending",
-        $or: [
-          { productDate: { $lt: todayProductDate } },
-          { productDate: { $exists: false }, date: { $lt: todayStart } },
-        ],
-      },
-      {
-        $set: { outcome: "missed" },
-      }
-    );
+    await taskOccurrenceRepository.evaluateMissedOccurrences(userId, todayProductDate);
   }
 
-  /**
-   * Query historical and planned task occurrences.
-   *
-   * @param {string | mongoose.Types.ObjectId} userId
-   * @param {object} query
-   * @param {string} [timezone]
-   * @returns {Promise<Array<TaskOccurrence>>}
-   */
   async getOccurrences(userId, query = {}, timezone = null) {
     const tz = timezone || (await resolveUserTimezone(userId));
     await this.evaluateMissedOccurrences(userId, new Date(), tz);
 
-    const filter = { userId };
-
+    let occs = [];
     if (query.date) {
       const pDate = getProductDate(query.date, tz);
-      filter.$or = [
-        { productDate: pDate },
-        { date: toStartOfDayUTC(pDate, "UTC") },
-      ];
+      if (query.taskId) {
+        const single = await taskOccurrenceRepository.findUserTaskOccurrenceOnDate(
+          userId,
+          query.taskId,
+          pDate
+        );
+        occs = single ? [single] : [];
+      } else {
+        occs = await taskOccurrenceRepository.findByUserAndDate(userId, pDate);
+      }
     } else if (query.startDate || query.endDate) {
-      const { start, end, startProductDate, endProductDate } = parseDateRange(
+      const { startProductDate, endProductDate } = parseDateRange(
         query.startDate,
         query.endDate,
         tz
       );
-      const prodRange = {};
-      if (startProductDate) prodRange.$gte = startProductDate;
-      if (endProductDate) prodRange.$lte = endProductDate;
-
-      const dateRange = {};
-      if (start) dateRange.$gte = start;
-      if (end) dateRange.$lte = end;
-
-      filter.$or = [
-        { productDate: prodRange },
-        { productDate: { $exists: false }, date: dateRange },
-      ];
+      occs = await taskOccurrenceRepository.findByUserAndDateRange(
+        userId,
+        startProductDate,
+        endProductDate
+      );
+    } else if (query.taskId) {
+      occs = await taskOccurrenceRepository.findByTaskId(query.taskId);
+    } else {
+      occs = await taskOccurrenceRepository.findPastOccurrences(userId, "9999-12-31");
     }
 
-    if (query.taskId) {
-      if (!mongoose.Types.ObjectId.isValid(query.taskId)) {
-        throw this._createError("Invalid taskId format", 400);
+    if (occs && occs.length > 0) {
+      const taskIds = occs.map((o) => o.taskId).filter(Boolean);
+      const taskList = await taskRepository.findByIds(userId, taskIds);
+      const taskMap = new Map(taskList.map((t) => [String(t.id), t]));
+      for (const occ of occs) {
+        occ.taskId = taskMap.get(String(occ.taskId)) || null;
+        if (!occ.taskId && occ.snapshotTitle) {
+          occ.taskTitle = occ.snapshotTitle;
+          occ.taskPriority = occ.snapshotPriority || "medium";
+          occ.isTaskDeleted = true;
+        }
       }
-      filter.taskId = query.taskId;
     }
 
-    if (query.outcome) {
-      filter.outcome = query.outcome;
-    }
-
-    const occurrences = await TaskOccurrence.find(filter)
-      .sort({ date: 1, createdAt: 1 })
-      .populate("taskId", "title status priority goal dueDate plannedDate");
-
-    return occurrences.map((occ) => {
-      const obj = occ.toObject ? occ.toObject() : occ;
-      if (!obj.taskId && obj.taskSnapshot) {
-        obj.taskTitle = obj.taskSnapshot.title || "Deleted Task";
-        obj.taskPriority = obj.taskSnapshot.priority || "medium";
-        obj.isTaskDeleted = true;
-      }
-      return obj;
-    });
+    return occs || [];
   }
 }
 

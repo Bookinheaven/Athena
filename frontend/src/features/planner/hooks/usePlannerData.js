@@ -6,6 +6,7 @@ import goalService from "../../../../services/goalService.js";
 import notesService from "../../../../services/notesService.js";
 import sessionService from "../../../../services/sessionService.js";
 import { usePlannerStore } from "../../../stores/plannerStore.js";
+import { isTaskPlannedForToday, getTodayProductDate } from "@/utils/dateUtils.js";
 
 export const usePlannerData = () => {
   const navigate = useNavigate();
@@ -99,15 +100,21 @@ export const usePlannerData = () => {
     loadPlannerData();
   }, [loadPlannerData]);
 
-  // Derived Collections
-  const todayStr = useMemo(() => new Date().toDateString(), []);
+  // Synchronize whenever task/outcome changes occur across Today, Planner, or Focus
+  useEffect(() => {
+    const handleTasksChanged = () => {
+      loadPlannerData();
+    };
+    window.addEventListener("athena:tasks-changed", handleTasksChanged);
+    return () => {
+      window.removeEventListener("athena:tasks-changed", handleTasksChanged);
+    };
+  }, [loadPlannerData]);
 
+  // Derived Collections using canonical product date matching (drift-proof across timezones)
   const todayTasks = useMemo(() => {
-    return tasks.filter((t) => {
-      if (!t.plannedDate) return false;
-      return new Date(t.plannedDate).toDateString() === todayStr;
-    });
-  }, [tasks, todayStr]);
+    return tasks.filter((t) => isTaskPlannedForToday(t));
+  }, [tasks]);
 
   const activeTasks = useMemo(() => {
     return tasks.filter(
@@ -125,6 +132,7 @@ export const usePlannerData = () => {
 
       try {
         await taskService.updateTask(taskId, { status: newStatus });
+        window.dispatchEvent(new CustomEvent("athena:tasks-changed"));
       } catch (err) {
         console.error("Failed to toggle status:", err);
         setTasks((prev) =>
@@ -138,12 +146,13 @@ export const usePlannerData = () => {
   );
 
   const handleAddToToday = useCallback(async (taskId) => {
-    const today = new Date();
+    const today = getTodayProductDate();
     setTasks((prev) =>
-      prev.map((t) => (t._id === taskId ? { ...t, plannedDate: today } : t))
+      prev.map((t) => (t._id === taskId ? { ...t, plannedDate: today, customPlannedDate: today } : t))
     );
     try {
-      await taskService.updateTask(taskId, { plannedDate: today });
+      await taskService.updateTask(taskId, { plannedDate: today, customPlannedDate: today });
+      window.dispatchEvent(new CustomEvent("athena:tasks-changed"));
     } catch (err) {
       console.error("Failed to add task to today:", err);
     }
@@ -151,10 +160,11 @@ export const usePlannerData = () => {
 
   const handleRemoveFromToday = useCallback(async (taskId) => {
     setTasks((prev) =>
-      prev.map((t) => (t._id === taskId ? { ...t, plannedDate: null } : t))
+      prev.map((t) => (t._id === taskId ? { ...t, plannedDate: null, customPlannedDate: null } : t))
     );
     try {
-      await taskService.updateTask(taskId, { plannedDate: null });
+      await taskService.updateTask(taskId, { plannedDate: null, customPlannedDate: null });
+      window.dispatchEvent(new CustomEvent("athena:tasks-changed"));
     } catch (err) {
       console.error("Failed to remove task from today:", err);
     }
@@ -179,6 +189,7 @@ export const usePlannerData = () => {
           setSelectedTaskId(created._id);
         }
       }
+      window.dispatchEvent(new CustomEvent("athena:tasks-changed"));
     },
     [tasks.length, setSelectedTaskId]
   );
@@ -189,6 +200,7 @@ export const usePlannerData = () => {
       setSelectedTaskId((prev) => (prev === taskId ? null : prev));
       try {
         await taskService.deleteTask(taskId);
+        window.dispatchEvent(new CustomEvent("athena:tasks-changed"));
       } catch (err) {
         console.error("Failed to delete task:", err);
       }

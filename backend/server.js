@@ -1,129 +1,23 @@
 import env from "./config/env.js";
-import express from "express";
-import cookieParser from "cookie-parser";
-import rateLimit from "express-rate-limit";
-import cors from "cors";
 import http from "http";
+import app from "./app.js";
 import { APP_NAME } from "./config/branding.js";
-
-// Routers
-import authRoutes from "./routes/authRoutes.js";
-import userRoutes from "./routes/userRoutes.js";
-import adminRoutes from "./routes/adminRoutes.js";
-import sessionRoutes from "./routes/sessionRoutes.js";
-import generalRoutes from "./routes/generalRoutes.js";
-import streakRoutes from "./routes/streakRoutes.js";
-import notesRoutes from "./routes/notesRoute.js";
-import plannerRoutes from "./routes/plannerRoute.js";
-import goalRoutes from "./routes/goalRoutes.js";
-import taskRoutes from "./routes/taskRoutes.js";
-import workspaceRoutes from "./routes/workspaceRoutes.js";
-import scheduleRoutes from "./routes/scheduleRoutes.js";
-import taskOccurrenceRoutes from "./routes/taskOccurrenceRoutes.js";
-
-// Database instance setup
-import { connectDB, closeDB } from "./config/db.js";
+import { getPgPool, closePgPool } from "./db/index.js";
 import { initSocket } from "./config/socket.js";
 
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100, // strict
-  message: {
-    success: false,
-    message: "Too many auth attempts. Try again later.",
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
+const PORT = env.PORT || 5000;
 
-const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 200, // normal usage
-  message: {
-    success: false,
-    message: "Too many requests. Please slow down.",
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-const heavyLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 1000, // very relaxed 
-  message: {
-    success: false,
-    message: "Too many session updates.",
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-// SETUP for express instance and adding required in-built middleware (express.json() => JSON parser)
-const app = express();
-// app.use(limiter);
-app.use(
-  cors({
-    origin: Array.from(new Set([env.CLIENT_URL, "http://localhost:5173", "http://localhost:3000"])),
-    credentials: true,
-  }),
-);
-app.use(express.json());
-app.use(cookieParser());
-
-// # Routings
-// app.get('/', (req, res) => {
-//     res.send("hello")
-// })
-
-app.get("/health", (req, res) => {
-  res.json({
-    success: true,
-    message: `${APP_NAME} API is running!`,
-    timestamp: new Date().toISOString(),
-  });
-});
-
-// Routing to auth for login and logout
-app.use("/api/auth", authLimiter, authRoutes);
-
-app.use("/api/session", heavyLimiter, sessionRoutes);
-
-app.use("/api/user", apiLimiter, userRoutes);
-app.use("/api/admin", apiLimiter, adminRoutes);
-app.use("/api/general", apiLimiter, generalRoutes);
-app.use("/api/streak", apiLimiter, streakRoutes);
-app.use("/api/notes", apiLimiter, notesRoutes);
-app.use("/api/goal", apiLimiter, goalRoutes);
-app.use("/api/task", apiLimiter, taskRoutes);
-app.use("/api/planner", apiLimiter, plannerRoutes);
-app.use("/api/workspace", apiLimiter, workspaceRoutes);
-app.use("/api/schedule-block", apiLimiter, scheduleRoutes);
-app.use("/api/schedule-blocks", apiLimiter, scheduleRoutes);
-app.use("/api/task-occurrences", apiLimiter, taskOccurrenceRoutes);
-
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error("Error:", err.stack);
-  res.status(500).json({
-    success: false,
-    message:
-      env.NODE_ENV === "production"
-        ? "Something went wrong!"
-        : err.message,
-  });
-});
-// 404 handler
-// app.use('*', (req, res) => {
-//     res.status(404).json({
-//         success: false,
-//         message: `Route ${req.originalUrl} not found`
-//     });
-// });
-
-const PORT = env.PORT;
 const startServer = async () => {
-  // connecting database
-  await connectDB();
+  // 1. Verify PostgreSQL core primary datastore
+  try {
+    const pool = getPgPool();
+    await pool.query("SELECT 1;");
+    console.log("[PostgreSQL] Primary core datastore connected successfully.");
+  } catch (pgErr) {
+    console.error("[PostgreSQL] FATAL: Failed to connect to core PostgreSQL database:", pgErr.message);
+    process.exit(1);
+  }
+
   const server = http.createServer(app);
   initSocket(server);
 
@@ -132,11 +26,17 @@ const startServer = async () => {
     console.log(`${APP_NAME} Backend ready!`);
     console.log(`Environment: ${env.NODE_ENV}`);
   });
-  process.on("SIGINT", async () => {
-    console.log("Shutting down...");
-    await closeDB();
+
+  const gracefulShutdown = async () => {
+    console.log("Shutting down gracefully...");
+    await closePgPool();
     process.exit(0);
-  });
+  };
+
+  process.on("SIGINT", gracefulShutdown);
+  process.on("SIGTERM", gracefulShutdown);
 };
 
 startServer();
+
+export { app, startServer };

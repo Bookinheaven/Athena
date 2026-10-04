@@ -12,7 +12,8 @@ class TaskController {
 
       res.status(201).json(task);
     } catch (error) {
-      res.status(500).json({ message: error.message });
+      const statusCode = error.statusCode || 500;
+      res.status(statusCode).json({ success: false, message: error.message });
     }
   }
 
@@ -22,7 +23,8 @@ class TaskController {
 
       res.json(tasks);
     } catch (error) {
-      res.status(500).json({ message: error.message });
+      const statusCode = error.statusCode || 500;
+      res.status(statusCode).json({ success: false, message: error.message });
     }
   }
 
@@ -38,7 +40,8 @@ class TaskController {
 
       res.json(task);
     } catch (error) {
-      res.status(500).json({ message: error.message });
+      const statusCode = error.statusCode || 500;
+      res.status(statusCode).json({ success: false, message: error.message });
     }
   }
 
@@ -46,9 +49,10 @@ class TaskController {
     try {
       await TaskService.deleteTask(req.user.id, req.params.id);
 
-      res.json({ message: "Task deleted" });
+      res.json({ success: true, message: "Task deleted" });
     } catch (error) {
-      res.status(500).json({ message: error.message });
+      const statusCode = error.statusCode || 500;
+      res.status(statusCode).json({ success: false, message: error.message });
     }
   }
 
@@ -56,9 +60,10 @@ class TaskController {
     try {
       await TaskService.reorderTasks(req.user.id, req.body);
 
-      res.json({ message: "Tasks reordered" });
+      res.json({ success: true, message: "Tasks reordered" });
     } catch (error) {
-      res.status(500).json({ message: error.message });
+      const statusCode = error.statusCode || 500;
+      res.status(statusCode).json({ success: false, message: error.message });
     }
   }
 }

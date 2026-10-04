@@ -1,15 +1,21 @@
 /**
  * Lifecycle phases of a Focus session.
  *
- * IDLE       – No session context. User has not started anything.
- * LOADING    – Checking backend for an active session.
- * READY      – Session loaded or segment complete; timer not running.
- *              Used as a staging state before START (e.g. before break or
- *              after segment complete while autoStartBreaks is false).
- * RUNNING    – Timer active. Current segment is in progress.
- * PAUSED     – Timer stopped by user.
+ * IDLE – No session context. User has not started anything.
+ * 
+ * LOADING – Checking backend for an active session.
+ * 
+ * READY – Session loaded or segment complete; timer not running.
+ *          Used as a staging state before START (e.g. before break or
+ *          after segment complete while autoStartBreaks is false).
+ * 
+ * RUNNING – Timer active. Current segment is in progress.
+ * 
+ * PAUSED – Timer stopped by user.
+ * 
  * COMPLETING – Final segment reached zero. Awaiting backend confirmation.
- * COMPLETED  – Backend confirmed completion. Review is available.
+ * 
+ * COMPLETED – Backend confirmed completion. Review is available.
  */
 export const PHASES = Object.freeze({
   IDLE: 'idle',
@@ -25,6 +31,7 @@ export const PHASES = Object.freeze({
  * Events that the runtime accepts.
  *
  * Each event is dispatched by the UI or by the effect executor.
+ * 
  * The pure reducer handles every event deterministically.
  */
 export const EVENTS = Object.freeze({
@@ -43,7 +50,7 @@ export const EVENTS = Object.freeze({
   DISCARD: 'DISCARD',
   RESET: 'RESET',
 
-  // Internal — emitted by timer/effect layer, not by UI directly
+  // Internal - emitted by timer/effect layer, not by UI directly
   SEGMENT_COMPLETE: 'SEGMENT_COMPLETE',
 
   // Backend responses for completion flow
@@ -65,6 +72,7 @@ export const EVENTS = Object.freeze({
  * Effect descriptors returned by the pure transition function.
  *
  * Effects are plain objects { type, payload? }.
+ * 
  * The useFocusRuntime hook executes them; the reducer never does.
  */
 export const EFFECTS = Object.freeze({

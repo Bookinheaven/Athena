@@ -12,6 +12,7 @@ import {
 import { Card, CardContent } from "@/components/ui/card.jsx";
 import { Button } from "@/components/ui/button.jsx";
 import { Badge } from "@/components/ui/badge.jsx";
+import { isTaskPlannedForToday } from "@/utils/dateUtils.js";
 import { Input } from "@/components/ui/input.jsx";
 
 export default function TasksView({
@@ -46,8 +47,7 @@ export default function TasksView({
         return false;
       }
       if (filter === "today") {
-        if (!t.plannedDate) return false;
-        if (new Date(t.plannedDate).toDateString() !== todayStr) return false;
+        if (!isTaskPlannedForToday(t)) return false;
       }
 
       // Goal filter
@@ -144,9 +144,7 @@ export default function TasksView({
             filteredTasks.map((task) => {
               const isCompleted = task.status === "completed";
               const isSelected = task._id === selectedTaskId;
-              const isPlannedToday =
-                task.plannedDate &&
-                new Date(task.plannedDate).toDateString() === todayStr;
+              const isPlannedToday = isTaskPlannedForToday(task);
               const goalObj = goals.find((g) => g._id === task.goal);
 
               return (
@@ -352,9 +350,7 @@ export default function TasksView({
 
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Today's Plan</span>
-                    {selectedTask.plannedDate &&
-                    new Date(selectedTask.plannedDate).toDateString() ===
-                      todayStr ? (
+                    {isTaskPlannedForToday(selectedTask) ? (
                       <div className="flex items-center gap-2">
                         <Badge
                           variant="secondary"

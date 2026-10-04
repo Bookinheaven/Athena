@@ -13,6 +13,7 @@ import {
 import { Card, CardContent } from "@/components/ui/card.jsx";
 import { Button } from "@/components/ui/button.jsx";
 import { Input } from "@/components/ui/input.jsx";
+import { isTaskPlannedForToday } from "@/utils/dateUtils.js";
 
 export default function TodayPlanView({
   tasks = [],
@@ -27,16 +28,10 @@ export default function TodayPlanView({
 }) {
   const [unplannedSearch, setUnplannedSearch] = useState("");
 
-  const todayStr = useMemo(() => new Date().toDateString(), []);
-
   const todayTasks = useMemo(() => {
-    return tasks
-      .filter((t) => {
-        if (!t.plannedDate) return false;
-        return new Date(t.plannedDate).toDateString() === todayStr;
-      })
+    return tasks.filter((t) => isTaskPlannedForToday(t))
       .sort((a, b) => (a.order || 0) - (b.order || 0));
-  }, [tasks, todayStr]);
+  }, [tasks]);
 
   const completedTodayTasks = useMemo(() => {
     return todayTasks.filter((t) => t.status === "completed");
@@ -46,14 +41,13 @@ export default function TodayPlanView({
     return tasks
       .filter((t) => {
         if (t.status === "completed" || t.status === "cancelled") return false;
-        if (!t.plannedDate) return true;
-        return new Date(t.plannedDate).toDateString() !== todayStr;
+        return !isTaskPlannedForToday(t);
       })
       .filter((t) => {
         if (!unplannedSearch.trim()) return true;
         return t.title.toLowerCase().includes(unplannedSearch.toLowerCase());
       });
-  }, [tasks, todayStr, unplannedSearch]);
+  }, [tasks, unplannedSearch]);
 
   return (
     <div className="space-y-6">
@@ -64,9 +58,8 @@ export default function TodayPlanView({
           <p className="text-sm text-muted-foreground">
             {todayTasks.length === 0
               ? "No tasks scheduled for today yet."
-              : `${todayTasks.length} ${
-                  todayTasks.length === 1 ? "task" : "tasks"
-                } planned · ${completedTodayTasks.length} completed`}
+              : `${todayTasks.length} ${todayTasks.length === 1 ? "task" : "tasks"
+              } planned · ${completedTodayTasks.length} completed`}
           </p>
         </div>
 
@@ -93,11 +86,10 @@ export default function TodayPlanView({
               return (
                 <div
                   key={task._id}
-                  className={`group flex items-center justify-between gap-3 p-4 rounded-xl border transition-all duration-200 ${
-                    isCompleted
+                  className={`group flex items-center justify-between gap-3 p-4 rounded-xl border transition-all duration-200 ${isCompleted
                       ? "bg-secondary/30 border-transparent opacity-65"
                       : "bg-card border-border hover:border-border/80 shadow-2xs"
-                  }`}
+                    }`}
                 >
                   {/* Left: Checkbox + Title + Meta */}
                   <div className="flex items-center gap-3.5 min-w-0 flex-1">
@@ -115,11 +107,10 @@ export default function TodayPlanView({
 
                     <div className="min-w-0 flex-1 space-y-1">
                       <p
-                        className={`text-sm font-medium truncate ${
-                          isCompleted
+                        className={`text-sm font-medium truncate ${isCompleted
                             ? "line-through text-muted-foreground"
                             : "text-card-foreground"
-                        }`}
+                          }`}
                       >
                         {task.title}
                       </p>

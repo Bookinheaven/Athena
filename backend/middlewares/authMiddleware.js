@@ -1,5 +1,5 @@
 import jwt from "jsonwebtoken";
-import User from "../models/userModel.js";
+import userRepository from "../repositories/userRepository.js";
 import env from "../config/env.js";
 import { isValidTimezone } from "../utils/dateUtils.js";
 
@@ -22,7 +22,7 @@ const auth = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, env.JWT_SECRET);
-    const user = await User.findById(decoded.userId).select("-password");
+    const user = await userRepository.findById(decoded.userId);
 
     if (!user || !user.isActive) {
       return res.status(401).json({
@@ -41,7 +41,7 @@ const auth = async (req, res, next) => {
       const detectedTz = validHeaderTz || "UTC";
       user.settings = user.settings || {};
       user.settings.timezone = detectedTz;
-      User.updateOne({ _id: user._id }, { $set: { "settings.timezone": detectedTz } }).catch(() => null);
+      userRepository.updateTimezone(user.id, detectedTz).catch(() => null);
       req.timezone = detectedTz;
     } else {
       // Persisted user preference is authoritative across all devices
@@ -50,10 +50,12 @@ const auth = async (req, res, next) => {
 
     next();
   } catch (error) {
-    res.status(401).json({
-      success: false,
-      message: "Invalid token.",
-    });
+    if (typeof res?.status === "function") {
+      res.status(401).json({
+        success: false,
+        message: "Invalid token.",
+      });
+    }
   }
 };
 

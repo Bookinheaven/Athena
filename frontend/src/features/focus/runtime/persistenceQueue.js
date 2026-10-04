@@ -1,16 +1,10 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// PersistenceQueue
-//
-// Serialises write requests so only one PATCH is in-flight at a time.
-// This eliminates the "last-write-wins" race where two concurrent PATCHes
-// could corrupt segment state.
-//
-// Usage:
-//   const queue = new PersistenceQueue(saveFn);
-//   queue.enqueue('progress', payload1);  // fires immediately
-//   queue.enqueue('segment_complete', payload2);  // waits for payload1
-//   queue.flush();                        // force-drain before unload
-// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * PersistenceQueue
+ * 
+ * Serialises write requests so only one PATCH is in-flight at a time.
+ * This eliminates the "last-write-wins" race where two concurrent PATCHes
+ * could corrupt segment state.
+ */
 
 export class PersistenceQueue {
   /**
@@ -20,11 +14,11 @@ export class PersistenceQueue {
    *   Optional callback for UI status indicator.
    */
   constructor(saveFn, onStatus) {
-    this._saveFn    = saveFn;
-    this._onStatus  = onStatus || (() => {});
-    this._queue     = [];        // Array<{ type, payload }>
-    this._running   = false;
-    this._retries   = 0;
+    this._saveFn = saveFn;
+    this._onStatus = onStatus || (() => { });
+    this._queue = [];        // Array<{ type, payload }>
+    this._running = false;
+    this._retries = 0;
     this._MAX_RETRY = 3;
   }
 
@@ -34,13 +28,20 @@ export class PersistenceQueue {
    * If the type is 'complete', it supersedes any queued 'progress' entries
    * to avoid a stale progress write racing with the completion write.
    *
-   * @param {string} type     – e.g. 'progress', 'pause', 'complete'
-   * @param {object} payload  – Sent to saveFn
+   * @param {string} type ['progress', 'pause', 'complete']
+   * @param {object} payload 
    */
   enqueue(type, payload) {
-    // Completion supersedes progress to prevent a stale PATCH overwrite
-    if (type === 'complete') {
+    // Completion or abandonment supersedes progress to prevent a stale PATCH overwrite
+    if (type === 'complete' || type === 'abandon') {
       this._queue = this._queue.filter((item) => item.type !== 'progress');
+    } else if (type === 'progress') {
+      // Coalesce waiting progress checkpoints so only the latest is sent
+      const pendingIdx = this._queue.findIndex((item, idx) => idx > 0 && item.type === 'progress');
+      if (pendingIdx !== -1) {
+        this._queue[pendingIdx] = { type, payload };
+        return;
+      }
     }
 
     this._queue.push({ type, payload });
@@ -63,7 +64,7 @@ export class PersistenceQueue {
     }
   }
 
-  // ── Private ──────────────────────────────────────────────────────────────────
+  // Private Methods
 
   async _drain() {
     if (this._running || this._queue.length === 0) return;

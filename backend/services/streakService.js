@@ -1,6 +1,6 @@
-import Streak from "../models/streakModel.js";
-import DailyStats from "../models/dailyStatsModel.js";
-import TaskOccurrence from "../models/taskOccurrenceModel.js";
+import streakRepository from "../repositories/streakRepository.js";
+import dailyStatsRepository from "../repositories/dailyStatsRepository.js";
+import taskOccurrenceRepository from "../repositories/taskOccurrenceRepository.js";
 import taskOccurrenceService from "./taskOccurrenceService.js";
 import {
   toStartOfDayUTC,
@@ -103,19 +103,19 @@ class StreakService {
    */
   async getSummaryData(userId, asOfDate = new Date(), timezone = null) {
     const streakData = await this.processDailyStreak(userId, asOfDate, timezone);
-    const streak = await Streak.findOne({ userId });
+    const streak = await streakRepository.findByUserId(userId);
 
     return {
-      currentStreak: streak.currentStreak,
-      longestStreak: streak.longestStreak,
-      freezeBalance: streak.freezeBalance,
-      totalFreezesUsed: streak.totalFreezesUsed,
-      maxFreezeBalance: streak.maxFreezeBalance,
-      dailyTargetMinutes: streak.dailyTargetMinutes,
-      minTargetMinutes: streak.minTargetMinutes,
-      maxTargetMinutes: streak.maxTargetMinutes,
-      lastTargetReason: streak.lastTargetReason,
-      lastCountedDate: streak.lastCountedDate,
+      currentStreak: streak?.currentStreak ?? 0,
+      longestStreak: streak?.longestStreak ?? 0,
+      freezeBalance: streak?.freezeBalance ?? 3,
+      totalFreezesUsed: streak?.totalFreezesUsed ?? 0,
+      maxFreezeBalance: streak?.maxFreezeBalance ?? 3,
+      dailyTargetMinutes: streak?.dailyTargetMinutes ?? 25,
+      minTargetMinutes: streak?.minTargetMinutes ?? 20,
+      maxTargetMinutes: streak?.maxTargetMinutes ?? 90,
+      lastTargetReason: streak?.lastTargetReason ?? "no_change",
+      lastCountedDate: streak?.lastCountedDate ?? null,
       ...streakData,
     };
   }
@@ -123,7 +123,7 @@ class StreakService {
   /**
    * Main unified daily outcome and streak evaluation engine.
    *
-   * @param {string | mongoose.Types.ObjectId} userId
+   * @param {string} userId
    * @param {Date | string} [asOfDate=new Date()]
    * @param {string} [timezone=null]
    */
@@ -132,32 +132,19 @@ class StreakService {
     const todayProductDate = getProductDate(asOfDate, tz);
     const today = toStartOfDayUTC(todayProductDate, "UTC");
 
-    let streak = await Streak.findOne({ userId });
-    if (!streak) {
-      streak = await Streak.create({ userId });
+    let pgStreak = await streakRepository.findByUserId(userId).catch(() => null);
+    if (!pgStreak) {
+      pgStreak = await streakRepository.createForUser(userId).catch(() => null);
     }
+
+    const streak = pgStreak || { currentStreak: 0, longestStreak: 0, dailyTargetMinutes: 25 };
 
     // 1. Transition past pending occurrences (before today in user's timezone) to "missed"
     await taskOccurrenceService.evaluateMissedOccurrences(userId, asOfDate, tz);
 
     // 2. Load all historical occurrences and DailyStats before today
-    // Query supports both new records with productDate and legacy records with date
-    const [allPastOccurrences, allPastStats] = await Promise.all([
-      TaskOccurrence.find({
-        userId,
-        $or: [
-          { productDate: { $lt: todayProductDate } },
-          { productDate: { $exists: false }, date: { $lt: today } },
-        ],
-      }),
-      DailyStats.find({
-        userId,
-        $or: [
-          { productDate: { $lt: todayProductDate } },
-          { productDate: { $exists: false }, date: { $lt: today } },
-        ],
-      }),
-    ]);
+    const allPastOccurrences = await taskOccurrenceRepository.findPastOccurrences(userId, todayProductDate);
+    const allPastStats = await dailyStatsRepository.findPastStats(userId, todayProductDate);
 
     // Group past occurrences by product day string
     const pastOccsByDate = new Map();
@@ -207,46 +194,30 @@ class StreakService {
 
       // Upsert / update DailyStats for this past day
       const existingStat = pastStatsByDate.get(pDate);
-      await DailyStats.findOneAndUpdate(
-        { userId, date: dayDate },
-        {
-          $set: {
-            productDate: pDate,
-            dailyTargetMinutes:
-              existingStat?.dailyTargetMinutes ||
-              streak.dailyTargetMinutes ||
-              25,
-            streakRate: dayEval.completionRate,
-            completionRate: dayEval.completionRate,
-            state: dayEval.state,
-            resultType: dayEval.resultType,
-            streakCount: runningStreak,
-            tasksCompleted: dayEval.completed,
-            tasksPartiallyCompleted: dayEval.partiallyCompleted,
-            tasksRescheduled: dayEval.rescheduled,
-            tasksMissed: dayEval.missed,
-            tasksCancelled: dayEval.cancelled,
-            totalPlanned: dayEval.totalPlanned,
-            effectivePlanned: dayEval.effectivePlanned,
-          },
-          $setOnInsert: {
-            focusMinutes: 0,
-            sessions: 0,
-            usedFreeze: 0,
-          },
-        },
-        { upsert: true, new: true },
-      );
+      const statPayload = {
+        dailyTargetMinutes:
+          existingStat?.dailyTargetMinutes ||
+          streak.dailyTargetMinutes ||
+          25,
+        streakRate: dayEval.completionRate,
+        completionRate: dayEval.completionRate,
+        state: dayEval.state,
+        resultType: dayEval.resultType,
+        streakCount: runningStreak,
+        tasksCompleted: dayEval.completed,
+        tasksPartiallyCompleted: dayEval.partiallyCompleted,
+        tasksRescheduled: dayEval.rescheduled,
+        tasksMissed: dayEval.missed,
+        tasksCancelled: dayEval.cancelled,
+        totalPlanned: dayEval.totalPlanned,
+        effectivePlanned: dayEval.effectivePlanned,
+      };
+
+      await dailyStatsRepository.upsert(userId, pDate, statPayload);
     }
 
     // 3. Evaluate today
-    const todayOccurrences = await TaskOccurrence.find({
-      userId,
-      $or: [
-        { productDate: todayProductDate },
-        { productDate: { $exists: false }, date: today },
-      ],
-    });
+    const todayOccurrences = await taskOccurrenceRepository.findByUserAndDate(userId, todayProductDate);
     const todayEval = this.evaluateOccurrencesArray(todayOccurrences, true);
 
     let currentStreak = runningStreak;
@@ -263,49 +234,40 @@ class StreakService {
       currentStreak = runningStreak;
     }
 
-    streak.currentStreak = currentStreak;
-    streak.longestStreak = maxHistoricalStreak;
-    streak.lastProcessedDate = today;
-    streak.lastCountedDate = todayCountedDate;
-    await streak.save();
+    await streakRepository.update(userId, {
+      currentStreak,
+      longestStreak: maxHistoricalStreak,
+      lastProcessedDate: todayProductDate,
+      lastCountedDate: todayCountedDate ? (typeof todayCountedDate === "string" ? todayCountedDate : todayCountedDate.toISOString().slice(0, 10)) : null,
+    });
 
     // 4. Update DailyStats for today
-    const stats = await DailyStats.findOneAndUpdate(
-      { userId, date: today },
-      {
-        $set: {
-          productDate: todayProductDate,
-          dailyTargetMinutes: streak.dailyTargetMinutes || 25,
-          streakRate: todayEval.completionRate,
-          completionRate: todayEval.completionRate,
-          state: todayEval.state,
-          resultType: todayEval.resultType,
-          streakCount: streak.currentStreak,
-          tasksCompleted: todayEval.completed,
-          tasksPartiallyCompleted: todayEval.partiallyCompleted,
-          tasksRescheduled: todayEval.rescheduled,
-          tasksMissed: todayEval.missed,
-          tasksCancelled: todayEval.cancelled,
-          totalPlanned: todayEval.totalPlanned,
-          effectivePlanned: todayEval.effectivePlanned,
-        },
-        $setOnInsert: {
-          focusMinutes: 0,
-          sessions: 0,
-          usedFreeze: 0,
-        },
-      },
-      { upsert: true, new: true },
-    );
+    const todayStatPayload = {
+      dailyTargetMinutes: streak.dailyTargetMinutes || 25,
+      streakRate: todayEval.completionRate,
+      completionRate: todayEval.completionRate,
+      state: todayEval.state,
+      resultType: todayEval.resultType,
+      streakCount: currentStreak,
+      tasksCompleted: todayEval.completed,
+      tasksPartiallyCompleted: todayEval.partiallyCompleted,
+      tasksRescheduled: todayEval.rescheduled,
+      tasksMissed: todayEval.missed,
+      tasksCancelled: todayEval.cancelled,
+      totalPlanned: todayEval.totalPlanned,
+      effectivePlanned: todayEval.effectivePlanned,
+    };
+
+    const stats = (await dailyStatsRepository.upsert(userId, todayProductDate, todayStatPayload)) || {};
 
     return {
       state: todayEval.state,
       resultType: todayEval.resultType,
       focusMinutes: stats.focusMinutes || 0,
-      sessions: stats.sessions || 0,
-      streakCount: streak.currentStreak,
-      currentStreak: streak.currentStreak,
-      longestStreak: streak.longestStreak,
+      sessions: stats.sessions || stats.sessionCount || 0,
+      streakCount: currentStreak,
+      currentStreak: currentStreak,
+      longestStreak: maxHistoricalStreak,
       plannedCount: todayEval.totalPlanned,
       effectivePlanned: todayEval.effectivePlanned,
       completedCount: todayEval.completed,
@@ -326,51 +288,22 @@ class StreakService {
   async dailyStreakUpdate(userId, sessionMinutes, sessionDate = new Date(), timezone = null) {
     const tz = timezone || (await resolveUserTimezone(userId));
     const productDate = getProductDate(sessionDate, tz);
-    const day = toStartOfDayUTC(productDate, "UTC");
 
-    let streak = await Streak.findOne({ userId });
-    if (!streak) {
-      streak = await Streak.create({ userId });
-    }
-
-    const target = Math.max(streak.dailyTargetMinutes || 25, 1);
-
-    await DailyStats.findOneAndUpdate(
-      { userId, date: day },
-      {
-        $set: { productDate },
-        $inc: {
-          focusMinutes: Math.round(sessionMinutes),
-          sessions: 1,
-        },
-        $setOnInsert: {
-          dailyTargetMinutes: target,
-          streakRate: 0,
-          completionRate: 0,
-          totalPlanned: 0,
-          effectivePlanned: 0,
-          tasksCompleted: 0,
-          tasksPartiallyCompleted: 0,
-          tasksRescheduled: 0,
-          tasksMissed: 0,
-          tasksCancelled: 0,
-          state: "neutral",
-          resultType: "neutral",
-          streakCount: streak.currentStreak || 0,
-          usedFreeze: 0,
-        },
-      },
-      { upsert: true, new: true, runValidators: true },
-    );
+    await dailyStatsRepository.incrementFocus(userId, productDate, sessionMinutes);
   }
 
   async getSpecificField(userId, type) {
-    let data = await Streak.findOne({ userId }).select(`${type} -_id`);
-    if (!data) {
-      await this.processDailyStreak(userId);
-      data = await Streak.findOne({ userId }).select(`${type} -_id`);
+    const pgStreak = await streakRepository.findByUserId(userId).catch(() => null);
+    if (pgStreak && pgStreak[type] !== undefined) {
+      return { [type]: pgStreak[type] };
     }
-    return data;
+
+    await this.processDailyStreak(userId);
+    const updatedPg = await streakRepository.findByUserId(userId).catch(() => null);
+    if (updatedPg && updatedPg[type] !== undefined) {
+      return { [type]: updatedPg[type] };
+    }
+    return {};
   }
 
   async getMonthlyStats(userId, year, month, timezone = null) {
@@ -385,16 +318,7 @@ class StreakService {
     const startPDate = `${parsedYear}-${monthStr}-01`;
     const endPDate = `${parsedYear}-${monthStr}-${String(daysInMonth).padStart(2, "0")}`;
 
-    const startUTC = toStartOfDayUTC(startPDate, "UTC");
-    const endUTC = new Date(Date.UTC(parsedYear, parsedMonth - 1, daysInMonth, 23, 59, 59, 999));
-
-    return await DailyStats.find({
-      userId,
-      $or: [
-        { productDate: { $gte: startPDate, $lte: endPDate } },
-        { productDate: { $exists: false }, date: { $gte: startUTC, $lte: endUTC } },
-      ],
-    }).sort({ date: 1 });
+    return await dailyStatsRepository.findByUserAndDateRange(userId, startPDate, endPDate).catch(() => []);
   }
 }
 

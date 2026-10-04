@@ -10,15 +10,15 @@ import {
 import { Button } from "@/components/ui/button.jsx";
 import { Input } from "@/components/ui/input.jsx";
 import { Textarea } from "@/components/ui/textarea.jsx";
-
-const getTomorrowDate = () => {
-  const d = new Date();
-  d.setDate(d.getDate() + 1);
-  return d;
-};
+import {
+  getTaskProductDate,
+  getTodayProductDate,
+  getTomorrowProductDate,
+} from "@/utils/dateUtils.js";
 
 const formatDateToInput = (date) => {
   if (!date) return "";
+  if (typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date)) return date;
   const d = new Date(date);
   if (isNaN(d.getTime())) return "";
   return d.toISOString().split("T")[0];
@@ -56,11 +56,11 @@ export default function TaskModal({
         setGoal(task.goal || "");
         setPriority(task.priority || "medium");
 
-        // Determine planMode from existing task.plannedDate
-        if (task.plannedDate) {
-          const taskDate = new Date(task.plannedDate).toDateString();
-          const todayDate = new Date().toDateString();
-          const tomorrowDate = getTomorrowDate().toDateString();
+        // Determine planMode from canonical product date representation
+        const taskDate = getTaskProductDate(task);
+        if (taskDate) {
+          const todayDate = getTodayProductDate();
+          const tomorrowDate = getTomorrowProductDate();
 
           if (taskDate === todayDate) {
             setPlanMode("today");
@@ -70,7 +70,7 @@ export default function TaskModal({
             setCustomPlannedDate("");
           } else {
             setPlanMode("custom");
-            setCustomPlannedDate(formatDateToInput(task.plannedDate));
+            setCustomPlannedDate(taskDate);
           }
         } else {
           setPlanMode("none");
@@ -107,9 +107,9 @@ export default function TaskModal({
     try {
       let finalPlannedDate = null;
       if (planMode === "today") {
-        finalPlannedDate = new Date();
+        finalPlannedDate = getTodayProductDate();
       } else if (planMode === "tomorrow") {
-        finalPlannedDate = getTomorrowDate();
+        finalPlannedDate = getTomorrowProductDate();
       } else if (planMode === "custom" && customPlannedDate) {
         finalPlannedDate = customPlannedDate;
       }

@@ -1,5 +1,10 @@
 import { create } from "zustand";
 
+/**
+ * Planner Store
+ * 
+ * Centralized client-side state for the Planner interface.
+ */
 export const usePlannerStore = create((set) => ({
   activeTab: "today", // 'today' | 'tasks' | 'goals' | 'notes'
   selectedDate: new Date().toISOString().split("T")[0],
@@ -18,4 +23,15 @@ export const usePlannerStore = create((set) => ({
   setSelectedNoteId: (selectedNoteId) => set({ selectedNoteId }),
   setTaskFilter: (taskFilter) => set({ taskFilter }),
   setSearchQuery: (searchQuery) => set({ searchQuery }),
+  reset: () =>
+    set({
+      activeTab: "today",
+      selectedDate: new Date().toISOString().split("T")[0],
+      viewMode: "day",
+      selectedTaskId: null,
+      selectedGoalId: null,
+      selectedNoteId: null,
+      taskFilter: "all",
+      searchQuery: "",
+    }),
 }));

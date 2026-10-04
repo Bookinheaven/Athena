@@ -1,24 +1,3 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// useFocusRuntime
-//
-// The sole React integration point for the Focus session lifecycle.
-//
-// Responsibilities:
-//  - Wraps the pure transition function in useReducer
-//  - Executes side effects emitted by the reducer (API calls, timer control)
-//  - Manages the WallClockTimer instance
-//  - Manages the PersistenceQueue
-//  - Schedules segment completion via wall-clock setTimeout
-//  - Restores sessions from the backend
-//  - Exposes a minimal typed command surface to the UI
-//
-// Explicitly NOT responsible for:
-//  - Visual layout
-//  - Notes
-//  - Settings storage
-//  - Todos beyond forwarding to the reducer
-// ─────────────────────────────────────────────────────────────────────────────
-
 import { useReducer, useRef, useCallback, useEffect } from 'react';
 import { PHASES, EVENTS, EFFECTS } from '../runtime/constants.js';
 import { transition, INITIAL_STATE } from '../runtime/focusReducer.js';
@@ -28,11 +7,11 @@ import { createSegments, recoverElapsed } from '../runtime/segmentUtils.js';
 import sessionService from '../../../../services/sessionService.js';
 import { v4 as uuidv4 } from 'uuid';
 
-// ── Reducer wrapper ───────────────────────────────────────────────────────────
-// The pure transition function returns { state, effects }.
-// We need useReducer to only receive state, so we store effects in a ref
-// (the "side-channel" pattern) and drain them in a useEffect.
-
+/**
+ * 
+ * @param {Array} effectsAccumRef - Mutable array ref to accumulate effects
+ * @returns {function} Reducer wrapper function: (state, event) => nextState
+ */
 function makeReducer(effectsAccumRef) {
   return function reducerWrapper(state, event) {
     const { state: nextState, effects } = transition(state, event);
@@ -44,14 +23,14 @@ function makeReducer(effectsAccumRef) {
   };
 }
 
-// ── Hook ─────────────────────────────────────────────────────────────────────
+// Hooks
 
 /**
  * @param {object} opts
- * @param {object}   opts.context       – Navigation context from React Router location.state
- * @param {object}   opts.settings      – Current session settings (breakDuration etc.)
- * @param {function} opts.onSoundEvent  – Called with { event, segType } for audio
- * @param {string}   opts.userId        – Required for log/debug; not used for scoping here
+ * @param {object}   opts.context Navigation context from React Router location.state
+ * @param {object}   opts.settings Current session settings (breakDuration etc.)
+ * @param {function} opts.onSoundEvent Called with { event, segType } for audio
+ * @param {string}   opts.userId Required for log/debug; not used for scoping here
  */
 export function useFocusRuntime({ context = {}, settings = {}, onSoundEvent, userId } = {}) {
   const effectsAccumRef = useRef([]);
@@ -61,26 +40,26 @@ export function useFocusRuntime({ context = {}, settings = {}, onSoundEvent, use
     INITIAL_STATE,
   );
 
-  // ── Stable refs ─────────────────────────────────────────────────────────────
-  const timerRef         = useRef(null);   // WallClockTimer instance
-  const completionRef    = useRef(null);   // clearTimeout handle for segment boundary
-  const queueRef         = useRef(null);   // PersistenceQueue instance
-  const settingsRef      = useRef(settings);
-  const contextRef       = useRef(context);
-  const onSoundRef       = useRef(onSoundEvent);
-  const runtimeStateRef  = useRef(runtimeState);
+  // Stable refs
+  const timerRef = useRef(null);   // WallClockTimer instance
+  const completionRef = useRef(null);   // clearTimeout handle for segment boundary
+  const queueRef = useRef(null);   // PersistenceQueue instance
+  const settingsRef = useRef(settings);
+  const contextRef = useRef(context);
+  const onSoundRef = useRef(onSoundEvent);
+  const runtimeStateRef = useRef(runtimeState);
 
-  useEffect(() => { settingsRef.current  = settings; },     [settings]);
-  useEffect(() => { contextRef.current   = context; },      [context]);
-  useEffect(() => { onSoundRef.current   = onSoundEvent; }, [onSoundEvent]);
+  useEffect(() => { settingsRef.current = settings; }, [settings]);
+  useEffect(() => { contextRef.current = context; }, [context]);
+  useEffect(() => { onSoundRef.current = onSoundEvent; }, [onSoundEvent]);
   useEffect(() => { runtimeStateRef.current = runtimeState; }, [runtimeState]);
 
-  // ── dispatch (public — wraps rawDispatch with timestamp injection) ──────────
+  // dispatch (public - wraps rawDispatch with timestamp injection) 
   const dispatch = useCallback((event) => {
     rawDispatch(event);
   }, [rawDispatch]);
 
-  // ── Save function ─────────────────────────────────────────────────────────
+  // Save function 
 
   /**
    * Build PATCH payloads for each write type and call sessionService.
@@ -98,7 +77,7 @@ export function useFocusRuntime({ context = {}, settings = {}, onSoundEvent, use
           ...base,
           segment: {
             segmentIndex: state.segmentIndex,
-            duration:     payload.elapsedSeconds,
+            duration: payload.elapsedSeconds,
           },
           pauseEvents: state.pauseEvents,
         });
@@ -116,7 +95,7 @@ export function useFocusRuntime({ context = {}, settings = {}, onSoundEvent, use
           ...base,
           segment: {
             segmentIndex: payload.segmentIndex,
-            completedAt:  new Date(),
+            completedAt: new Date(),
           },
         });
         break;
@@ -124,20 +103,23 @@ export function useFocusRuntime({ context = {}, settings = {}, onSoundEvent, use
       case 'complete':
         await sessionService.updateProgress({
           ...base,
-          status:       'completed',
-          duration:     state.segments.reduce((s, seg) => s + (seg.duration || 0), 0),
+          status: 'completed',
+          duration: state.segments.reduce((s, seg) => s + (seg.duration || 0), 0),
           sessionStats: payload?.sessionStats || state.sessionStats,
-          pauseEvents:  state.pauseEvents,
+          pauseEvents: state.pauseEvents,
         });
         break;
 
       case 'progress':
-        await sessionService.updateProgress({
-          ...base,
-          segment: {
-            segmentIndex: state.segmentIndex,
-            duration:     payload.elapsedSeconds,
-          },
+        await sessionService.checkpointProgress({
+          sessionId: targetSessionId,
+          checkpointRevision: payload?.checkpointRevision,
+          duration: payload?.duration,
+          totalFocusMinutes: payload?.totalFocusMinutes,
+          totalBreakMinutes: payload?.totalBreakMinutes,
+          sessionSegments: payload?.sessionSegments,
+          pauseEvents: payload?.pauseEvents,
+          sessionStats: payload?.sessionStats,
         });
         break;
 
@@ -166,7 +148,7 @@ export function useFocusRuntime({ context = {}, settings = {}, onSoundEvent, use
     }
   }, []);
 
-  // ── Initialise the PersistenceQueue ─────────────────────────────────────────
+  // Initialise the PersistenceQueue 
   useEffect(() => {
     queueRef.current = new PersistenceQueue(save, (status) => {
       dispatch({ type: EVENTS.SAVE_STATUS, payload: { status } });
@@ -176,8 +158,7 @@ export function useFocusRuntime({ context = {}, settings = {}, onSoundEvent, use
     };
   }, [save, dispatch]);
 
-  // ── Timer helpers ────────────────────────────────────────────────────────────
-
+  // Timer helpers 
   const clearCompletionTimeout = useCallback(() => {
     if (completionRef.current != null) {
       clearTimeout(completionRef.current);
@@ -201,23 +182,22 @@ export function useFocusRuntime({ context = {}, settings = {}, onSoundEvent, use
     if (elapsed >= seg.totalDuration) {
       clearCompletionTimeout();
       dispatch({
-        type:    EVENTS.SEGMENT_COMPLETE,
+        type: EVENTS.SEGMENT_COMPLETE,
         payload: { completedAtIso: new Date().toISOString() },
       });
     }
   }, [clearCompletionTimeout, dispatch]);
 
   /**
-   * Schedule a single wall-clock setTimeout that fires when the segment
-   * should complete. This replaces the RAF-based timeLeft check.
+   * Schedule a single wall-clock setTimeout that fires when the segment should complete. (replaces the RAF-based timeLeft check).
    *
    * @param {number} segmentIndex
    */
   const scheduleSegmentCompletion = useCallback((segmentIndex) => {
     clearCompletionTimeout();
 
-    const state   = runtimeStateRef.current;
-    const seg     = state.segments[segmentIndex];
+    const state = runtimeStateRef.current;
+    const seg = state.segments[segmentIndex];
     if (!seg || seg.completedAt) return;
 
     const elapsed = timerRef.current ? timerRef.current.getElapsedSeconds() : recoverElapsed(seg);
@@ -225,7 +205,7 @@ export function useFocusRuntime({ context = {}, settings = {}, onSoundEvent, use
 
     if (remaining <= 0) {
       dispatch({
-        type:    EVENTS.SEGMENT_COMPLETE,
+        type: EVENTS.SEGMENT_COMPLETE,
         payload: { completedAtIso: new Date().toISOString() },
       });
       return;
@@ -238,7 +218,7 @@ export function useFocusRuntime({ context = {}, settings = {}, onSoundEvent, use
       if (current.segmentIndex !== segmentIndex) return;
 
       dispatch({
-        type:    EVENTS.SEGMENT_COMPLETE,
+        type: EVENTS.SEGMENT_COMPLETE,
         payload: { completedAtIso: new Date().toISOString() },
       });
     }, remaining * 1000);
@@ -251,8 +231,8 @@ export function useFocusRuntime({ context = {}, settings = {}, onSoundEvent, use
   }, [clearCompletionTimeout]);
 
   const startTimer = useCallback((segmentIndex) => {
-    const state  = runtimeStateRef.current;
-    const seg    = state.segments[segmentIndex];
+    const state = runtimeStateRef.current;
+    const seg = state.segments[segmentIndex];
     if (!seg) return;
 
     const elapsedMs = (seg.elapsedAtPause || 0) * 1000;
@@ -277,7 +257,7 @@ export function useFocusRuntime({ context = {}, settings = {}, onSoundEvent, use
     timerRef.current = null;
   }, [clearCompletionTimeout]);
 
-  // ── Effect executor ───────────────────────────────────────────────────────
+  // Effect executor
 
   /**
    * After every state change, drain any accumulated effects.
@@ -290,7 +270,7 @@ export function useFocusRuntime({ context = {}, settings = {}, onSoundEvent, use
     for (const effect of pending) {
       executeEffect(effect);
     }
-  }); // no dependency array — runs after every render (cheap: splice is O(n) on small arrays)
+  }); // no dependency array - runs after every render (cheap: splice is O(n) on small arrays)
 
   function executeEffect(effect) {
     const { type, payload = {} } = effect;
@@ -300,6 +280,16 @@ export function useFocusRuntime({ context = {}, settings = {}, onSoundEvent, use
       case EFFECTS.FETCH_ACTIVE_SESSION: {
         sessionService.getActiveSession()
           .then((session) => {
+            // Guard: If runtime is already running, paused, or completing, ignore late bootstrap
+            const currentPhase = runtimeStateRef.current.phase;
+            if (
+              currentPhase === PHASES.RUNNING ||
+              currentPhase === PHASES.PAUSED ||
+              currentPhase === PHASES.COMPLETING
+            ) {
+              return;
+            }
+
             const hasExplicitNewTask = Boolean(
               contextRef.current?.source &&
               (contextRef.current?.title || contextRef.current?.taskIds?.length)
@@ -309,7 +299,7 @@ export function useFocusRuntime({ context = {}, settings = {}, onSoundEvent, use
               dispatch({ type: EVENTS.SESSION_LOADED, payload: { session } });
             } else {
               dispatch({
-                type:    EVENTS.NO_SESSION,
+                type: EVENTS.NO_SESSION,
                 payload: {
                   context: contextRef.current,
                   existingSessionToAbandon: session?.status === 'active' && hasExplicitNewTask ? session : null,
@@ -319,8 +309,16 @@ export function useFocusRuntime({ context = {}, settings = {}, onSoundEvent, use
           })
           .catch((err) => {
             console.error('[useFocusRuntime] Failed to fetch active session:', err);
+            const currentPhase = runtimeStateRef.current.phase;
+            if (
+              currentPhase === PHASES.RUNNING ||
+              currentPhase === PHASES.PAUSED ||
+              currentPhase === PHASES.COMPLETING
+            ) {
+              return;
+            }
             dispatch({
-              type:    EVENTS.NO_SESSION,
+              type: EVENTS.NO_SESSION,
               payload: { context: contextRef.current },
             });
           });
@@ -328,23 +326,23 @@ export function useFocusRuntime({ context = {}, settings = {}, onSoundEvent, use
       }
 
       case EFFECTS.POST_SESSION: {
-        const state    = runtimeStateRef.current;
+        const state = runtimeStateRef.current;
         const settings = settingsRef.current;
-        const ctx      = contextRef.current;
+        const ctx = contextRef.current;
 
         // Build the start payload
         const startPayload = {
-          sessionId:       state.sessionId || uuidv4(),
-          title:           state.sessionTitle,
+          sessionId: state.sessionId || uuidv4(),
+          title: state.sessionTitle,
           plannedDuration: state.plannedDuration,
-          sessionType:     state.sessionType,
-          taskIds:         state.taskIds || [],
+          sessionType: state.sessionType,
+          taskIds: state.taskIds || [],
           sessionSegments: state.segments,
           totalBreakMinutes:
             state.segments.filter((s) => s.type === 'break').length,
           totalFocusMinutes:
             state.segments.filter((s) => s.type === 'focus').length,
-          pauseEvents:     [],
+          pauseEvents: [],
         };
 
         if (state.scheduleBlockId) {
@@ -354,9 +352,10 @@ export function useFocusRuntime({ context = {}, settings = {}, onSoundEvent, use
         sessionService.startSession(startPayload)
           .then(() => {
             dispatch({
-              type:    EVENTS.SESSION_CREATED,
+              type: EVENTS.SESSION_CREATED,
               payload: { sessionId: startPayload.sessionId },
             });
+            triggerCheckpoint();
           })
           .catch((err) => {
             console.error('[useFocusRuntime] Session creation failed:', err);
@@ -379,14 +378,17 @@ export function useFocusRuntime({ context = {}, settings = {}, onSoundEvent, use
 
       case EFFECTS.PATCH_PAUSE:
         queueRef.current?.enqueue('pause', payload);
+        triggerCheckpoint();
         break;
 
       case EFFECTS.PATCH_RESUME:
         queueRef.current?.enqueue('resume', payload);
+        triggerCheckpoint();
         break;
 
       case EFFECTS.PATCH_SEGMENT_COMPLETE:
         queueRef.current?.enqueue('segment_complete', payload);
+        triggerCheckpoint();
         break;
 
       case EFFECTS.PATCH_COMPLETE:
@@ -399,7 +401,7 @@ export function useFocusRuntime({ context = {}, settings = {}, onSoundEvent, use
           }
         }).catch((err) => {
           dispatch({
-            type:    EVENTS.COMPLETE_FAILED,
+            type: EVENTS.COMPLETE_FAILED,
             payload: { error: err },
           });
         });
@@ -431,7 +433,137 @@ export function useFocusRuntime({ context = {}, settings = {}, onSoundEvent, use
     }
   }
 
-  // ── Auto-start READY segments ────────────────────────────────────────────────
+  // Active-session progress checkpointing (2-minute cadence + lifecycle)
+  const CHECKPOINT_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes
+  const checkpointRevisionRef = useRef(runtimeState.checkpointRevision || 0);
+  const checkpointTimerRef = useRef(null);
+
+  // Sync checkpoint revision counter whenever loaded/recovered from backend
+  useEffect(() => {
+    if (runtimeState.checkpointRevision !== undefined) {
+      checkpointRevisionRef.current = Math.max(
+        checkpointRevisionRef.current,
+        runtimeState.checkpointRevision || 0
+      );
+    }
+  }, [runtimeState.checkpointRevision]);
+
+  const triggerCheckpoint = useCallback(() => {
+    const state = runtimeStateRef.current;
+    if (!state.sessionId || !state.backendCreated) return;
+    if (state.phase !== PHASES.RUNNING && state.phase !== PHASES.PAUSED) return;
+
+    checkpointRevisionRef.current += 1;
+    const revision = checkpointRevisionRef.current;
+
+    const currentElapsed = timerRef.current
+      ? timerRef.current.getElapsedSeconds()
+      : (state.segments[state.segmentIndex]?.elapsedAtPause || 0);
+
+    const segments = (state.segments || []).map((seg, idx) => {
+      let duration = seg.duration || 0;
+      if (idx === state.segmentIndex) {
+        duration = Math.max(duration, currentElapsed);
+      }
+      return {
+        type: seg.type,
+        totalDuration: seg.totalDuration,
+        duration,
+        startedAt: seg.startedAt,
+        completedAt: seg.completedAt,
+      };
+    });
+
+    const totalDuration = segments.reduce((sum, s) => sum + (s.duration || 0), 0);
+    const totalFocusSeconds = segments
+      .filter((s) => s.type === 'focus')
+      .reduce((sum, s) => sum + (s.duration || 0), 0);
+    const totalBreakSeconds = segments
+      .filter((s) => s.type === 'break')
+      .reduce((sum, s) => sum + (s.duration || 0), 0);
+
+    queueRef.current?.enqueue('progress', {
+      sessionId: state.sessionId,
+      checkpointRevision: revision,
+      duration: totalDuration,
+      totalFocusMinutes: Math.floor(totalFocusSeconds / 60),
+      totalBreakMinutes: Math.floor(totalBreakSeconds / 60),
+      sessionSegments: segments,
+      pauseEvents: state.pauseEvents,
+      sessionStats: state.sessionStats,
+    });
+  }, []);
+
+  // 2-minute periodic checkpoint during RUNNING phase
+  useEffect(() => {
+    if (
+      runtimeState.phase === PHASES.RUNNING &&
+      runtimeState.sessionId &&
+      runtimeState.backendCreated
+    ) {
+      checkpointTimerRef.current = setInterval(() => {
+        triggerCheckpoint();
+      }, CHECKPOINT_INTERVAL_MS);
+
+      return () => {
+        if (checkpointTimerRef.current) {
+          clearInterval(checkpointTimerRef.current);
+          checkpointTimerRef.current = null;
+        }
+      };
+    } else {
+      if (checkpointTimerRef.current) {
+        clearInterval(checkpointTimerRef.current);
+        checkpointTimerRef.current = null;
+      }
+    }
+  }, [
+    runtimeState.phase,
+    runtimeState.sessionId,
+    runtimeState.backendCreated,
+    triggerCheckpoint,
+  ]);
+
+  // Lifecycle listeners: visibilitychange (hidden) and beforeunload / pagehide
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+        const state = runtimeStateRef.current;
+        if (state.phase === PHASES.RUNNING || state.phase === PHASES.PAUSED) {
+          triggerCheckpoint();
+          queueRef.current?.flush();
+        }
+      }
+    };
+
+    const handleBeforeUnload = () => {
+      const state = runtimeStateRef.current;
+      if (state.phase === PHASES.RUNNING || state.phase === PHASES.PAUSED) {
+        triggerCheckpoint();
+        queueRef.current?.flush();
+      }
+    };
+
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+    }
+    if (typeof window !== 'undefined') {
+      window.addEventListener('beforeunload', handleBeforeUnload);
+      window.addEventListener('pagehide', handleBeforeUnload);
+    }
+
+    return () => {
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      }
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('beforeunload', handleBeforeUnload);
+        window.removeEventListener('pagehide', handleBeforeUnload);
+      }
+    };
+  }, [triggerCheckpoint]);
+
+  // Auto-start READY segments
   // When phase transitions to READY:
   //  - If next segment is focus → auto-start
   //  - If next segment is break AND autoStartBreaks is true → auto-start
@@ -447,19 +579,19 @@ export function useFocusRuntime({ context = {}, settings = {}, onSoundEvent, use
 
     if (shouldAutoStart) {
       dispatch({
-        type:    EVENTS.START,
+        type: EVENTS.START,
         payload: { startedAtIso: new Date().toISOString() },
       });
     }
     // else: leave in READY, UI shows Break UI with manual start button
   }, [runtimeState.phase, runtimeState.segmentIndex, dispatch]);
 
-  // ── MOUNT: bootstrap on first render ────────────────────────────────────────
+  // MOUNT: bootstrap on first render
   useEffect(() => {
     dispatch({ type: EVENTS.MOUNT });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
-  // ── Source-based auto-start after NO_SESSION resolution ─────────────────────
+  // Source-based auto-start after NO_SESSION resolution
   // When an entry point (Today/Planner/Timeline) navigates to Focus with context
   // and there is no existing backend session, we want to auto-start immediately
   // (matching the current behaviour where Today/Planner pre-created the session).
@@ -472,56 +604,20 @@ export function useFocusRuntime({ context = {}, settings = {}, onSoundEvent, use
     const s = settingsRef.current;
     const segs = createSegments(
       runtimeState.plannedDuration,
-      s.breakDuration    ?? 5 * 60,
-      s.breaksNumber     ?? 4,
+      s.breakDuration ?? 5 * 60,
+      s.breaksNumber ?? 4,
     );
 
     dispatch({
-      type:    EVENTS.START,
+      type: EVENTS.START,
       payload: {
-        segments:     segs,
+        segments: segs,
         startedAtIso: new Date().toISOString(),
       },
     });
   }, [runtimeState.phase, runtimeState.source, dispatch]);
 
-  // ── Periodic progress heartbeat (30s, only when running, not on breaks) ──────
-  useEffect(() => {
-    if (runtimeState.phase !== PHASES.RUNNING) return;
-
-    const seg = runtimeState.segments[runtimeState.segmentIndex];
-    if (!seg || seg.type === 'break') return;    // no heartbeat during breaks
-
-    const interval = setInterval(() => {
-      const timer = timerRef.current;
-      if (!timer?.running) return;
-      const elapsed = timer.getElapsedSeconds();
-      queueRef.current?.enqueue('progress', { elapsedSeconds: elapsed });
-    }, 30_000);
-
-    return () => clearInterval(interval);
-  }, [runtimeState.phase, runtimeState.segmentIndex]);
-
-  // ── Save on page hide (visibility API, more reliable than beforeunload) ───────
-  useEffect(() => {
-    const onHide = () => {
-      if (!timerRef.current?.running) return;
-      const timer   = timerRef.current;
-      const elapsed = timer.getElapsedSeconds();
-      queueRef.current?.enqueue('progress', { elapsedSeconds: elapsed });
-      queueRef.current?.flush();
-    };
-
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'hidden') onHide();
-    });
-
-    return () => {
-      document.removeEventListener('visibilitychange', onHide);
-    };
-  }, []);
-
-  // ── Immediate recalculation on visibility / focus resume ─────────────────────
+  // Immediate recalculation on visibility / focus resume
   useEffect(() => {
     const onResume = () => {
       if (document.visibilityState === 'visible') {
@@ -541,7 +637,7 @@ export function useFocusRuntime({ context = {}, settings = {}, onSoundEvent, use
     };
   }, [checkSegmentCompletion]);
 
-  // ── Periodic completion check (safeguard against throttled setTimeout) ───────
+  // Periodic completion check (safeguard against throttled setTimeout)
   useEffect(() => {
     if (runtimeState.phase !== PHASES.RUNNING) return;
 
@@ -552,7 +648,7 @@ export function useFocusRuntime({ context = {}, settings = {}, onSoundEvent, use
     return () => clearInterval(interval);
   }, [runtimeState.phase, checkSegmentCompletion]);
 
-  // ── Public commands (typed, stable references) ───────────────────────────────
+  // Public commands (typed, stable references)
 
   const commands = {
     start: useCallback((segments) => {
@@ -561,12 +657,12 @@ export function useFocusRuntime({ context = {}, settings = {}, onSoundEvent, use
         return createSegments(
           runtimeState.plannedDuration,
           s.breakDuration ?? 5 * 60,
-          s.breaksNumber  ?? 4,
+          s.breaksNumber ?? 4,
         );
       })();
 
       dispatch({
-        type:    EVENTS.START,
+        type: EVENTS.START,
         payload: { segments: segs, startedAtIso: new Date().toISOString() },
       });
     }, [dispatch, runtimeState.plannedDuration]),
@@ -574,21 +670,21 @@ export function useFocusRuntime({ context = {}, settings = {}, onSoundEvent, use
     pause: useCallback(() => {
       const elapsed = timerRef.current?.getElapsedSeconds() ?? 0;
       dispatch({
-        type:    EVENTS.PAUSE,
+        type: EVENTS.PAUSE,
         payload: { pausedAtMs: Date.now(), elapsedSeconds: elapsed },
       });
     }, [dispatch]),
 
     resume: useCallback(() => {
       dispatch({
-        type:    EVENTS.RESUME,
+        type: EVENTS.RESUME,
         payload: { resumedAtMs: Date.now() },
       });
     }, [dispatch]),
 
     skipBreak: useCallback(() => {
       dispatch({
-        type:    EVENTS.SKIP_BREAK,
+        type: EVENTS.SKIP_BREAK,
         payload: { skippedAtIso: new Date().toISOString() },
       });
     }, [dispatch]),
@@ -636,6 +732,9 @@ export function useFocusRuntime({ context = {}, settings = {}, onSoundEvent, use
       await queueRef.current?.flush();
     }, []),
 
+    // Trigger an immediate progress checkpoint
+    checkpoint: triggerCheckpoint,
+
     // Get current elapsed seconds from timer (for external reads)
     getElapsed: useCallback(() => {
       return timerRef.current?.getElapsedSeconds() ?? 0;
@@ -644,6 +743,14 @@ export function useFocusRuntime({ context = {}, settings = {}, onSoundEvent, use
     // Start with navigation context from external pages (Today / Planner)
     startWithContext: useCallback((navCtx) => {
       if (!navCtx) return;
+      const current = runtimeStateRef.current;
+      if (
+        current.phase === PHASES.RUNNING ||
+        current.phase === PHASES.PAUSED ||
+        current.phase === PHASES.COMPLETING
+      ) {
+        return;
+      }
       contextRef.current = navCtx;
       dispatch({
         type: EVENTS.NO_SESSION,
@@ -652,30 +759,30 @@ export function useFocusRuntime({ context = {}, settings = {}, onSoundEvent, use
     }, [dispatch]),
   };
 
-  // ── Derived helpers ──────────────────────────────────────────────────────────
+  // Derived helpers
   const currentSegment = runtimeState.segments[runtimeState.segmentIndex] ?? null;
 
   return {
     // Full runtime state
-    state:          runtimeState,
+    state: runtimeState,
 
     // Convenience flags / derived values
-    phase:          runtimeState.phase,
-    sessionId:      runtimeState.sessionId,
-    sessionTitle:   runtimeState.sessionTitle,
-    isScheduled:    runtimeState.isScheduled,
-    segments:       runtimeState.segments,
-    segmentIndex:   runtimeState.segmentIndex,
+    phase: runtimeState.phase,
+    sessionId: runtimeState.sessionId,
+    sessionTitle: runtimeState.sessionTitle,
+    isScheduled: runtimeState.isScheduled,
+    segments: runtimeState.segments,
+    segmentIndex: runtimeState.segmentIndex,
     currentSegment,
-    todos:          runtimeState.todos,
-    saveStatus:     runtimeState.saveStatus,
-    completionError:runtimeState.completionError,
-    sessionStats:   runtimeState.sessionStats,
-    isRunning:      runtimeState.phase === PHASES.RUNNING,
-    isPaused:       runtimeState.phase === PHASES.PAUSED,
-    isIdle:         runtimeState.phase === PHASES.IDLE,
-    isCompleted:    runtimeState.phase === PHASES.COMPLETED,
-    isCompleting:   runtimeState.phase === PHASES.COMPLETING,
+    todos: runtimeState.todos,
+    saveStatus: runtimeState.saveStatus,
+    completionError: runtimeState.completionError,
+    sessionStats: runtimeState.sessionStats,
+    isRunning: runtimeState.phase === PHASES.RUNNING,
+    isPaused: runtimeState.phase === PHASES.PAUSED,
+    isIdle: runtimeState.phase === PHASES.IDLE,
+    isCompleted: runtimeState.phase === PHASES.COMPLETED,
+    isCompleting: runtimeState.phase === PHASES.COMPLETING,
 
     // Timer ref (for display hook)
     timerRef,

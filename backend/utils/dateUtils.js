@@ -9,7 +9,7 @@
  * - Normalized Day Date: Date object at UTC midnight corresponding to that calendar day.
  */
 
-import User from "../models/userModel.js";
+import userRepository from "../repositories/userRepository.js";
 
 /**
  * Validate whether a string is a valid IANA timezone identifier.
@@ -60,7 +60,7 @@ export function getUserTimezone(user) {
 /**
  * Resolves user timezone from a User instance, document, or ID.
  *
- * @param {string | mongoose.Types.ObjectId | object} [userOrId]
+ * @param {string | object} [userOrId]
  * @param {string} [fallbackTimezone="UTC"]
  * @returns {Promise<string>}
  */
@@ -70,16 +70,16 @@ export async function resolveUserTimezone(userOrId, fallbackTimezone = "UTC") {
   if (typeof userOrId === "object" && userOrId !== null) {
     const tz = getUserTimezone(userOrId);
     if (isValidTimezone(tz)) return tz;
-    if (userOrId._id) {
-      userOrId = userOrId._id;
+    if (userOrId.id || userOrId._id) {
+      userOrId = userOrId.id || userOrId._id;
     } else {
       return normalizeTimezone(fallbackTimezone);
     }
   }
 
   try {
-    const user = await User.findById(userOrId).select("settings.timezone").lean();
-    const tz = user?.settings?.timezone;
+    const user = await userRepository.findById(userOrId);
+    const tz = user?.timezone || user?.settings?.timezone;
     if (isValidTimezone(tz)) return tz;
   } catch (err) {
     // ignore lookup error, fall through to fallback

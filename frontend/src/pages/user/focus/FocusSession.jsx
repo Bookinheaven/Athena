@@ -35,8 +35,7 @@ const FocusSession = () => {
   );
 
   // If arriving with navigation context and runtime can accept new session (idle or completed)
-  // or user explicitly initiated a new focus session for a task
-  const canStartNew = runtime.isIdle || runtime.isCompleted || isExplicitTaskRequest;
+  const canStartNew = runtime.isIdle || runtime.isCompleted;
 
   useEffect(() => {
     if (navContext && canStartNew && navContextHandledRef.current !== navContext) {

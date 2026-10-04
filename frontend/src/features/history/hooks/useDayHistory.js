@@ -96,6 +96,17 @@ export function useDayHistory(selectedDate, sessionPage = 1, sessionFilters = {}
     fetchSessions();
   }, [fetchSessions]);
 
+  useEffect(() => {
+    const handleTasksChanged = () => {
+      fetchOccurrences();
+      fetchSessions();
+    };
+    window.addEventListener("athena:tasks-changed", handleTasksChanged);
+    return () => {
+      window.removeEventListener("athena:tasks-changed", handleTasksChanged);
+    };
+  }, [fetchOccurrences, fetchSessions]);
+
   return {
     occurrences,
     sessions,

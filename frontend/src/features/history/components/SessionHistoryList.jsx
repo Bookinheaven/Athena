@@ -59,8 +59,8 @@ function SessionExpandedDetail({ session }) {
   const scheduleWindow = snapshot?.startTime
     ? formatTimeRange(snapshot.startTime, snapshot.endTime)
     : null;
-  const fb = session.sessionFeedback;
-  const hasReflection = fb && (fb.focus || fb.mood || fb.notes);
+  const fb = session.sessionFeedback || session.feedback;
+  const hasReflection = fb && (fb.focus || fb.mood || fb.notes || fb.distractions);
 
   return (
     <div
@@ -147,9 +147,9 @@ function SessionExpandedDetail({ session }) {
                 </>
               )}
             </div>
-            {fb.notes && (
+            {(fb.distractions || fb.notes) && (
               <blockquote className="text-muted-foreground border-l-2 border-border pl-2.5 mt-1.5 leading-relaxed italic">
-                {fb.notes}
+                {fb.distractions || fb.notes}
               </blockquote>
             )}
           </div>

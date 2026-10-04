@@ -9,8 +9,16 @@ class SessionService extends RequestService {
     return this.request(`/session/${payload.sessionId}`, { method: "PATCH", body: payload });
   }
 
+  checkpointProgress(payload) {
+    return this.request(`/session/${payload.sessionId}/progress`, { method: "PATCH", body: payload });
+  }
+
   sessionFeedback(payload) {
     return this.request(`/session/${payload.sessionId}/feedback`, { method: "POST", body: payload.feedback })
+  }
+
+  recordTaskOutcome(sessionId, taskOutcome) {
+    return this.request(`/session/${sessionId}/task-outcome`, { method: "POST", body: { taskOutcome } });
   }
 
   getActiveSession() {

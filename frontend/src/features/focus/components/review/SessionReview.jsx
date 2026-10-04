@@ -8,11 +8,34 @@ import {
   Brain,
   Check,
   CheckCircle2,
+  Clock,
+  XCircle,
   Sparkles,
   RotateCcw,
   Loader2,
   AlertCircle,
 } from "lucide-react";
+
+const TASK_OUTCOME_OPTIONS = [
+  {
+    value: "completed",
+    label: "Completed",
+    icon: CheckCircle2,
+    activeClass: "bg-emerald-500/15 border-emerald-500/40 text-emerald-600 dark:text-emerald-400",
+  },
+  {
+    value: "partially_completed",
+    label: "Partially Completed",
+    icon: Clock,
+    activeClass: "bg-amber-500/15 border-amber-500/40 text-amber-600 dark:text-amber-400",
+  },
+  {
+    value: "not_completed",
+    label: "Not Completed",
+    icon: XCircle,
+    activeClass: "bg-rose-500/15 border-rose-500/40 text-rose-600 dark:text-rose-400",
+  },
+];
 
 const MOOD_OPTIONS = [
   { level: 1, emoji: "😞", label: "Drained", desc: "Low energy, exhausted" },
@@ -76,9 +99,12 @@ export const SessionReview = ({
   isSubmitting = false,
   isDiscarded = false,
   onSkipReview,
+  isSingleTask = false,
+  taskTitle = null,
 }) => {
   const currentMood = reviewData?.mood || null;
   const currentFocus = reviewData?.focus || null;
+  const showTaskOutcome = isSingleTask || Boolean(taskTitle) || Boolean(reviewData?.isSingleTask) || Boolean(reviewData?.taskOutcome);
 
   // Parse preset tags and custom note from reviewData.distractions
   const { selectedTags, customNote: parsedCustomNote } = useMemo(
@@ -155,6 +181,50 @@ export const SessionReview = ({
       </div>
 
       <div className="space-y-6 sm:space-y-7">
+        {/* Task Outcome Section (Single-Task Session) */}
+        {showTaskOutcome && (
+          <section className="space-y-3 p-4 rounded-2xl bg-secondary/30 border border-border/60">
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="text-xs sm:text-sm font-bold uppercase tracking-wider text-foreground block">
+                  How did this task go?
+                </label>
+                {taskTitle && (
+                  <p className="text-xs text-muted-foreground truncate max-w-xs mt-0.5">
+                    {taskTitle}
+                  </p>
+                )}
+              </div>
+              {reviewData?.taskOutcome && (
+                <span className="text-[11px] font-semibold text-primary capitalize">
+                  {reviewData.taskOutcome.replace("_", " ")}
+                </span>
+              )}
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              {TASK_OUTCOME_OPTIONS.map(({ value, label, icon: Icon, activeClass }) => {
+                const isSelected = reviewData?.taskOutcome === value;
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => onUpdate("taskOutcome", value)}
+                    className={`flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border text-xs font-semibold transition-all duration-200 cursor-pointer ${
+                      isSelected
+                        ? `${activeClass} shadow-2xs ring-1 ring-primary/30`
+                        : "bg-background border-border/60 text-muted-foreground hover:text-foreground hover:bg-secondary/60"
+                    }`}
+                  >
+                    <Icon className="w-5 h-5 shrink-0" strokeWidth={isSelected ? 2.5 : 2} />
+                    <span className="text-center leading-tight">{label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
         {/* Section 1: Mood */}
         <section className="space-y-3">
           <div className="flex items-center justify-between">

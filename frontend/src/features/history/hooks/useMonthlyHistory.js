@@ -46,6 +46,16 @@ export function useMonthlyHistory(year, month) {
     fetchStats();
   }, [fetchStats]);
 
+  useEffect(() => {
+    const handleTasksChanged = () => {
+      fetchStats();
+    };
+    window.addEventListener("athena:tasks-changed", handleTasksChanged);
+    return () => {
+      window.removeEventListener("athena:tasks-changed", handleTasksChanged);
+    };
+  }, [fetchStats]);
+
   return {
     statsMap,
     isLoading,

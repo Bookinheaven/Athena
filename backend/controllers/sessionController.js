@@ -1,6 +1,6 @@
 import SessionService from "../services/sessionService.js";
 import StreakService from "../services/streakService.js";
-import Session from "../models/sessionModel.js";
+import sessionRepository from "../repositories/sessionRepository.js";
 
 import generateInsights from "../utils/generateInsights.js";
 import transformSessionForDashboard from "../utils/transformSessionForDashboard.js";
@@ -18,7 +18,7 @@ class SessionController {
       });
     }
   }
-  
+
   async updateSession(req, res) {
     try {
       const userId = req.user._id;
@@ -46,16 +46,53 @@ class SessionController {
     }
   }
 
-  async feedbackSession(req, res) {
+  async checkpointProgress(req, res) {
     try {
       const userId = req.user._id;
-      const session = await SessionService.feedback(userId, {
+      const session = await SessionService.checkpointProgress(userId, {
+        ...req.body,
         sessionId: req.params.id,
-        feedback: req.body,
       });
       res.json({ success: true, session });
     } catch (err) {
-      res.status(400).json({
+      res.status(err.statusCode || 400).json({
+        success: false,
+        message: err.message,
+      });
+    }
+  }
+
+  async feedbackSession(req, res) {
+    try {
+      const userId = req.user._id || req.user.id;
+      const feedbackData = req.body?.feedback || req.body || {};
+      const session = await SessionService.feedback(userId, {
+        sessionId: req.params.id,
+        feedback: feedbackData,
+        timezone: req.timezone,
+      });
+      res.json({ success: true, session });
+    } catch (err) {
+      res.status(err.statusCode || 400).json({
+        success: false,
+        message: err.message,
+      });
+    }
+  }
+
+  async recordTaskOutcome(req, res) {
+    try {
+      const userId = req.user._id;
+      const { taskOutcome, asOfDate } = req.body;
+      const session = await SessionService.recordTaskOutcome(userId, {
+        sessionId: req.params.id,
+        taskOutcome,
+        asOfDate,
+        timezone: req.timezone,
+      });
+      res.json({ success: true, session });
+    } catch (err) {
+      res.status(err.statusCode || 400).json({
         success: false,
         message: err.message,
       });
@@ -104,20 +141,20 @@ class SessionController {
       });
     }
   }
-  // -------- need to work from here (-_-) ----------- //
   async getTodaysInsights(req, res) {
     try {
-      const userId = req.user?._id;
+      const userId = req.user?.id || req.user?._id;
       if (!userId) return res.status(404).json({ message: "user not found" });
 
-      const startOfToday = getStartOfDay()
+      const startOfToday = getStartOfDay();
       const endOfToday = new Date(startOfToday);
       endOfToday.setUTCDate(endOfToday.getUTCDate() + 1);
 
-      const todaysSessions = await Session.find({
+      const todaysSessions = await sessionRepository.findUserSessionsInDateRange(
         userId,
-        createdAt: { $gte: startOfToday, $lt: endOfToday },
-      });
+        startOfToday,
+        endOfToday
+      );
 
       let output = {
         sessions: todaysSessions.length,
@@ -153,10 +190,9 @@ class SessionController {
 
   async getInsights(req, res) {
     try {
-      const userId = req.user._id;
-      const allSessions = await Session.find({ userId }).sort({
-        createdAt: -1,
-      });
+      const userId = req.user?.id || req.user?._id;
+      if (!userId) return res.status(404).json({ message: "user not found" });
+      const allSessions = await sessionRepository.findUserSessions(userId);
       const insights = await generateInsights(userId, allSessions);
       const recentSessions = allSessions.map(transformSessionForDashboard);
       res.status(200).json({ insights, recentSessions });

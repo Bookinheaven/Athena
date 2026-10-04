@@ -34,11 +34,12 @@ export function FocusProvider({ children, initialContext }) {
     [setSetting, saveSettingsToBackend]
   );
 
-  // ── Route-Persistent Session Review State ─────────────────────────────────
+  // Persistent Session Review State
   const [sessionReview, setSessionReview] = useState({
     mood: null,
     focus: null,
     distractions: '',
+    taskOutcome: null,
   });
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
 
@@ -48,7 +49,7 @@ export function FocusProvider({ children, initialContext }) {
     if (runtime.sessionId !== lastSessionIdRef.current) {
       lastSessionIdRef.current = runtime.sessionId;
       if (runtime.phase === PHASES.IDLE || runtime.phase === PHASES.RUNNING) {
-        setSessionReview({ mood: null, focus: null, distractions: '' });
+        setSessionReview({ mood: null, focus: null, distractions: '', taskOutcome: null });
         setIsSubmittingReview(false);
       }
     }
@@ -81,14 +82,21 @@ export function FocusProvider({ children, initialContext }) {
         try {
           await sessionService.sessionFeedback({
             sessionId: runtime.sessionId,
-            feedback:  sessionReview,
+            feedback: sessionReview,
           });
+          try {
+            window.dispatchEvent(
+              new CustomEvent('athena:tasks-changed', {
+                detail: { taskOutcome: sessionReview.taskOutcome },
+              })
+            );
+          } catch { }
         } catch (err) {
           console.error('[FocusContext] Feedback save failed:', err);
         }
       }
       runtime.commands.stop();
-      setSessionReview({ mood: null, focus: null, distractions: '' });
+      setSessionReview({ mood: null, focus: null, distractions: '', taskOutcome: null });
     } finally {
       setIsSubmittingReview(false);
     }

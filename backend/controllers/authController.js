@@ -1,5 +1,5 @@
 import AuthService from '../services/authService.js';
-import User from '../models/userModel.js';
+import userRepository from '../repositories/userRepository.js';
 import { validationResult } from 'express-validator';
 import jwt from 'jsonwebtoken';
 import env from '../config/env.js';
@@ -200,7 +200,7 @@ class AuthController {
       }
 
       const decoded = jwt.verify(token, env.JWT_SECRET);
-      const user = await User.findById(decoded.userId).select('-password');
+      const user = await userRepository.findById(decoded.userId);
       if (!user) {
         return res.status(404).json({ success: false, message: 'Account no longer found' });
       }
@@ -216,7 +216,8 @@ class AuthController {
         success: true,
         message: 'Switched account successfully',
         user: {
-          id: user._id,
+          id: user.id || user._id,
+          _id: user.id || user._id,
           username: user.username,
           email: user.email,
           fullName: user.fullName,

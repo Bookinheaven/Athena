@@ -1,7 +1,6 @@
-import { getStartOfDay } from "../utils/streakHelpers.js";
+import taskRepository, { normalizeTaskId } from "../repositories/taskRepository.js";
+import scheduleBlockRepository from "../repositories/scheduleBlockRepository.js";
 import GoalService from "./goalService.js";
-import Task from "../models/taskModel.js";
-import ScheduleBlock from "../models/scheduleBlockModel.js";
 import TaskOccurrenceService from "./taskOccurrenceService.js";
 import streakService from "./streakService.js";
 import {
@@ -35,16 +34,14 @@ class TaskService {
       safeData.plannedDate = productDateToStart(plannedProductDate, tz);
     }
 
-    const task = await Task.create({
-      ...safeData,
-      user: userId,
-    });
+    const task = await taskRepository.create(userId, safeData);
 
-    if (task.goal) {
-      await GoalService.recalculateProgress(task.goal);
+    const goalId = task.goalId || task.goal;
+    if (goalId) {
+      await GoalService.recalculateProgress(goalId);
     }
 
-    if (task.plannedDate) {
+    if (task.plannedDate || task.plannedProductDate || task.customPlannedDate) {
       try {
         await TaskOccurrenceService.syncTaskPlannedDate(
           userId,
@@ -52,7 +49,6 @@ class TaskService {
           null,
           tz
         );
-        await streakService.processDailyStreak(userId, asOfDate, tz);
       } catch (err) {
         console.error(
           "[taskService] Failed to sync TaskOccurrence on createTask:",
@@ -65,12 +61,7 @@ class TaskService {
   }
 
   async getTasks(userId) {
-    const today = getStartOfDay();
-
-    const tasks = await Task.find({
-      user: userId,
-    }).sort({ order: 1 });
-    return tasks;
+    return taskRepository.findByUserId(userId);
   }
 
   async updateTask(userId, taskId, data, asOfDateOrTimezone = new Date(), timezone = null) {
@@ -84,12 +75,20 @@ class TaskService {
 
     const { user, _id, ...updateData } = data;
 
-    const existingTask = await Task.findOne({ _id: taskId, user: userId });
-    if (!existingTask) {
-      throw new Error("Task not found or access denied");
+    if (!normalizeTaskId(taskId)) {
+      const err = new Error("Invalid task ID format");
+      err.statusCode = 400;
+      throw err;
     }
 
-    const previousPlannedDate = existingTask.plannedDate;
+    const existingTask = await taskRepository.findById(userId, taskId);
+    if (!existingTask) {
+      const err = new Error("Task not found or access denied");
+      err.statusCode = 404;
+      throw err;
+    }
+
+    const previousPlannedDate = existingTask.plannedDate || existingTask.plannedProductDate;
     const previousStatus = existingTask.status;
 
     // Normalize plannedDate and customPlannedDate if updating
@@ -113,14 +112,16 @@ class TaskService {
       }
     }
 
-    const task = await Task.findOneAndUpdate(
-      { _id: taskId, user: userId },
-      { $set: updateData },
-      { new: true }
-    );
+    const task = await taskRepository.update(userId, taskId, updateData);
+    if (!task) {
+      const err = new Error("Task not found");
+      err.statusCode = 404;
+      throw err;
+    }
 
-    if (task?.goal) {
-      await GoalService.recalculateProgress(task.goal);
+    const goalId = task?.goalId || task?.goal;
+    if (goalId) {
+      await GoalService.recalculateProgress(goalId);
     }
 
     // 1. Sync plannedDate change or rescheduling
@@ -177,35 +178,27 @@ class TaskService {
   }
 
   async deleteTask(userId, taskId) {
-    const task = await Task.findOneAndDelete({
-      _id: taskId,
-      user: userId,
-    });
-
-    if (task) {
-      await ScheduleBlock.deleteMany({ taskId, userId });
+    if (!normalizeTaskId(taskId)) {
+      const err = new Error("Invalid task ID format");
+      err.statusCode = 400;
+      throw err;
+    }
+    const pgDeleted = await taskRepository.delete(userId, taskId);
+    if (pgDeleted) {
+      await scheduleBlockRepository.deleteByTaskId(userId, taskId);
+      if (pgDeleted.goalId) {
+        await GoalService.recalculateProgress(pgDeleted.goalId);
+      }
+      return pgDeleted;
     }
 
-    if (task?.goal) {
-      await GoalService.recalculateProgress(task.goal);
-    }
-
-    // Per Requirement 3 & 18K:
-    // Deleting a Task must NOT delete historical TaskOccurrences!
-    // Historical occurrences preserve taskSnapshot so day-planning records remain valid.
-
-    return task;
+    const err = new Error("Task not found");
+    err.statusCode = 404;
+    throw err;
   }
 
   async reorderTasks(userId, updates) {
-    const bulkOps = updates.map((u) => ({
-      updateOne: {
-        filter: { _id: u.taskId, user: userId },
-        update: { order: u.order },
-      },
-    }));
-
-    await Task.bulkWrite(bulkOps);
+    await taskRepository.reorder(userId, updates);
   }
 }
 

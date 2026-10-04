@@ -5,7 +5,9 @@ const router = express.Router();
 
 router.post("/", auth, sessionController.startSession);
 router.patch("/:id", auth, sessionController.updateSession);
+router.patch("/:id/progress", auth, sessionController.checkpointProgress);
 router.post("/:id/feedback", auth, sessionController.feedbackSession);
+router.post("/:id/task-outcome", auth, sessionController.recordTaskOutcome);
 
 router.get("/active", auth, sessionController.getActiveSession);
 

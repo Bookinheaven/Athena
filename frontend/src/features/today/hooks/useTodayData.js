@@ -5,6 +5,7 @@ import sessionService from "../../../../services/sessionService.js";
 import StreakService from "../../../../services/streakService.js";
 import taskService from "../../../../services/taskService.js";
 import goalService from "../../../../services/goalService.js";
+import { isTaskPlannedForToday, getTodayProductDate } from "@/utils/dateUtils.js";
 
 export const formatMinutes = (minutes = 0) => {
   if (isNaN(minutes) || minutes <= 0) return "0m";
@@ -58,14 +59,20 @@ export const useTodayData = () => {
     loadData();
   }, [loadData]);
 
-  // Derived today's tasks
+  // Synchronize whenever task/outcome changes occur across Today, Planner, or Focus
+  useEffect(() => {
+    const handleTasksChanged = () => {
+      loadData();
+    };
+    window.addEventListener("athena:tasks-changed", handleTasksChanged);
+    return () => {
+      window.removeEventListener("athena:tasks-changed", handleTasksChanged);
+    };
+  }, [loadData]);
+
+  // Derived today's tasks using canonical product date matching (drift-proof across timezones)
   const todayTasks = useMemo(() => {
-    const todayStr = new Date().toDateString();
-    return data.tasks
-      .filter((t) => {
-        if (!t.plannedDate) return false;
-        return new Date(t.plannedDate).toDateString() === todayStr;
-      })
+    return data.tasks.filter((t) => isTaskPlannedForToday(t))
       .sort((a, b) => (a.order || 0) - (b.order || 0));
   }, [data.tasks]);
 
@@ -123,9 +130,9 @@ export const useTodayData = () => {
       if (!task) return;
       navigate("/focus-page", {
         state: {
-          taskIds:         [task._id],
-          title:           task.title,
-          source:          "today",
+          taskIds: [task._id],
+          title: task.title,
+          source: "today",
           plannedDuration: 25 * 60,
         },
       });
@@ -145,6 +152,7 @@ export const useTodayData = () => {
 
       try {
         await taskService.updateTask(taskId, { status: newStatus });
+        window.dispatchEvent(new CustomEvent("athena:tasks-changed"));
       } catch (err) {
         console.error("Failed to update task status:", err);
         // Revert on failure
@@ -165,7 +173,7 @@ export const useTodayData = () => {
       try {
         const created = await taskService.createTask({
           title: title.trim(),
-          plannedDate: new Date(),
+          plannedDate: getTodayProductDate(),
           priority: "medium",
           order: todayTasks.length,
         });
@@ -175,6 +183,7 @@ export const useTodayData = () => {
             ...prev,
             tasks: [...prev.tasks, created],
           }));
+          window.dispatchEvent(new CustomEvent("athena:tasks-changed"));
           return true;
         }
       } catch (err) {

@@ -1,3 +1,5 @@
+import { usePlannerStore } from "../src/stores/plannerStore.js";
+
 export const normalizeUser = (user) => {
   if (!user) return null;
   const id = user._id || user.id;
@@ -25,6 +27,9 @@ export const clearUserTransientState = () => {
       }
     }
     keysToRemove.forEach((k) => sessionStorage.removeItem(k));
+    try {
+      usePlannerStore.getState?.().reset?.();
+    } catch {}
   } catch (err) {
     console.error("Failed to clear transient user state:", err);
   }
