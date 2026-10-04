@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { useAuth } from '@contexts/AuthContext';
 import { validatePassword } from '@/utils/validation';
 import LoadingSpinner from '@/components/LoadingSpinner/LoadingSpinner';
+import { PLACEHOLDERS } from '@/constants/placeholders.js';
 
 const ResetPassword = () => {
   const location = useLocation();
@@ -201,7 +202,7 @@ const ResetPassword = () => {
                   ? 'border-red-500 focus:border-red-500 focus:ring-red-500 bg-red-50/20 dark:bg-red-950/10' 
                   : 'border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/50 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 focus:border-neutral-900 dark:focus:border-neutral-200 focus:ring-neutral-900 dark:focus:ring-neutral-200'
               }`}
-              placeholder="Min. 8 chars, number & symbol"
+              placeholder={PLACEHOLDERS.auth.passwordRequirements}
             />
             <button
               type="button"
@@ -243,7 +244,7 @@ const ResetPassword = () => {
                   ? 'border-red-500 focus:border-red-500 focus:ring-red-500 bg-red-50/20 dark:bg-red-950/10' 
                   : 'border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/50 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 focus:border-neutral-900 dark:focus:border-neutral-200 focus:ring-neutral-900 dark:focus:ring-neutral-200'
               }`}
-              placeholder="Confirm your new password"
+              placeholder={PLACEHOLDERS.auth.confirmNewPassword}
             />
             <button
               type="button"

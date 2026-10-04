@@ -8,6 +8,7 @@ import {
   XCircle,
   ChevronDown,
 } from "lucide-react";
+import { PLACEHOLDERS } from "@/constants/placeholders.js";
 
 const STATUS_CONFIG = {
   "Not Started": {
@@ -244,7 +245,7 @@ export const TodoList = ({
               e.stopPropagation();
               if (e.key === "Enter") handleAddTodo();
             }}
-            placeholder="Add a new task..."
+            placeholder={PLACEHOLDERS.tasks.todoItem}
             className="w-full pl-4 pr-12 py-3 rounded-xl bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all shadow-xs"
           />
           <button

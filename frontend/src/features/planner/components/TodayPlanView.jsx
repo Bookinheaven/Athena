@@ -14,6 +14,7 @@ import { Card, CardContent } from "@/components/ui/card.jsx";
 import { Button } from "@/components/ui/button.jsx";
 import { Input } from "@/components/ui/input.jsx";
 import { isTaskPlannedForToday } from "@/utils/dateUtils.js";
+import { PLACEHOLDERS } from "@/constants/placeholders.js";
 
 export default function TodayPlanView({
   tasks = [],
@@ -222,7 +223,7 @@ export default function TodayPlanView({
               <div className="relative">
                 <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <Input
-                  placeholder="Search available tasks..."
+                  placeholder={PLACEHOLDERS.tasks.filterAvailable}
                   value={unplannedSearch}
                   onChange={(e) => setUnplannedSearch(e.target.value)}
                   className="pl-9 h-9 text-xs rounded-xl"

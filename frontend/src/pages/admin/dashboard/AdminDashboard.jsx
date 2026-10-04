@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../../contexts/AuthContext';
 import adminService from '../../../../services/adminService';
+import { PLACEHOLDERS } from '@/constants/placeholders.js';
 import { 
   Users, 
   UserPlus, 
@@ -481,7 +482,7 @@ const Dashboard = () => {
                       <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-text-muted" size={18} />
                       <input
                         type="text"
-                        placeholder="Search by name, username, or email..."
+                        placeholder={PLACEHOLDERS.admin.searchUsers}
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="w-full pl-11 pr-4 py-2.5 bg-input-background border border-input-border text-text-primary rounded-xl focus:border-input-focus focus-ring-primary theme-transition text-sm"
@@ -867,7 +868,7 @@ const Dashboard = () => {
                 <label className="block text-sm font-medium text-text-secondary mb-2">Username</label>
                 <input
                   type="text"
-                  placeholder="Enter username"
+                  placeholder={PLACEHOLDERS.admin.username}
                   value={newUser.username}
                   onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
                   className="w-full bg-input-background border border-input-border text-text-primary rounded-xl px-4 py-2.5 focus:border-input-focus focus-ring-primary theme-transition"
@@ -879,7 +880,7 @@ const Dashboard = () => {
                 <label className="block text-sm font-medium text-text-secondary mb-2">Full Name</label>
                 <input
                   type="text"
-                  placeholder="Enter full name"
+                  placeholder={PLACEHOLDERS.admin.fullName}
                   value={newUser.fullName}
                   onChange={(e) => setNewUser({ ...newUser, fullName: e.target.value })}
                   className="w-full bg-input-background border border-input-border text-text-primary rounded-xl px-4 py-2.5 focus:border-input-focus focus-ring-primary theme-transition"
@@ -891,7 +892,7 @@ const Dashboard = () => {
                 <label className="block text-sm font-medium text-text-secondary mb-2">Email</label>
                 <input
                   type="email"
-                  placeholder="Enter email"
+                  placeholder={PLACEHOLDERS.admin.email}
                   value={newUser.email}
                   onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
                   className="w-full bg-input-background border border-input-border text-text-primary rounded-xl px-4 py-2.5 focus:border-input-focus focus-ring-primary theme-transition"
@@ -903,7 +904,7 @@ const Dashboard = () => {
                 <label className="block text-sm font-medium text-text-secondary mb-2">Password</label>
                 <input
                   type="password"
-                  placeholder="Enter password"
+                  placeholder={PLACEHOLDERS.admin.password}
                   value={newUser.password}
                   onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
                   className="w-full bg-input-background border border-input-border text-text-primary rounded-xl px-4 py-2.5 focus:border-input-focus focus-ring-primary theme-transition"
@@ -967,7 +968,7 @@ const Dashboard = () => {
                 <label className="block text-sm font-medium text-text-secondary mb-2">Username</label>
                 <input
                   type="text"
-                  placeholder="Enter username"
+                  placeholder={PLACEHOLDERS.admin.username}
                   value={editUser.username}
                   onChange={(e) => setEditUser({ ...editUser, username: e.target.value })}
                   className="w-full bg-input-background border border-input-border text-text-primary rounded-xl px-4 py-2.5 focus:border-input-focus focus-ring-primary theme-transition"
@@ -979,7 +980,7 @@ const Dashboard = () => {
                 <label className="block text-sm font-medium text-text-secondary mb-2">Full Name</label>
                 <input
                   type="text"
-                  placeholder="Enter full name"
+                  placeholder={PLACEHOLDERS.admin.fullName}
                   value={editUser.fullName}
                   onChange={(e) => setEditUser({ ...editUser, fullName: e.target.value })}
                   className="w-full bg-input-background border border-input-border text-text-primary rounded-xl px-4 py-2.5 focus:border-input-focus focus-ring-primary theme-transition"
@@ -991,7 +992,7 @@ const Dashboard = () => {
                 <label className="block text-sm font-medium text-text-secondary mb-2">Email</label>
                 <input
                   type="email"
-                  placeholder="Enter email"
+                  placeholder={PLACEHOLDERS.admin.email}
                   value={editUser.email}
                   onChange={(e) => setEditUser({ ...editUser, email: e.target.value })}
                   className="w-full bg-input-background border border-input-border text-text-primary rounded-xl px-4 py-2.5 focus:border-input-focus focus-ring-primary theme-transition"

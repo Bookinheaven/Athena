@@ -15,6 +15,7 @@ import {
   Loader2,
   AlertCircle,
 } from "lucide-react";
+import { PLACEHOLDERS } from "@/constants/placeholders.js";
 
 const TASK_OUTCOME_OPTIONS = [
   {
@@ -407,7 +408,7 @@ export const SessionReview = ({
               type="text"
               value={customInput}
               onChange={handleCustomInputChange}
-              placeholder="Other distractions or thoughts (optional)..."
+              placeholder={PLACEHOLDERS.focus.reviewDistractions}
               className="w-full px-3.5 py-2.5 rounded-xl bg-background border border-border text-xs sm:text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all shadow-2xs"
             />
           </div>

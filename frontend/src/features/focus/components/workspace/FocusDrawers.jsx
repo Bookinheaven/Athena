@@ -17,6 +17,7 @@ import { TodoList } from "../task/TodoList.jsx";
 import { CurrentProgress } from "../progress/CurrentProgress.jsx";
 import { Notes } from "../notes/Notes.jsx";
 import { Settings } from "../settings/Setting.jsx";
+import { PLACEHOLDERS } from "@/constants/placeholders.js";
 import {
   ListTodo,
   Activity,
@@ -249,7 +250,7 @@ export const FocusDrawers = ({
                 onKeyDown={(e) => {
                   if (e.key === "Enter") handleLogCustomDistraction();
                 }}
-                placeholder="Or type a specific distraction..."
+                placeholder={PLACEHOLDERS.focus.specificDistraction}
                 className="flex-1 px-3 py-2 rounded-xl bg-secondary/40 border border-border/60 text-xs text-foreground placeholder:text-muted-foreground/60 outline-none focus:ring-1 focus:ring-primary"
               />
               <button

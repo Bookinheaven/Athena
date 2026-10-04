@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button.jsx";
 import { Badge } from "@/components/ui/badge.jsx";
 import { Input } from "@/components/ui/input.jsx";
 import TodayTaskItem from "./TodayTaskItem.jsx";
+import { PLACEHOLDERS } from "@/constants/placeholders.js";
 
 export default function TodayWork({
   tasks = [],
@@ -80,7 +81,7 @@ export default function TodayWork({
         >
           <Input
             autoFocus
-            placeholder="What are you working on today?"
+            placeholder={PLACEHOLDERS.tasks.quickAdd}
             value={newTaskTitle}
             onChange={(e) => setNewTaskTitle(e.target.value)}
             className="border-0 shadow-none focus-visible:ring-0 text-sm h-9 bg-transparent"

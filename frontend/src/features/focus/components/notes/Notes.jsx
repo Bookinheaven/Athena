@@ -23,6 +23,7 @@ import {
   ListTodo,
 } from "lucide-react";
 import { useEditor, EditorContent } from "@tiptap/react";
+import { PLACEHOLDERS } from "@/constants/placeholders.js";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -284,7 +285,7 @@ export const Notes = ({
       StarterKit,
       Image,
       Placeholder.configure({
-        placeholder: "Start typing… Press '/' for commands",
+        placeholder: PLACEHOLDERS.notes.editorSlashCommands,
       }),
     ],
     content: "",
@@ -640,7 +641,7 @@ export const Notes = ({
             <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input
               type="text"
-              placeholder="Search in context..."
+              placeholder={PLACEHOLDERS.notes.searchContext}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-7 pr-3 py-1.5 bg-background border border-border rounded-lg text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition-colors"
@@ -679,7 +680,7 @@ export const Notes = ({
 
               <input
                 type="text"
-                placeholder="Note Title..."
+                placeholder={PLACEHOLDERS.notes.title}
                 value={localTitle}
                 onChange={handleTitleChange}
                 onBlur={flushPendingSave}

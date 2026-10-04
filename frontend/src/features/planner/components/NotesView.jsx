@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button.jsx";
 import { Badge } from "@/components/ui/badge.jsx";
 import { Input } from "@/components/ui/input.jsx";
 import NoteEditor from "./NoteEditor.jsx";
+import { PLACEHOLDERS } from "@/constants/placeholders.js";
 
 const getPlainTextPreview = (html = "") => {
   if (!html) return "";
@@ -88,7 +89,7 @@ export default function NotesView({
           <div className="relative">
             <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <Input
-              placeholder="Search notes..."
+              placeholder={PLACEHOLDERS.notes.search}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9 h-9 text-xs rounded-xl"

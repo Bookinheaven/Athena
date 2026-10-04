@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
 import userService from "@services/userService";
+import { PLACEHOLDERS } from "@/constants/placeholders.js";
 
 export const ProfileEditDialog = ({ isOpen, onClose, currentName, onUpdated }) => {
   const [fullName, setFullName] = useState(currentName || "");
@@ -95,7 +96,7 @@ export const ProfileEditDialog = ({ isOpen, onClose, currentName, onUpdated }) =
               id="fullName"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
-              placeholder="Your full name"
+              placeholder={PLACEHOLDERS.profile.fullName}
               maxLength={50}
               disabled={isLoading}
               className="text-sm"

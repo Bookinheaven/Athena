@@ -10,6 +10,7 @@ import {
   Plus,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { PLACEHOLDERS } from "@/constants/placeholders.js";
 
 const DISTRACTION_OPTIONS = [
   { label: "Phone", icon: Smartphone },
@@ -86,7 +87,7 @@ export const DistractionsWidget = ({ sessionReview, onDistractionToggle }) => {
           onKeyDown={(e) => {
             if (e.key === "Enter") handleAddCustom();
           }}
-          placeholder="Log distraction..."
+          placeholder={PLACEHOLDERS.focus.logDistraction}
           className="flex-1 px-3 py-1.5 rounded-xl bg-secondary/40 border border-border/50 text-xs text-foreground placeholder:text-muted-foreground/60 outline-none focus:ring-1 focus:ring-primary"
         />
         <button

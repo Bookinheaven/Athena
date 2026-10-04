@@ -23,6 +23,7 @@ import {
 import { Button } from "@/components/ui/button.jsx";
 import { Badge } from "@/components/ui/badge.jsx";
 import { Input } from "@/components/ui/input.jsx";
+import { PLACEHOLDERS } from "@/constants/placeholders.js";
 
 const EditorToolbar = ({ editor }) => {
   if (!editor) return null;
@@ -160,7 +161,7 @@ export default function NoteEditor({
     extensions: [
       StarterKit,
       Placeholder.configure({
-        placeholder: "Write your note here...",
+        placeholder: PLACEHOLDERS.notes.content,
       }),
     ],
     content: note?.content || "",
@@ -326,7 +327,7 @@ export default function NoteEditor({
       <div className="p-6 sm:p-8 flex-1 flex flex-col space-y-4">
         {/* Note Title Input */}
         <Input
-          placeholder="Note title..."
+          placeholder={PLACEHOLDERS.notes.title}
           value={title}
           onChange={handleTitleChange}
           onBlur={handleTitleBlur}

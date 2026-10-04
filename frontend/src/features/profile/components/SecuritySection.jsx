@@ -3,6 +3,7 @@ import { KeyRound, Eye, EyeOff, Loader2, AlertCircle, CheckCircle2 } from "lucid
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import authService from "@services/authService";
+import { PLACEHOLDERS } from "@/constants/placeholders.js";
 
 export const SecuritySection = () => {
   const [currentPassword, setCurrentPassword] = useState("");
@@ -110,7 +111,7 @@ export const SecuritySection = () => {
               type={showCurrent ? "text" : "password"}
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
-              placeholder="Enter current password"
+              placeholder={PLACEHOLDERS.auth.currentPassword}
               disabled={isLoading}
               className="pr-10 text-sm font-mono"
               autoComplete="current-password"
@@ -137,7 +138,7 @@ export const SecuritySection = () => {
                 type={showNew ? "text" : "password"}
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="New password"
+                placeholder={PLACEHOLDERS.auth.newPassword}
                 disabled={isLoading}
                 className="pr-10 text-sm font-mono"
                 autoComplete="new-password"
@@ -163,7 +164,7 @@ export const SecuritySection = () => {
                 type={showConfirm ? "text" : "password"}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Confirm password"
+                placeholder={PLACEHOLDERS.auth.confirmPassword}
                 disabled={isLoading}
                 className="pr-10 text-sm font-mono"
                 autoComplete="new-password"

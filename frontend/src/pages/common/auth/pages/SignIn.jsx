@@ -5,6 +5,7 @@ import { useAuth } from '@contexts/AuthContext';
 import { useMultiAccount } from '@contexts/MultiAccountContext';
 import LoadingSpinner from '@/components/LoadingSpinner/LoadingSpinner';
 import AccountSwitcherModal from '@/components/AccountSwitcherModal';
+import { PLACEHOLDERS } from '@/constants/placeholders.js';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -159,7 +160,7 @@ const Login = () => {
                 ? 'border-red-500 focus:border-red-500 focus:ring-red-500 bg-red-50/20 dark:bg-red-950/10' 
                 : 'border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/50 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 focus:border-neutral-900 dark:focus:border-neutral-200 focus:ring-neutral-900 dark:focus:ring-neutral-200'
             }`}
-            placeholder="name@example.com"
+            placeholder={PLACEHOLDERS.auth.email}
           />
           {errors.usernameOrEmail && (
             <p className="mt-1.5 text-xs text-red-600 dark:text-red-400 font-medium flex items-center gap-1">
@@ -194,7 +195,7 @@ const Login = () => {
                   ? 'border-red-500 focus:border-red-500 focus:ring-red-500 bg-red-50/20 dark:bg-red-950/10' 
                   : 'border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/50 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 focus:border-neutral-900 dark:focus:border-neutral-200 focus:ring-neutral-900 dark:focus:ring-neutral-200'
               }`}
-              placeholder="••••••••"
+              placeholder={PLACEHOLDERS.auth.password}
             />
             <button
               type="button"

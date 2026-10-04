@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button.jsx";
 import { Input } from "@/components/ui/input.jsx";
 import { Textarea } from "@/components/ui/textarea.jsx";
+import { PLACEHOLDERS } from "@/constants/placeholders.js";
 import {
   getTaskProductDate,
   getTodayProductDate,
@@ -162,7 +163,7 @@ export default function TaskModal({
             <Input
               required
               autoFocus
-              placeholder="e.g., Implement authentication flow"
+              placeholder={PLACEHOLDERS.tasks.title}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               className="h-10 rounded-xl font-medium"
@@ -175,7 +176,7 @@ export default function TaskModal({
               Description (Optional)
             </label>
             <Textarea
-              placeholder="Add context, subtasks, or links..."
+              placeholder={PLACEHOLDERS.tasks.description}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={2}

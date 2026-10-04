@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { Input } from "@/components/ui/input.jsx";
 import { Button } from "@/components/ui/button.jsx";
+import { PLACEHOLDERS } from "@/constants/placeholders.js";
 
 export default function UnscheduledTasks({
   tasks = [],
@@ -106,7 +107,7 @@ export default function UnscheduledTasks({
           <Input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search tasks..."
+            placeholder={PLACEHOLDERS.tasks.search}
             className="pl-8 h-8 text-xs rounded-xl bg-secondary/30"
           />
         </div>

@@ -9,6 +9,7 @@ import {
 import { Button } from "@/components/ui/button.jsx";
 import { Input } from "@/components/ui/input.jsx";
 import { Textarea } from "@/components/ui/textarea.jsx";
+import { PLACEHOLDERS } from "@/constants/placeholders.js";
 
 const PRESET_COLORS = [
   "#6366f1", // Indigo
@@ -106,7 +107,7 @@ export default function GoalModal({
             <Input
               required
               autoFocus
-              placeholder="e.g., Launch Athena v2"
+              placeholder={PLACEHOLDERS.goals.title}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               className="h-10 rounded-xl"
@@ -119,7 +120,7 @@ export default function GoalModal({
               Description
             </label>
             <Textarea
-              placeholder="What does success look like for this goal?"
+              placeholder={PLACEHOLDERS.goals.description}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}

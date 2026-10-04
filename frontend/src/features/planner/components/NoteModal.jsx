@@ -9,6 +9,7 @@ import {
 import { Button } from "@/components/ui/button.jsx";
 import { Input } from "@/components/ui/input.jsx";
 import { Textarea } from "@/components/ui/textarea.jsx";
+import { PLACEHOLDERS } from "@/constants/placeholders.js";
 
 const getPlainText = (html = "") => {
   if (!html) return "";
@@ -102,7 +103,7 @@ export default function NoteModal({
             </label>
             <Input
               autoFocus
-              placeholder="Note title (optional)"
+              placeholder={PLACEHOLDERS.notes.optionalTitle}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               className="h-10 rounded-xl"
@@ -116,7 +117,7 @@ export default function NoteModal({
             </label>
             <Textarea
               required
-              placeholder="Write your note here..."
+              placeholder={PLACEHOLDERS.notes.content}
               value={content}
               onChange={(e) => setContent(e.target.value)}
               rows={5}

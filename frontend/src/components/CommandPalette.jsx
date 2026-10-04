@@ -17,6 +17,7 @@ import {
   ArrowUpDown,
   Command as CommandIcon,
 } from "lucide-react";
+import { PLACEHOLDERS } from "@/constants/placeholders.js";
 
 const CommandPalette = ({
   isOpen,
@@ -213,7 +214,7 @@ const CommandPalette = ({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Type a command or search workspace..."
+              placeholder={PLACEHOLDERS.common.commandPalette}
               className="w-full bg-transparent text-sm text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-0 border-0 font-medium p-0"
             />
             <div className="flex items-center gap-1.5 shrink-0">
