@@ -1,0 +1,37 @@
+.theme-monokai {
+  --background: #16191a;
+  --foreground: #f8f8f2;
+  --card: #1e2122;
+  --card-foreground: #f8f8f2;
+  --popover: #272b2c;
+  --popover-foreground: #f8f8f2;
+  --primary: #a6e22e;
+  --primary-foreground: #16191a;
+  --secondary: #272b2c;
+  --secondary-foreground: #d4d0c0;
+  --muted: #222526;
+  --muted-foreground: #727865;
+  --accent: #2e3335;
+  --accent-foreground: #f8f8f2;
+  --destructive: #f92672;
+  --destructive-foreground: #f8f8f2;
+  --border: #363a3b;
+  --input: #272b2c;
+  --ring: #a6e22e;
+  --radius: 0.375rem;
+
+  --sidebar: #141718;
+  --sidebar-foreground: #d6d2be;
+  --sidebar-primary: #a6e22e;
+  --sidebar-primary-foreground: #141718;
+  --sidebar-accent: #1c2022;
+  --sidebar-accent-foreground: #d6d2be;
+  --sidebar-border: #28302c;
+  --sidebar-ring: #a6e22e;
+
+  --chart-1: #a6e22e;
+  --chart-2: #f92672;
+  --chart-3: #66d9e8;
+  --chart-4: #fd971f;
+  --chart-5: #ae81ff;
+}

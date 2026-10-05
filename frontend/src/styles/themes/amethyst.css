@@ -1,0 +1,37 @@
+.theme-amethyst {
+  --background: #0e0b1a;
+  --foreground: #ede8ff;
+  --card: #13102a;
+  --card-foreground: #ede8ff;
+  --popover: #1c1840;
+  --popover-foreground: #ede8ff;
+  --primary: #a855f7;
+  --primary-foreground: #0e0b1a;
+  --secondary: #1c1840;
+  --secondary-foreground: #d4c8ff;
+  --muted: #181434;
+  --muted-foreground: #7055a0;
+  --accent: #231f4a;
+  --accent-foreground: #ede8ff;
+  --destructive: #ff6b6b;
+  --destructive-foreground: #0e0b1a;
+  --border: #2d2860;
+  --input: #1c1840;
+  --ring: #a855f7;
+  --radius: 0.5rem;
+
+  --sidebar: #0b0914;
+  --sidebar-foreground: #d8ccff;
+  --sidebar-primary: #a855f7;
+  --sidebar-primary-foreground: #0b0914;
+  --sidebar-accent: #15122a;
+  --sidebar-accent-foreground: #d8ccff;
+  --sidebar-border: #201c44;
+  --sidebar-ring: #a855f7;
+
+  --chart-1: #a855f7;
+  --chart-2: #c084fc;
+  --chart-3: #60a5fa;
+  --chart-4: #f472b6;
+  --chart-5: #34d399;
+}

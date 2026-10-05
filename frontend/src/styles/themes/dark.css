@@ -1,0 +1,37 @@
+.theme-dark {
+  --background: #0c0c0f;
+  --foreground: #f4f4f6;
+  --card: #131316;
+  --card-foreground: #f4f4f6;
+  --popover: #1c1c21;
+  --popover-foreground: #f4f4f6;
+  --primary: #e4e4e7;
+  --primary-foreground: #0c0c0f;
+  --secondary: #1c1c21;
+  --secondary-foreground: #f4f4f6;
+  --muted: #1c1c21;
+  --muted-foreground: #8b8b96;
+  --accent: #242429;
+  --accent-foreground: #f4f4f6;
+  --destructive: #f04040;
+  --destructive-foreground: #ffffff;
+  --border: #242429;
+  --input: #242429;
+  --ring: #a1a1aa;
+  --radius: 0.5rem;
+
+  --sidebar: #0c0c0f;
+  --sidebar-foreground: #f4f4f6;
+  --sidebar-primary: #e4e4e7;
+  --sidebar-primary-foreground: #0c0c0f;
+  --sidebar-accent: #1c1c21;
+  --sidebar-accent-foreground: #f4f4f6;
+  --sidebar-border: #1c1c21;
+  --sidebar-ring: #a1a1aa;
+
+  --chart-1: #e4e4e7;
+  --chart-2: #a1a1aa;
+  --chart-3: #71717a;
+  --chart-4: #3f3f46;
+  --chart-5: #27272a;
+}

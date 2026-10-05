@@ -11,9 +11,10 @@ class StreakService extends RequestService {
     return this.request(`/streak/${type}`, { method: "GET"})
   }
 
-//   async fetchMonthly(data) {
-//     return this.request("/api/streak/monthly", { method: "POST", body: data })
-//   }
+  async fetchMonthly(year, month) {
+    const query = new URLSearchParams({ year, month }).toString();
+    return this.request(`/streak/monthly?${query}`, { method: "GET" });
+  }
   
 }
 

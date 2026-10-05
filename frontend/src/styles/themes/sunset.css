@@ -1,0 +1,37 @@
+.theme-sunset {
+  --background: #0f050a;
+  --foreground: #ffe8f0;
+  --card: #190a10;
+  --card-foreground: #ffe8f0;
+  --popover: #24101a;
+  --popover-foreground: #ffe8f0;
+  --primary: #fb7185;
+  --primary-foreground: #0f050a;
+  --secondary: #24101a;
+  --secondary-foreground: #ffc8d6;
+  --muted: #1c0c15;
+  --muted-foreground: #8c4a61;
+  --accent: #2e1422;
+  --accent-foreground: #ffe8f0;
+  --destructive: #ff5555;
+  --destructive-foreground: #0f050a;
+  --border: #381824;
+  --input: #24101a;
+  --ring: #fb7185;
+  --radius: 0.5rem;
+
+  --sidebar: #0c0408;
+  --sidebar-foreground: #ffccd8;
+  --sidebar-primary: #fb7185;
+  --sidebar-primary-foreground: #0c0408;
+  --sidebar-accent: #1a0912;
+  --sidebar-accent-foreground: #ffccd8;
+  --sidebar-border: #2a1020;
+  --sidebar-ring: #fb7185;
+
+  --chart-1: #fb7185;
+  --chart-2: #f9a8d4;
+  --chart-3: #fbbf24;
+  --chart-4: #c084fc;
+  --chart-5: #60a5fa;
+}

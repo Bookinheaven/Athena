@@ -10,7 +10,8 @@ const ProtectedRoute = () => {
   
   if (!user) return <Navigate to="/login" replace />;
   
-  return <Outlet />;
+  const userId = user?.id;
+  return <Outlet key={userId || 'authenticated'} />;
 };
 
 export default ProtectedRoute;

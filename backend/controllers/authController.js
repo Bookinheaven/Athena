@@ -1,5 +1,5 @@
 import AuthService from '../services/authService.js';
-import User from '../models/userModel.js';
+import userRepository from '../repositories/userRepository.js';
 import { validationResult } from 'express-validator';
 import jwt from 'jsonwebtoken';
 import env from '../config/env.js';
@@ -133,6 +133,33 @@ class AuthController {
     }
   }
 
+  // Change password (authenticated)
+  static async changePassword(req, res) {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Validation failed',
+          errors: errors.array()
+        });
+      }
+
+      const { currentPassword, newPassword } = req.body;
+      const result = await AuthService.changePassword(req.user.id, currentPassword, newPassword);
+
+      res.status(200).json({
+        success: true,
+        message: result.message
+      });
+    } catch (error) {
+      res.status(400).json({
+        success: false,
+        message: error.message
+      });
+    }
+  }
+
   // Get current user
   static async getCurrentUser(req, res) {
     try {
@@ -173,7 +200,7 @@ class AuthController {
       }
 
       const decoded = jwt.verify(token, env.JWT_SECRET);
-      const user = await User.findById(decoded.userId).select('-password');
+      const user = await userRepository.findById(decoded.userId);
       if (!user) {
         return res.status(404).json({ success: false, message: 'Account no longer found' });
       }
@@ -189,11 +216,12 @@ class AuthController {
         success: true,
         message: 'Switched account successfully',
         user: {
-          id: user._id,
+          id: user.id,
           username: user.username,
           email: user.email,
           fullName: user.fullName,
-          type: user.type
+          type: user.type,
+          settings: user.settings
         },
         token
       });

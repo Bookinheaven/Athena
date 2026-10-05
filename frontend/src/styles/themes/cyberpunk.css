@@ -1,0 +1,37 @@
+.theme-cyberpunk {
+  --background: #07040f;
+  --foreground: #f5e6ff;
+  --card: #0f0819;
+  --card-foreground: #f5e6ff;
+  --popover: #170d26;
+  --popover-foreground: #f5e6ff;
+  --primary: #f700b3;
+  --primary-foreground: #07040f;
+  --secondary: #170d26;
+  --secondary-foreground: #e2c8ff;
+  --muted: #120a20;
+  --muted-foreground: #8855aa;
+  --accent: #1e1032;
+  --accent-foreground: #f5e6ff;
+  --destructive: #ff3d3d;
+  --destructive-foreground: #07040f;
+  --border: #2d1550;
+  --input: #170d26;
+  --ring: #f700b3;
+  --radius: 0.375rem;
+
+  --sidebar: #05030c;
+  --sidebar-foreground: #e8d0ff;
+  --sidebar-primary: #f700b3;
+  --sidebar-primary-foreground: #05030c;
+  --sidebar-accent: #130a22;
+  --sidebar-accent-foreground: #e8d0ff;
+  --sidebar-border: #200f3a;
+  --sidebar-ring: #f700b3;
+
+  --chart-1: #f700b3;
+  --chart-2: #c548ff;
+  --chart-3: #00e5ff;
+  --chart-4: #ffd700;
+  --chart-5: #39ff14;
+}

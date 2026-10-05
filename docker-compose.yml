@@ -1,19 +1,24 @@
 services:
-  mongodb:
-    image: mongo:7.0
-    container_name: athena-mongodb
+  postgres:
+    image: postgres:17-alpine
+    container_name: athena-postgres
     restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-athena}
     ports:
-      - "27017:27017"
+      - "${POSTGRES_PORT:-5433}:5432"
     volumes:
-      - mongodb_data:/data/db
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d athena"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 10s
 
 volumes:
-  mongodb_data:
-    name: athena_mongodb_data
+  postgres_data:
+    name: athena_postgres_data
+

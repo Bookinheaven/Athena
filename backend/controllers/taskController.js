@@ -3,11 +3,17 @@ import TaskService from "../services/taskService.js";
 class TaskController {
   async createTask(req, res) {
     try {
-      const task = await TaskService.createTask(req.user.id, req.body);
+      const task = await TaskService.createTask(
+        req.user.id,
+        req.body,
+        new Date(),
+        req.timezone
+      );
 
       res.status(201).json(task);
     } catch (error) {
-      res.status(500).json({ message: error.message });
+      const statusCode = error.statusCode || 500;
+      res.status(statusCode).json({ success: false, message: error.message });
     }
   }
 
@@ -17,7 +23,8 @@ class TaskController {
 
       res.json(tasks);
     } catch (error) {
-      res.status(500).json({ message: error.message });
+      const statusCode = error.statusCode || 500;
+      res.status(statusCode).json({ success: false, message: error.message });
     }
   }
 
@@ -26,22 +33,33 @@ class TaskController {
       const task = await TaskService.updateTask(
         req.user.id,
         req.params.id,
-        req.body
+        req.body,
+        new Date(),
+        req.timezone
       );
 
       res.json(task);
     } catch (error) {
-      res.status(500).json({ message: error.message });
+      const statusCode = error.statusCode || 500;
+      res.status(statusCode).json({ success: false, message: error.message });
     }
   }
 
   async deleteTask(req, res) {
     try {
-      await TaskService.deleteTask(req.user.id, req.params.id);
+      const userId = req.user.id;
+      await TaskService.deleteTask(userId, req.params.id, new Date(), req.timezone);
 
-      res.json({ message: "Task deleted" });
+      res.json({ success: true, message: "Task deleted" });
     } catch (error) {
-      res.status(500).json({ message: error.message });
+      if (error.code === "23503") {
+        return res.status(409).json({
+          success: false,
+          message: "Task cannot be deleted because it has historical records.",
+        });
+      }
+      const statusCode = error.statusCode || 500;
+      res.status(statusCode).json({ success: false, message: error.message });
     }
   }
 
@@ -49,9 +67,10 @@ class TaskController {
     try {
       await TaskService.reorderTasks(req.user.id, req.body);
 
-      res.json({ message: "Tasks reordered" });
+      res.json({ success: true, message: "Tasks reordered" });
     } catch (error) {
-      res.status(500).json({ message: error.message });
+      const statusCode = error.statusCode || 500;
+      res.status(statusCode).json({ success: false, message: error.message });
     }
   }
 }

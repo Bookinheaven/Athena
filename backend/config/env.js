@@ -23,15 +23,13 @@ const envSchema = z.object({
     .int("PORT must be an integer")
     .positive("PORT must be a positive integer")
     .default(5000),
-  MONGODB_URI: z
-    .string({
-      error: "MONGODB_URI is required",
-    })
-    .min(1, "MONGODB_URI is required")
+  DATABASE_URL: z
+    .string()
     .refine(
-      (val) => val.startsWith("mongodb://") || val.startsWith("mongodb+srv://"),
-      "MONGODB_URI must start with mongodb:// or mongodb+srv://"
-    ),
+      (val) => !val || val.startsWith("postgresql://") || val.startsWith("postgres://"),
+      "DATABASE_URL must start with postgresql:// or postgres://"
+    )
+    .default("postgresql://postgres:postgres@localhost:5432/athena"),
   JWT_SECRET: z
     .string({
       error: "JWT_SECRET is required",
@@ -82,6 +80,17 @@ if (!result.success) {
   console.error("Backend environment configuration error:\n" + formattedErrors);
   process.exit(1);
 }
+
+export const isTestEnvironment = () => {
+  return (
+    process.env.NODE_ENV === "test" ||
+    process.env.npm_lifecycle_event === "test" ||
+    process.execArgv.includes("--test") ||
+    process.argv.some(
+      (arg) => typeof arg === "string" && (arg.includes(".test.js") || arg.includes("--test"))
+    )
+  );
+};
 
 export const env = Object.freeze(result.data);
 export default env;

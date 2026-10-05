@@ -5,7 +5,9 @@ import { useAuth } from "@contexts/AuthContext";
 import {
   Search,
   LayoutDashboard,
-  BarChart2,
+  Calendar,
+  Target,
+  History,
   User,
   Settings,
   Users,
@@ -17,6 +19,7 @@ import {
   ArrowUpDown,
   Command as CommandIcon,
 } from "lucide-react";
+import { PLACEHOLDERS } from "@/constants/placeholders.js";
 
 const CommandPalette = ({
   isOpen,
@@ -45,22 +48,40 @@ const CommandPalette = ({
   const allCommands = useMemo(() => {
     return [
       {
-        id: "nav-dashboard",
+        id: "nav-today",
         category: "Navigation",
-        title: "Go to Dashboard",
-        subtitle: "Overview of your workspace & metrics",
+        title: "Go to Today",
+        subtitle: "Daily overview, task checklist & active metrics",
         icon: LayoutDashboard,
-        shortcut: "G D",
+        shortcut: "G T",
         action: () => navigate("/dashboard"),
       },
       {
-        id: "nav-analytics",
+        id: "nav-planner",
         category: "Navigation",
-        title: "Go to Analytics",
-        subtitle: "Deep dive into your focus trends",
-        icon: BarChart2,
-        shortcut: "G A",
-        action: () => navigate("/analytics"),
+        title: "Go to Plan",
+        subtitle: "Organize tasks and timeline schedule",
+        icon: Calendar,
+        shortcut: "G P",
+        action: () => navigate("/planner"),
+      },
+      {
+        id: "nav-focus",
+        category: "Navigation",
+        title: "Go to Focus",
+        subtitle: "Launch full-screen deep work session",
+        icon: Target,
+        shortcut: "G F",
+        action: () => navigate("/focus-page"),
+      },
+      {
+        id: "nav-history",
+        category: "Navigation",
+        title: "Go to History",
+        subtitle: "Review past sessions and daily outcomes",
+        icon: History,
+        shortcut: "G H",
+        action: () => navigate("/sessions"),
       },
       {
         id: "nav-profile",
@@ -68,14 +89,14 @@ const CommandPalette = ({
         title: "Go to Profile",
         subtitle: "View your streak and personal stats",
         icon: User,
-        shortcut: "G P",
+        shortcut: "G U",
         action: () => navigate("/profile"),
       },
       {
         id: "nav-settings",
         category: "Navigation",
         title: "Go to Settings",
-        subtitle: "Manage preferences and notifications",
+        subtitle: "Manage appearance, focus, and audio preferences",
         icon: Settings,
         shortcut: "G S",
         action: () => navigate("/settings"),
@@ -213,7 +234,7 @@ const CommandPalette = ({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Type a command or search workspace..."
+              placeholder={PLACEHOLDERS.common.commandPalette}
               className="w-full bg-transparent text-sm text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-0 border-0 font-medium p-0"
             />
             <div className="flex items-center gap-1.5 shrink-0">

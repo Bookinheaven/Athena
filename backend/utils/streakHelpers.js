@@ -1,18 +1,12 @@
-import streakModel from "../models/dailyStatsModel.js";
+import dailyStatsRepository from "../repositories/dailyStatsRepository.js";
+import { toStartOfDayUTC, isSameDay } from "./dateUtils.js";
 
 export async function getRecentStreakDays(userId, days = 7) {
-  return streakModel.find({ userId })
-    .sort({ date: -1 })
-    .limit(days);
+  return dailyStatsRepository.getRecentDays(userId, days);
 }
-export const isSameDay = (d1, d2) =>
-  d1 && d2 && getStartOfDay(d1).getTime() === getStartOfDay(d2).getTime();
+
+export { isSameDay };
 
 export function getStartOfDay(date = new Date()) {
-  return new Date(Date.UTC(
-    date.getUTCFullYear(),
-    date.getUTCMonth(),
-    date.getUTCDate(),
-    0, 0, 0
-  ));
+  return toStartOfDayUTC(date);
 }

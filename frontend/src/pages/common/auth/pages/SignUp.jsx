@@ -10,6 +10,7 @@ import {
 } from "@/utils/validation";
 import LoadingSpinner from "@/components/LoadingSpinner/LoadingSpinner";
 import { APP_CONFIG } from "@/config/branding";
+import { PLACEHOLDERS } from "@/constants/placeholders.js";
 
 const Register = () => {
   const navigate = useNavigate();
@@ -163,7 +164,7 @@ const Register = () => {
                 ? "border-red-500 focus:border-red-500 focus:ring-red-500 bg-red-50/20 dark:bg-red-950/10"
                 : "border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/50 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 focus:border-neutral-900 dark:focus:border-neutral-200 focus:ring-neutral-900 dark:focus:ring-neutral-200"
             }`}
-            placeholder="Ada Lovelace"
+            placeholder={PLACEHOLDERS.auth.fullName}
           />
           {errors.fullName && (
             <p className="mt-1 text-xs text-red-600 dark:text-red-400 font-medium">
@@ -188,7 +189,7 @@ const Register = () => {
                   ? "border-red-500 focus:border-red-500 focus:ring-red-500 bg-red-50/20 dark:bg-red-950/10"
                   : "border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/50 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 focus:border-neutral-900 dark:focus:border-neutral-200 focus:ring-neutral-900 dark:focus:ring-neutral-200"
               }`}
-              placeholder="adalovelace"
+              placeholder={PLACEHOLDERS.auth.username}
             />
             {errors.username && (
               <p className="mt-1 text-xs text-red-600 dark:text-red-400 font-medium">
@@ -213,7 +214,7 @@ const Register = () => {
                   ? "border-red-500 focus:border-red-500 focus:ring-red-500 bg-red-50/20 dark:bg-red-950/10"
                   : "border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/50 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 focus:border-neutral-900 dark:focus:border-neutral-200 focus:ring-neutral-900 dark:focus:ring-neutral-200"
               }`}
-              placeholder="ada@example.com"
+              placeholder={PLACEHOLDERS.auth.email}
             />
             {errors.email && (
               <p className="mt-1 text-xs text-red-600 dark:text-red-400 font-medium">
@@ -239,7 +240,7 @@ const Register = () => {
                   ? "border-red-500 focus:border-red-500 focus:ring-red-500 bg-red-50/20 dark:bg-red-950/10"
                   : "border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/50 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 focus:border-neutral-900 dark:focus:border-neutral-200 focus:ring-neutral-900 dark:focus:ring-neutral-200"
               }`}
-              placeholder="Min. 8 chars, number & symbol"
+              placeholder={PLACEHOLDERS.auth.passwordRequirements}
             />
             <button
               type="button"
@@ -294,7 +295,7 @@ const Register = () => {
                   ? "border-red-500 focus:border-red-500 focus:ring-red-500 bg-red-50/20 dark:bg-red-950/10"
                   : "border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/50 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 focus:border-neutral-900 dark:focus:border-neutral-200 focus:ring-neutral-900 dark:focus:ring-neutral-200"
               }`}
-              placeholder="Confirm your password"
+              placeholder={PLACEHOLDERS.auth.confirmPassword}
             />
             <button
               type="button"

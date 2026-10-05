@@ -57,15 +57,23 @@ const GlobalShortcutsManager = () => {
         }
       } else {
         const key = e.key.toLowerCase();
-        if (key === "d") {
+        if (key === "d" || key === "t") {
           e.preventDefault();
           navigate("/dashboard");
           setPendingG(false);
-        } else if (key === "a") {
-          e.preventDefault();
-          navigate("/analytics");
-          setPendingG(false);
         } else if (key === "p") {
+          e.preventDefault();
+          navigate("/planner");
+          setPendingG(false);
+        } else if (key === "f") {
+          e.preventDefault();
+          navigate("/focus-page");
+          setPendingG(false);
+        } else if (key === "h") {
+          e.preventDefault();
+          navigate("/sessions");
+          setPendingG(false);
+        } else if (key === "u") {
           e.preventDefault();
           navigate("/profile");
           setPendingG(false);

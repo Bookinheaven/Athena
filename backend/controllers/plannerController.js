@@ -1,16 +1,16 @@
-import Goal from "../models/goalModel.js";
-import Task from "../models/taskModel.js";
-import Note from "../models/notesModel.js";
+import goalRepository from "../repositories/goalRepository.js";
+import taskRepository from "../repositories/taskRepository.js";
+import notesRepository from "../repositories/notesRepository.js";
 
 class PlannerController {
   async getPlannerData(req, res) {
     try {
-      const userId = req.user.id;
+      const userId = req.user?.id;
 
       const [goals, tasks, notes] = await Promise.all([
-        Goal.find({ user: userId }).sort({ createdAt: -1 }),
-        Task.find({ user: userId }).sort({ order: 1 }),
-        Note.find({ user: userId }).sort({ updatedAt: -1 }),
+        goalRepository.findByUserId(userId),
+        taskRepository.findByUserId(userId),
+        notesRepository.findByUserId(userId),
       ]);
 
       res.json({

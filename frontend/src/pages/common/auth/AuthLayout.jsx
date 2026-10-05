@@ -1,11 +1,19 @@
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import ThemeToggle from '@/components/ThemeToggle/ThemeToggle';
 import { useAuth } from '@contexts/AuthContext';
 import { APP_CONFIG } from '@/config/branding';
 
 const AuthLayout = () => {
   const { user } = useAuth();
-  if (user?._id) return <Navigate to="/dashboard" replace />;
+  const location = useLocation();
+
+  const isIntentionalAuthFlow =
+    location.state?.switchingAccount === true ||
+    location.state?.addingAccount === true;
+
+  if (user?.id && !isIntentionalAuthFlow) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   return (
     <div className="min-h-full h-full w-full grid grid-cols-1 lg:grid-cols-12 bg-white dark:bg-[#0c0c0e] font-sans selection:bg-neutral-900 selection:text-white dark:selection:bg-white dark:selection:text-neutral-900">

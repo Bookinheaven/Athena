@@ -1,90 +1,109 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { AlertTriangle, LogOut, Trash2, HelpCircle } from "lucide-react";
+import { AlertTriangle, LogOut, Trash2, HelpCircle, ShieldAlert } from "lucide-react";
 
-export const ConfirmModal = ({ isOpen, title, message, onConfirm, onCancel, type = "danger" }) => {
-  
-  const config = {
-    danger: {
-      icon: LogOut,
-      color: "text-red-500",
-      bg: "bg-red-500/10",
-      border: "border-red-500/20",
-      btn: "bg-red-500 hover:bg-red-600 shadow-red-500/20"
-    },
-    warning: {
-      icon: AlertTriangle,
-      color: "text-amber-500",
-      bg: "bg-amber-500/10",
-      border: "border-amber-500/20",
-      btn: "bg-amber-500 hover:bg-amber-600 shadow-amber-500/20"
-    },
-    info: {
-      icon: HelpCircle,
-      color: "text-button-primary",
-      bg: "bg-button-primary/10",
-      border: "border-button-primary/20",
-      btn: "bg-button-primary hover:bg-button-primary-hover shadow-button-primary/20"
-    }
-  }[type];
+const TYPE_CONFIG = {
+  danger: {
+    icon: ShieldAlert,
+    iconColor: "text-destructive",
+    iconBg: "bg-destructive/10",
+    iconBorder: "border-destructive/20",
+    confirmClass: "bg-destructive text-white hover:bg-destructive/90 shadow-lg shadow-destructive/20",
+    confirmLabel: "Log out",
+  },
+  warning: {
+    icon: AlertTriangle,
+    iconColor: "text-amber-500",
+    iconBg: "bg-amber-500/10",
+    iconBorder: "border-amber-500/20",
+    confirmClass: "bg-amber-500 text-white hover:bg-amber-600 shadow-lg shadow-amber-500/20",
+    confirmLabel: "Continue",
+  },
+  delete: {
+    icon: Trash2,
+    iconColor: "text-destructive",
+    iconBg: "bg-destructive/10",
+    iconBorder: "border-destructive/20",
+    confirmClass: "bg-destructive text-white hover:bg-destructive/90 shadow-lg shadow-destructive/20",
+    confirmLabel: "Delete",
+  },
+  info: {
+    icon: HelpCircle,
+    iconColor: "text-primary",
+    iconBg: "bg-primary/10",
+    iconBorder: "border-primary/20",
+    confirmClass: "bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20",
+    confirmLabel: "Confirm",
+  },
+};
 
+export const ConfirmModal = ({
+  isOpen,
+  title,
+  message,
+  onConfirm,
+  onCancel,
+  type = "danger",
+  confirmLabel,
+}) => {
+  const config = TYPE_CONFIG[type] || TYPE_CONFIG.danger;
   const Icon = config.icon;
+  const btnLabel = confirmLabel || config.confirmLabel;
 
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-4 sm:p-6">
+          {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
             onClick={onCancel}
-            className="absolute inset-0 bg-black/60 backdrop-blur-xl"
+            className="absolute inset-0 bg-black/65 backdrop-blur-xl"
           />
 
+          {/* Modal */}
           <motion.div
-            initial={{ scale: 0.85, opacity: 0, y: 10 }}
-            animate={{ 
-              scale: 1, 
-              opacity: 1, 
-              y: 0,
-              transition: { type: "spring", damping: 25, stiffness: 400 } 
-            }}
-            exit={{ scale: 0.95, opacity: 0, y: 10 }}
-            className="relative w-full max-w-[360px] overflow-hidden rounded-[28px] border border-white/10 bg-card-background shadow-[0_20px_70px_rgba(0,0,0,0.5)]"
+            initial={{ scale: 0.93, opacity: 0, y: 20 }}
+            animate={{ scale: 1, opacity: 1, y: 0, transition: { type: "spring", damping: 28, stiffness: 380 } }}
+            exit={{ scale: 0.95, opacity: 0, y: 12, transition: { duration: 0.15 } }}
+            className="relative w-full max-w-sm overflow-hidden rounded-2xl border border-border/60 bg-card shadow-2xl"
           >
-            <div className="p-8">
-              <div className={`mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl ${config.bg} ${config.border} border shadow-inner relative`}>
-                <Icon size={28} className={config.color} />
-                <div className={`absolute inset-0 rounded-2xl ${config.color} opacity-20 blur-xl`} />
+            {/* Top accent line */}
+            <div className={`h-px w-full ${type === "danger" || type === "delete" ? "bg-destructive/50" : type === "warning" ? "bg-amber-500/50" : "bg-primary/50"}`} />
+
+            <div className="p-6">
+              {/* Icon */}
+              <div className={`w-12 h-12 rounded-xl ${config.iconBg} border ${config.iconBorder} flex items-center justify-center mb-5`}>
+                <Icon size={22} className={config.iconColor} />
               </div>
-              
-              <div className="text-center">
-                <h3 className="text-xl font-black text-text-primary tracking-tight mb-2">
-                  {title}
-                </h3>
-                <p className="text-[15px] leading-relaxed text-text-muted font-medium px-2">
-                  {message}
-                </p>
-              </div>
+
+              {/* Text */}
+              <h3 className="text-[15px] font-bold text-foreground tracking-tight mb-1.5">
+                {title}
+              </h3>
+              <p className="text-[13px] text-muted-foreground leading-relaxed">
+                {message}
+              </p>
             </div>
 
-            <div className="px-6 pb-6 space-y-2">
+            {/* Actions */}
+            <div className="px-6 pb-6 flex flex-col gap-2">
               <button
                 onClick={onConfirm}
-                className={`w-full py-4 rounded-2xl font-bold text-white transition-all duration-300 shadow-lg active:scale-[0.97] ${config.btn}`}
+                className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 active:scale-[0.98] cursor-pointer ${config.confirmClass}`}
               >
-                Confirm Action
+                {btnLabel}
               </button>
-              
+
               <button
                 onClick={onCancel}
-                className="w-full py-3.5 rounded-2xl font-bold text-text-secondary hover:text-text-primary hover:bg-background-secondary transition-all active:scale-[0.97]"
+                className="w-full py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors active:scale-[0.98] cursor-pointer"
               >
-                Nevermind
+                Cancel
               </button>
             </div>
-
-            <div className="absolute inset-px pointer-events-none rounded-[27px] border border-white/5" />
           </motion.div>
         </div>
       )}

@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
-import User from "../models/userModel.js";
+import userRepository from "../repositories/userRepository.js";
 import env from "../config/env.js";
+import { isValidTimezone } from "../utils/dateUtils.js";
 
 const auth = async (req, res, next) => {
   try {
@@ -21,7 +22,7 @@ const auth = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, env.JWT_SECRET);
-    const user = await User.findById(decoded.userId).select("-password");
+    const user = await userRepository.findById(decoded.userId);
 
     if (!user || !user.isActive) {
       return res.status(401).json({
@@ -31,12 +32,30 @@ const auth = async (req, res, next) => {
     }
 
     req.user = user;
+
+    const headerTz = req.headers["x-timezone"];
+    const validHeaderTz = headerTz && isValidTimezone(headerTz) ? headerTz.trim() : null;
+
+    if (!user.settings?.timezone) {
+      // Unset preference: lazy-populate from client header if valid, otherwise default to "UTC"
+      const detectedTz = validHeaderTz || "UTC";
+      user.settings = user.settings || {};
+      user.settings.timezone = detectedTz;
+      userRepository.updateTimezone(user.id, detectedTz).catch(() => null);
+      req.timezone = detectedTz;
+    } else {
+      // Persisted user preference is authoritative across all devices
+      req.timezone = user.settings.timezone;
+    }
+
     next();
   } catch (error) {
-    res.status(401).json({
-      success: false,
-      message: "Invalid token.",
-    });
+    if (typeof res?.status === "function") {
+      res.status(401).json({
+        success: false,
+        message: "Invalid token.",
+      });
+    }
   }
 };
 

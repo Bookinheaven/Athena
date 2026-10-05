@@ -14,6 +14,19 @@ class UserService extends RequestService {
     });
   }
 
+  async getProfile() {
+    return this.request("/user/profile", {
+      method: "GET"
+    });
+  }
+
+  async updateProfile(data) {
+    return this.request("/user/profile", {
+      method: "PATCH",
+      body: data
+    });
+  }
+
   async resetSettings(type = null) {
     return this.request(`/user/settings${type ? `/${type}` : ""}/reset`, {
       method: "POST"

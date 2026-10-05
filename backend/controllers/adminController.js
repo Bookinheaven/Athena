@@ -1,194 +1,170 @@
-import User from '../models/userModel.js';
-import Session from '../models/sessionModel.js';
-import Streak from '../models/streakModel.js';
+import userRepository from "../repositories/userRepository.js";
+import streakRepository from "../repositories/streakRepository.js";
+import { getDrizzleDb } from "../db/index.js";
+import { sessions } from "../db/schema/sessions.js";
+import { count, desc } from "drizzle-orm";
 
 class adminController {
-  
   static async getUsers(req, res) {
     try {
-      const users = await User.find().select('-password');
+      const usersList = await userRepository.findAll();
+      const sanitized = usersList.map(({ password, passwordHash, ...u }) => u);
       res.json({
         success: true,
-        users
+        users: sanitized,
       });
     } catch (error) {
-      res.status(404).json({
+      res.status(500).json({
         success: false,
-        message: error.message
+        message: error.message,
       });
     }
   }
 
   static async removeUsers(req, res) {
-    let errors = []
+    const errors = [];
     async function deleteAccount(id) {
-      const user = await User.findByIdAndDelete(id);
+      const user = await userRepository.delete(id);
       if (!user) {
         errors.push({
-          id: id,
-          message: 'User not found.'
+          id,
+          message: "User not found.",
         });
       }
     }
     try {
-      let list = req.body.data
+      const list = req.body?.data;
       if (Array.isArray(list) && list.length > 0) {
-        for (let element of list) {
-          await deleteAccount(element) 
+        for (const element of list) {
+          await deleteAccount(element);
         }
       }
       if (errors.length > 0) {
         const errorDetails = errors.map((err) => `${err.id}: ${err.message}`).join(", ");
-        return res.status(400).json(
-          {
-            success: false,
-            message: `Failed users: ${errorDetails}`,
-            errors
-          }
-        );
+        return res.status(400).json({
+          success: false,
+          message: `Failed users: ${errorDetails}`,
+          errors,
+        });
       }
       res.json({
         success: true,
-        message: 'Users removed successfully.',
-        
+        message: "Users removed successfully.",
       });
     } catch (error) {
-      res.status(404).json({
+      res.status(500).json({
         success: false,
-        message: error.message
+        message: error.message,
       });
     }
   }
 
   static async addUsers(req, res) {
     try {
-      const { username, fullName, email, password, type } = req.body;
-      
-      const existingEmail = await User.findOne({ email });
-      const existingUser = await User.findOne({ username });
+      const { username, fullName, email, password, type } = req.body || {};
+
+      const existingEmail = await userRepository.findByEmail(email);
+      const existingUser = await userRepository.findByUsername(username);
       if (existingUser) {
         return res.status(400).json({
           success: false,
-          message: 'Username already exists.'
+          message: "Username already exists.",
         });
       }
 
       if (existingEmail) {
         return res.status(400).json({
           success: false,
-          message: 'Email already used.'
+          message: "Email already used.",
         });
       }
 
-      const user = new User({
-        username: username,
-        usernameLower: username.toLowerCase(),
-        fullName: fullName,
-        email: email,
-        password: password,
-        type: type,
-        isEmailVerified: true
-      });
-      await user.save();
-
-      await Streak.create({
-        userId: user._id
+      const user = await userRepository.create({
+        username,
+        fullName,
+        email,
+        password,
+        accountType: type || "user",
+        isEmailVerified: true,
       });
 
-      const userObj = user.toObject();
-      delete userObj.password;
+      await streakRepository.create(user.id);
+
+      const { password: _p, passwordHash: _ph, ...userObj } = user;
 
       res.status(201).json({
         success: true,
-        message: 'User created successfully.',
-        user: userObj
+        message: "User created successfully.",
+        user: userObj,
       });
     } catch (error) {
       res.status(400).json({
         success: false,
-        message: error.message
+        message: error.message,
       });
     }
   }
 
   static async updateUser(req, res) {
     try {
-      const { id, user } = req.body;
-      if (!id || !user || typeof user !== 'object') {
+      const { id, user } = req.body || {};
+      if (!id || !user || typeof user !== "object") {
         return res.status(400).json({
           success: false,
-          message: 'Invalid user update payload.'
+          message: "Invalid user update payload.",
         });
       }
 
-      const existingUser = await User.findById(id);
+      const existingUser = await userRepository.findById(id);
       if (!existingUser) {
         return res.status(404).json({
           success: false,
-          message: 'User not found.'
+          message: "User not found.",
         });
       }
 
-      // Whitelist intended updatable fields
-      if (user.username !== undefined) {
-        existingUser.username = user.username;
-        existingUser.usernameLower = user.username.toLowerCase();
-      }
-      if (user.fullName !== undefined) {
-        existingUser.fullName = user.fullName;
-      }
-      if (user.email !== undefined) {
-        existingUser.email = user.email.toLowerCase();
-      }
-      if (user.type !== undefined) {
-        existingUser.type = user.type;
-      }
-      if (user.isActive !== undefined) {
-        existingUser.isActive = Boolean(user.isActive);
-      }
-      if (user.isEmailVerified !== undefined) {
-        existingUser.isEmailVerified = Boolean(user.isEmailVerified);
-      }
-      // Explicitly handle password updates through existing pre-save bcrypt mechanism
-      if (user.password) {
-        existingUser.password = user.password;
-      }
+      const updateData = {};
+      if (user.username !== undefined) updateData.username = user.username;
+      if (user.fullName !== undefined) updateData.fullName = user.fullName;
+      if (user.email !== undefined) updateData.email = user.email;
+      if (user.type !== undefined) updateData.accountType = user.type;
+      if (user.isActive !== undefined) updateData.isActive = Boolean(user.isActive);
+      if (user.isEmailVerified !== undefined) updateData.isEmailVerified = Boolean(user.isEmailVerified);
+      if (user.password) updateData.password = user.password;
 
-      await existingUser.save();
-
-      const userObj = existingUser.toObject();
-      delete userObj.password;
+      const updated = await userRepository.update(id, updateData);
+      const { password: _p, passwordHash: _ph, ...userObj } = updated;
 
       res.json({
         success: true,
-        message: 'User updated successfully.',
-        updateUser: userObj
+        message: "User updated successfully.",
+        updateUser: userObj,
       });
     } catch (error) {
       res.status(400).json({
         success: false,
-        message: error.message
+        message: error.message,
       });
     }
   }
 
-  static async getSessions (req, res) {
+  static async getSessions(req, res) {
     try {
       const page = Math.max(1, parseInt(req.query.page, 10) || 1);
       const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 50));
       const skip = (page - 1) * limit;
 
-      const [sessions, total] = await Promise.all([
-        Session.find()
-          .sort({ createdAt: -1 })
-          .skip(skip)
-          .limit(limit),
-        Session.countDocuments(),
+      const db = getDrizzleDb();
+      const [countResult, rows] = await Promise.all([
+        db.select({ count: count() }).from(sessions),
+        db.select().from(sessions).orderBy(desc(sessions.createdAt)).offset(skip).limit(limit),
       ]);
+
+      const total = Number(countResult[0]?.count || 0);
 
       res.status(200).json({
         success: true,
-        sessions,
+        sessions: rows,
         pagination: {
           page,
           limit,
@@ -204,7 +180,6 @@ class adminController {
       });
     }
   }
-
 }
 
 export default adminController;

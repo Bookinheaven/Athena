@@ -56,6 +56,13 @@ class AuthService extends RequestService {
     return response.user;
   }
 
+  async changePassword(currentPassword, newPassword) {
+    return this.request("/auth/change-password", {
+      method: "POST",
+      body: { currentPassword, newPassword },
+    });
+  }
+
   async logout() {
     await this.request("/auth/logout", { method: "POST" });
   }

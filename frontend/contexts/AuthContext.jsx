@@ -1,7 +1,9 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import authService from "../services/authService";
+import { normalizeUser, clearUserTransientState } from "../services/userStateService";
+import { useUIStore } from "@/stores/uiStore";
 
-const AuthContext = createContext();
+export const AuthContext = createContext();
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -19,10 +21,13 @@ export const AuthProvider = ({ children }) => {
     const checkAuth = async () => {
       try {
         const userData = await authService.getCurrentUser();
-        setUser(userData);
+        const normalized = normalizeUser(userData);
+        setUser(normalized);
+        useUIStore.getState().initSidebarForUser(normalized?.id);
       } catch (error) {
-        // console.error("Auto login failed:", error.message);
         setUser(null);
+        clearUserTransientState();
+        useUIStore.getState().initSidebarForUser(null);
       } finally {
         setLoading(false);
       }
@@ -30,11 +35,16 @@ export const AuthProvider = ({ children }) => {
     checkAuth();
   }, []);
 
-
   const login = async (credentials) => {
+    clearUserTransientState();
     const userData = await authService.login(credentials);
-    setUser(userData.user);
-    return userData;
+    const normalized = normalizeUser(userData.user);
+    setUser(normalized);
+    useUIStore.getState().initSidebarForUser(normalized?.id);
+    return {
+      ...userData,
+      user: normalized,
+    };
   };
 
   const register = async (userData) => {
@@ -58,16 +68,28 @@ export const AuthProvider = ({ children }) => {
   };
 
   const switchSession = async (token) => {
+    clearUserTransientState();
     const res = await authService.switchAccount(token);
     if (res?.success && res.user) {
-      setUser(res.user);
+      const normalized = normalizeUser(res.user);
+      setUser(normalized);
+      useUIStore.getState().initSidebarForUser(normalized?.id);
+      return {
+        ...res,
+        user: normalized,
+      };
     }
     return res;
   };
 
   const logout = async () => {
-    await authService.logout();
-    setUser(null);
+    try {
+      await authService.logout();
+    } finally {
+      clearUserTransientState();
+      setUser(null);
+      useUIStore.getState().initSidebarForUser(null);
+    }
   };
 
   const value = {

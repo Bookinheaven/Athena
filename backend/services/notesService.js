@@ -1,46 +1,30 @@
-import Note from "../models/notesModel.js";
+import notesRepository from "../repositories/notesRepository.js";
 
 class NoteService {
   async createNote(userId, data) {
     const { user, _id, ...safeData } = data;
-    return Note.create({
-      ...safeData,
-      user: userId,
-    });
+    return notesRepository.create(userId, safeData);
   }
 
   async getNotes(userId) {
-    return Note.find({ user: userId }).sort({ updatedAt: -1 });
+    return notesRepository.findByUserId(userId);
   }
 
   async updateNote(userId, noteId, data) {
     const { user, _id, ...updateData } = data;
-    return Note.findOneAndUpdate(
-      { _id: noteId, user: userId },
-      { $set: updateData },
-      { new: true }
-    );
+    return notesRepository.update(userId, noteId, updateData);
   }
 
   async deleteNote(userId, noteId) {
-    return Note.findOneAndDelete({
-      _id: noteId,
-      user: userId,
-    });
+    return notesRepository.delete(userId, noteId);
   }
 
   async getNotesByTask(userId, taskId) {
-    return Note.find({
-      user: userId,
-      task: taskId,
-    });
+    return notesRepository.findByTaskId(userId, taskId);
   }
 
   async getNotesByGoal(userId, goalId) {
-    return Note.find({
-      user: userId,
-      goal: goalId,
-    });
+    return notesRepository.findByGoalId(userId, goalId);
   }
 }
 

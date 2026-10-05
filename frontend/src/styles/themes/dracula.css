@@ -1,0 +1,37 @@
+.theme-dracula {
+  --background: #1a1826;
+  --foreground: #f8f8f2;
+  --card: #21202e;
+  --card-foreground: #f8f8f2;
+  --popover: #282a38;
+  --popover-foreground: #f8f8f2;
+  --primary: #bd93f9;
+  --primary-foreground: #1a1826;
+  --secondary: #282a38;
+  --secondary-foreground: #e2d9f3;
+  --muted: #232136;
+  --muted-foreground: #6e6a86;
+  --accent: #312e44;
+  --accent-foreground: #f8f8f2;
+  --destructive: #ff5555;
+  --destructive-foreground: #f8f8f2;
+  --border: #383552;
+  --input: #282a38;
+  --ring: #bd93f9;
+  --radius: 0.5rem;
+
+  --sidebar: #16141f;
+  --sidebar-foreground: #e2d9f3;
+  --sidebar-primary: #bd93f9;
+  --sidebar-primary-foreground: #16141f;
+  --sidebar-accent: #1e1c2e;
+  --sidebar-accent-foreground: #e2d9f3;
+  --sidebar-border: #2c2942;
+  --sidebar-ring: #bd93f9;
+
+  --chart-1: #bd93f9;
+  --chart-2: #ff79c6;
+  --chart-3: #50fa7b;
+  --chart-4: #f1fa8c;
+  --chart-5: #8be9fd;
+}

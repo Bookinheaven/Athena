@@ -1,0 +1,37 @@
+.theme-coffee {
+  --background: #180e09;
+  --foreground: #f5ead8;
+  --card: #211510;
+  --card-foreground: #f5ead8;
+  --popover: #2c1c12;
+  --popover-foreground: #f5ead8;
+  --primary: #f97316;
+  --primary-foreground: #180e09;
+  --secondary: #2c1c12;
+  --secondary-foreground: #e8cfb0;
+  --muted: #261810;
+  --muted-foreground: #8a6040;
+  --accent: #38241a;
+  --accent-foreground: #f5ead8;
+  --destructive: #f87171;
+  --destructive-foreground: #180e09;
+  --border: #4a2e1c;
+  --input: #2c1c12;
+  --ring: #f97316;
+  --radius: 0.5rem;
+
+  --sidebar: #140c07;
+  --sidebar-foreground: #ead4b8;
+  --sidebar-primary: #f97316;
+  --sidebar-primary-foreground: #140c07;
+  --sidebar-accent: #1e1008;
+  --sidebar-accent-foreground: #ead4b8;
+  --sidebar-border: #38201a;
+  --sidebar-ring: #f97316;
+
+  --chart-1: #f97316;
+  --chart-2: #fbbf24;
+  --chart-3: #c2410c;
+  --chart-4: #a3e635;
+  --chart-5: #60a5fa;
+}

@@ -7,13 +7,15 @@ import LoadingSpinner from "@/components/LoadingSpinner/LoadingSpinner";
 
 const AccountSwitcherModal = ({ isOpen, onClose }) => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { savedAccounts, switchAccount, removeAccount, switching } = useMultiAccount();
 
   if (!isOpen) return null;
 
   const handleSelectAccount = async (acc) => {
-    if (acc.id === user?.id) {
+    const targetId = acc?.id || acc?._id;
+    const currentId = user?.id;
+    if (targetId && targetId === currentId) {
       onClose();
       return;
     }
@@ -23,14 +25,26 @@ const AccountSwitcherModal = ({ isOpen, onClose }) => {
       onClose();
       navigate("/dashboard");
     } else if (res?.requireLogin || !res?.success) {
+      await logout();
       onClose();
-      navigate("/login", { state: { prefillEmail: acc.email || acc.username } });
+      navigate("/login", {
+        state: {
+          prefillEmail: acc.email || acc.username,
+          switchingAccount: true,
+          targetAccountId: targetId,
+        },
+      });
     }
   };
 
-  const handleAddAccount = () => {
+  const handleAddAccount = async () => {
+    await logout();
     onClose();
-    navigate("/login");
+    navigate("/login", {
+      state: {
+        addingAccount: true,
+      },
+    });
   };
 
   return (
@@ -72,12 +86,14 @@ const AccountSwitcherModal = ({ isOpen, onClose }) => {
                 </div>
               ) : (
                 savedAccounts.map((acc) => {
-                  const isActive = acc.id === user?.id;
+                  const targetId = acc?.id || acc?._id;
+                  const currentId = user?.id;
+                  const isActive = targetId && targetId === currentId;
                   const initial = acc.fullName ? acc.fullName.charAt(0).toUpperCase() : acc.username?.charAt(0).toUpperCase() || "?";
 
                   return (
                     <div
-                      key={acc.id}
+                      key={targetId || acc.username}
                       onClick={() => !switching && handleSelectAccount(acc)}
                       className={`group flex items-center justify-between p-3 rounded-lg border transition-all cursor-pointer ${
                         isActive
@@ -121,7 +137,7 @@ const AccountSwitcherModal = ({ isOpen, onClose }) => {
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              removeAccount(acc.id);
+                              removeAccount(targetId);
                             }}
                             title="Remove account"
                             className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md text-neutral-400 hover:text-red-500 hover:bg-red-500/10 transition-all cursor-pointer"
