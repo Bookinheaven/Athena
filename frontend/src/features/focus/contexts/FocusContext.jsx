@@ -9,7 +9,7 @@ const FocusContext = createContext(null);
 
 export function FocusProvider({ children, initialContext }) {
   const { user } = useAuth();
-  const userId = user?._id || user?.id;
+  const userId = user?.id;
 
   const { settings, setSetting, saveSettingsToBackend, resetSettings } = useFocusSettings(userId);
 

@@ -65,6 +65,22 @@ class TaskOccurrenceService extends RequestService {
       body: payload,
     });
   }
+
+  /**
+   * Rollover unfinished tasks from one product date to another.
+   *
+   * @param {object} payload
+   * @param {string} payload.fromProductDate "YYYY-MM-DD"
+   * @param {string} payload.toProductDate "YYYY-MM-DD"
+   * @param {string[]} payload.taskIds
+   * @returns {Promise<{ success: boolean, rolledOver: Array, skipped: Array, errors: Array }>}
+   */
+  async rollover(payload) {
+    return this.request("/task-occurrences/rollover", {
+      method: "POST",
+      body: payload,
+    });
+  }
 }
 
 export default new TaskOccurrenceService();

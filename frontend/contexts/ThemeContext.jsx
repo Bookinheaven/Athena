@@ -131,7 +131,7 @@ export const useTheme = () => {
 export const ThemeProvider = ({ children }) => {
   const auth = useContext(AuthContext);
   const user = auth?.user;
-  const userId = user?._id || user?.id;
+  const userId = user?.id;
 
   const currentUserIdRef = useRef(userId);
   currentUserIdRef.current = userId;

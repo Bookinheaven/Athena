@@ -15,7 +15,7 @@ export const AccountActionsSection = ({ user }) => {
 
   const handleLogout = async () => {
     try {
-      const userId = user?._id || user?.id;
+      const userId = user?.id;
       await logout();
       if (userId) {
         clearAccountToken(userId);

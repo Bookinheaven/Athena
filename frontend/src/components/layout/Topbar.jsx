@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   Menu,
-  Bell,
   User,
   Settings as SettingsIcon,
   Users,
@@ -16,7 +15,6 @@ import { useAuth } from "@contexts/AuthContext";
 import { useMultiAccount } from "@contexts/MultiAccountContext";
 import { useTheme } from "@contexts/ThemeContext";
 import { useUIStore } from "@/stores/uiStore";
-import { useNotificationStore } from "@/stores/notificationStore";
 import { APP_CONFIG } from "@/config/branding";
 import {
   DropdownMenu,
@@ -77,8 +75,7 @@ export const Topbar = () => {
   const { clearAccountToken } = useMultiAccount();
   const { setShowThemeModal } = useTheme();
   const { sidebarCollapsed, toggleSidebarCollapsed, toggleMobileNav } = useUIStore();
-  const userId = user?._id || user?.id;
-  const { unreadCount } = useNotificationStore();
+  const userId = user?.id;
 
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showSwitcherModal, setShowSwitcherModal] = useState(false);
@@ -152,11 +149,6 @@ export const Topbar = () => {
         {/* Theme picker */}
         <IconButton onClick={() => setShowThemeModal(true)} label="Theme">
           <Palette className="h-3.5 w-3.5" />
-        </IconButton>
-
-        {/* Notifications */}
-        <IconButton label="Notifications" badge={unreadCount > 0}>
-          <Bell className="h-3.5 w-3.5" />
         </IconButton>
 
         {/* Thin divider before avatar */}

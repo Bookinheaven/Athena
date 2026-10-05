@@ -765,6 +765,17 @@ class SessionRepository {
       },
     };
   }
+
+  async hasSessionsForTask(taskId) {
+    const cleanTaskId = normalizeTaskId(taskId);
+    if (!cleanTaskId) return false;
+    const db = getDrizzleDb();
+    const rows = await db
+      .select({ count: sql`count(*)` })
+      .from(sessionTasks)
+      .where(eq(sessionTasks.taskId, cleanTaskId));
+    return Number(rows[0]?.count) > 0;
+  }
 }
 
 export const sessionRepository = new SessionRepository();

@@ -1,5 +1,7 @@
 import taskRepository, { normalizeTaskId } from "../repositories/taskRepository.js";
 import scheduleBlockRepository from "../repositories/scheduleBlockRepository.js";
+import taskOccurrenceRepository from "../repositories/taskOccurrenceRepository.js";
+import sessionRepository from "../repositories/sessionRepository.js";
 import GoalService from "./goalService.js";
 import TaskOccurrenceService from "./taskOccurrenceService.js";
 import streakService from "./streakService.js";
@@ -177,17 +179,59 @@ class TaskService {
     return task;
   }
 
-  async deleteTask(userId, taskId) {
-    if (!normalizeTaskId(taskId)) {
+  async deleteTask(userId, taskId, asOfDate = new Date(), timezone = null) {
+    const cleanTaskId = normalizeTaskId(taskId);
+    if (!cleanTaskId) {
       const err = new Error("Invalid task ID format");
       err.statusCode = 400;
       throw err;
     }
-    const pgDeleted = await taskRepository.delete(userId, taskId);
+
+    // 1. Verify task belongs to user
+    const task = await taskRepository.findById(userId, cleanTaskId);
+    if (!task) {
+      const err = new Error("Task not found");
+      err.statusCode = 404;
+      throw err;
+    }
+
+    const tz = timezone || (await resolveUserTimezone(userId));
+    const todayProductDate = getProductDate(asOfDate, tz);
+
+    // 2. Check for historical session execution
+    const hasSessions = await sessionRepository.hasSessionsForTask(cleanTaskId);
+    if (hasSessions) {
+      const err = new Error("Task cannot be deleted because it has historical focus session records.");
+      err.statusCode = 409;
+      throw err;
+    }
+
+    // 3. Check for historical task occurrences (completed, rescheduled, missed, past dates)
+    const hasHistoricalOccurrences = await taskOccurrenceRepository.hasHistoricalOccurrences(
+      userId,
+      cleanTaskId,
+      todayProductDate
+    );
+    if (hasHistoricalOccurrences) {
+      const err = new Error("Task cannot be deleted because it has historical planning records.");
+      err.statusCode = 409;
+      throw err;
+    }
+
+    // 4. Safe deletion: cleanup unexecuted pending occurrences and unstarted schedule blocks
+    await taskOccurrenceRepository.deletePendingByTaskId(userId, cleanTaskId);
+    await scheduleBlockRepository.deleteByTaskId(userId, cleanTaskId);
+
+    // 5. Delete task
+    const pgDeleted = await taskRepository.delete(userId, cleanTaskId);
     if (pgDeleted) {
-      await scheduleBlockRepository.deleteByTaskId(userId, taskId);
       if (pgDeleted.goalId) {
         await GoalService.recalculateProgress(pgDeleted.goalId);
+      }
+      try {
+        await streakService.processDailyStreak(userId, asOfDate, tz);
+      } catch (err) {
+        console.error("Failed to recalculate streak on deleteTask:", err);
       }
       return pgDeleted;
     }

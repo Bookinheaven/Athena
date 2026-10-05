@@ -6,7 +6,7 @@ import { FocusProvider } from "@/features/focus";
 const UserLayout = () => {
   const location = useLocation();
   const { user } = useAuth();
-  const userId = user?._id || user?.id;
+  const userId = user?.id;
 
   return (
     <FocusProvider key={userId || "anonymous"} initialContext={location.state || null}>

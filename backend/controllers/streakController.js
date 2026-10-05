@@ -3,7 +3,7 @@ import StreakService from "../services/streakService.js";
 class StreakController {
   async getSummary(req, res) {
     try {
-      const userId = req.user.id || req.user._id;
+      const userId = req.user.id;
       const data = await StreakService.getSummaryData(
         userId,
         new Date(),
@@ -21,7 +21,7 @@ class StreakController {
   async getSpecific(req, res) {
     try {
       const type = req.params.type;
-      const userId = req.user.id || req.user._id;
+      const userId = req.user.id;
       const data = await StreakService.getSpecificField(userId, type);
       const obj = data && typeof data.toObject === "function" ? data.toObject() : (data || {});
       res.status(200).json({ success: true, ...obj });
@@ -35,7 +35,7 @@ class StreakController {
   async getMonthly(req, res) {
     try {
       const { year, month } = req.query;
-      const userId = req.user.id || req.user._id;
+      const userId = req.user.id;
       const days = await StreakService.getMonthlyStats(
         userId,
         year,

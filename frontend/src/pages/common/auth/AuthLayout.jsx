@@ -11,7 +11,7 @@ const AuthLayout = () => {
     location.state?.switchingAccount === true ||
     location.state?.addingAccount === true;
 
-  if (user?._id && !isIntentionalAuthFlow) {
+  if (user?.id && !isIntentionalAuthFlow) {
     return <Navigate to="/dashboard" replace />;
   }
 

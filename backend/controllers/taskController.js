@@ -47,10 +47,17 @@ class TaskController {
 
   async deleteTask(req, res) {
     try {
-      await TaskService.deleteTask(req.user.id, req.params.id);
+      const userId = req.user.id;
+      await TaskService.deleteTask(userId, req.params.id, new Date(), req.timezone);
 
       res.json({ success: true, message: "Task deleted" });
     } catch (error) {
+      if (error.code === "23503") {
+        return res.status(409).json({
+          success: false,
+          message: "Task cannot be deleted because it has historical records.",
+        });
+      }
       const statusCode = error.statusCode || 500;
       res.status(statusCode).json({ success: false, message: error.message });
     }

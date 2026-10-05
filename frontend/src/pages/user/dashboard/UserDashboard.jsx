@@ -10,6 +10,7 @@ import {
   TodayInsight,
   TodaySkeleton,
   TodayError,
+  DailyCloseoutModal,
 } from "../../../features/today";
 
 const UserDashboard = () => {
@@ -26,6 +27,7 @@ const UserDashboard = () => {
   } = useTodayData();
 
   const [isAddingTask, setIsAddingTask] = useState(false);
+  const [isCloseoutOpen, setIsCloseoutOpen] = useState(false);
 
   if (isError) {
     return <TodayError onRetry={refetch} />;
@@ -80,6 +82,7 @@ const UserDashboard = () => {
                 onQuickAddTask={actions.handleQuickAddTask}
                 isAddingTask={isAddingTask}
                 setIsAddingTask={setIsAddingTask}
+                onOpenCloseout={() => setIsCloseoutOpen(true)}
               />
 
               <div className="lg:col-span-5 xl:col-span-4 space-y-6">
@@ -94,6 +97,17 @@ const UserDashboard = () => {
                 <TodayInsight insight={insight} />
               </div>
             </div>
+
+            {/* 5. Daily Closeout & Rollover Modal */}
+            <DailyCloseoutModal
+              open={isCloseoutOpen}
+              onOpenChange={setIsCloseoutOpen}
+              todayTasks={tasks.today}
+              completedTasks={tasks.completed}
+              progress={progress}
+              streak={streak}
+              goals={tasks.goals}
+            />
           </>
         )}
       </div>

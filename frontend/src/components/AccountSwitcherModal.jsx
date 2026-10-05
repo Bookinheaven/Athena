@@ -13,8 +13,8 @@ const AccountSwitcherModal = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   const handleSelectAccount = async (acc) => {
-    const targetId = acc?._id || acc?.id;
-    const currentId = user?._id || user?.id;
+    const targetId = acc?.id || acc?._id;
+    const currentId = user?.id;
     if (targetId && targetId === currentId) {
       onClose();
       return;
@@ -86,8 +86,8 @@ const AccountSwitcherModal = ({ isOpen, onClose }) => {
                 </div>
               ) : (
                 savedAccounts.map((acc) => {
-                  const targetId = acc?._id || acc?.id;
-                  const currentId = user?._id || user?.id;
+                  const targetId = acc?.id || acc?._id;
+                  const currentId = user?.id;
                   const isActive = targetId && targetId === currentId;
                   const initial = acc.fullName ? acc.fullName.charAt(0).toUpperCase() : acc.username?.charAt(0).toUpperCase() || "?";
 

@@ -5,7 +5,7 @@ import notesRepository from "../repositories/notesRepository.js";
 class PlannerController {
   async getPlannerData(req, res) {
     try {
-      const userId = req.user?.id || req.user?._id;
+      const userId = req.user?.id;
 
       const [goals, tasks, notes] = await Promise.all([
         goalRepository.findByUserId(userId),

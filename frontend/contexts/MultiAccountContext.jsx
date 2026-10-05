@@ -30,14 +30,13 @@ export const MultiAccountProvider = ({ children }) => {
 
   // When active user changes or logs in, update savedAccounts in localStorage
   useEffect(() => {
-    const userId = user?._id || user?.id;
+    const userId = user?.id;
     if (user && userId) {
       setSavedAccounts((prev) => {
-        const existingIndex = prev.findIndex((acc) => (acc._id || acc.id) === userId);
+        const existingIndex = prev.findIndex((acc) => (acc.id || acc._id) === userId);
         const token = localStorage.getItem(`athena_token_${userId}`) || prev[existingIndex]?.token || null;
         const newAccount = {
           id: userId,
-          _id: userId,
           username: user.username,
           email: user.email,
           fullName: user.fullName,
@@ -70,7 +69,7 @@ export const MultiAccountProvider = ({ children }) => {
     try {
       localStorage.setItem(`athena_token_${userId}`, token);
       setSavedAccounts((prev) => {
-        const updated = prev.map((acc) => ((acc._id || acc.id) === userId ? { ...acc, token } : acc));
+        const updated = prev.map((acc) => ((acc.id || acc._id) === userId ? { ...acc, token } : acc));
         localStorage.setItem("athena_saved_accounts", JSON.stringify(updated));
         return updated;
       });
@@ -85,7 +84,7 @@ export const MultiAccountProvider = ({ children }) => {
     try {
       localStorage.removeItem(`athena_token_${userId}`);
       setSavedAccounts((prev) => {
-        const updated = prev.map((acc) => ((acc._id || acc.id) === userId ? { ...acc, token: null } : acc));
+        const updated = prev.map((acc) => ((acc.id || acc._id) === userId ? { ...acc, token: null } : acc));
         localStorage.setItem("athena_saved_accounts", JSON.stringify(updated));
         return updated;
       });
@@ -97,7 +96,7 @@ export const MultiAccountProvider = ({ children }) => {
   // Remove an account from saved list
   const removeAccount = (userId) => {
     setSavedAccounts((prev) => {
-      const updated = prev.filter((acc) => (acc._id || acc.id) !== userId);
+      const updated = prev.filter((acc) => (acc.id || acc._id) !== userId);
       try {
         localStorage.setItem("athena_saved_accounts", JSON.stringify(updated));
         localStorage.removeItem(`athena_token_${userId}`);
@@ -110,8 +109,8 @@ export const MultiAccountProvider = ({ children }) => {
 
   // Switch to another saved account
   const switchAccount = async (targetAccount) => {
-    const targetId = targetAccount?._id || targetAccount?.id;
-    const currentId = user?._id || user?.id;
+    const targetId = targetAccount?.id || targetAccount?._id;
+    const currentId = user?.id;
     if (!targetAccount || targetId === currentId) return { success: true };
     const token = targetAccount.token || localStorage.getItem(`athena_token_${targetId}`);
     

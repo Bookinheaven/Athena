@@ -1,7 +1,7 @@
 import { getRecentStreakDays } from "./streakHelpers";
 
 export async function adaptDailyTarget(user) {
-  const recentDays = await getRecentStreakDays(user._id, 7);
+  const recentDays = await getRecentStreakDays(user.id, 7);
 
   if (recentDays.length < 5) return;
 

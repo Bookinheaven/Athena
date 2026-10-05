@@ -4,7 +4,7 @@ import { validationResult } from "express-validator";
 class UserController {
     async getProfile(req, res) {
         try {
-            const userId = req.user.id || req.user._id;
+            const userId = req.user.id;
             const user = await UserService.getProfile(userId);
             res.status(200).json({
                 success: true,
@@ -28,7 +28,7 @@ class UserController {
                     errors: errors.array()
                 });
             }
-            const userId = req.user.id || req.user._id;
+            const userId = req.user.id;
             const updatedUser = await UserService.updateProfile(userId, req.body);
             res.status(200).json({
                 success: true,
@@ -45,7 +45,7 @@ class UserController {
 
     async getSettings(req, res) {
         try {
-            const userId = req.user.id || req.user._id;
+            const userId = req.user.id;
             const type = req.params.type;
             const settings = await UserService.getSettings(userId, type);
             res.status(200).json({
@@ -62,7 +62,7 @@ class UserController {
     
     async updateSettings(req, res) {
         try {
-            const userId = req.user.id || req.user._id;
+            const userId = req.user.id;
             const update = req.body;
             const type = req.params.type;
             const settings = await UserService.updateSettings(userId, type, update);
@@ -80,7 +80,7 @@ class UserController {
     
     async resetSettings(req, res) {
         try {
-            const userId = req.user.id || req.user._id;
+            const userId = req.user.id;
             const type = req.params.type;
             const settings = await UserService.resetSettings(userId, type);
             res.status(200).json({

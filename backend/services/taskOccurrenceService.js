@@ -367,6 +367,47 @@ class TaskOccurrenceService {
 
     return occs || [];
   }
+
+  async rolloverTasks(userId, fromProductDate, toProductDate, taskIds, timezone = null) {
+    if (!userId) {
+      throw this._createError("userId is required", 400);
+    }
+    if (!fromProductDate || typeof fromProductDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(fromProductDate)) {
+      throw this._createError("fromProductDate is required and must be in YYYY-MM-DD format", 400);
+    }
+    if (!toProductDate || typeof toProductDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(toProductDate)) {
+      throw this._createError("toProductDate is required and must be in YYYY-MM-DD format", 400);
+    }
+    if (toProductDate <= fromProductDate) {
+      throw this._createError("toProductDate must be strictly after fromProductDate", 400);
+    }
+    if (!Array.isArray(taskIds) || taskIds.length === 0) {
+      throw this._createError("taskIds array with at least one task ID is required", 400);
+    }
+
+    const tz = timezone || (await resolveUserTimezone(userId));
+
+    const result = await taskOccurrenceRepository.rolloverBatch(
+      userId,
+      fromProductDate,
+      toProductDate,
+      taskIds
+    );
+
+    if (result.rolledOver && result.rolledOver.length > 0) {
+      try {
+        const { default: StreakService } = await import("./streakService.js");
+        const fromStart = productDateToStart(fromProductDate, tz);
+        const toStart = productDateToStart(toProductDate, tz);
+        await StreakService.processDailyStreak(userId, fromStart, tz);
+        await StreakService.processDailyStreak(userId, toStart, tz);
+      } catch (err) {
+        console.error("Streak recalculation error after rollover:", err);
+      }
+    }
+
+    return result;
+  }
 }
 
 export default new TaskOccurrenceService();

@@ -146,7 +146,7 @@ class AuthController {
       }
 
       const { currentPassword, newPassword } = req.body;
-      const result = await AuthService.changePassword(req.user._id, currentPassword, newPassword);
+      const result = await AuthService.changePassword(req.user.id, currentPassword, newPassword);
 
       res.status(200).json({
         success: true,
@@ -216,8 +216,7 @@ class AuthController {
         success: true,
         message: 'Switched account successfully',
         user: {
-          id: user.id || user._id,
-          _id: user.id || user._id,
+          id: user.id,
           username: user.username,
           email: user.email,
           fullName: user.fullName,

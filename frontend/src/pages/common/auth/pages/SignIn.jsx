@@ -91,7 +91,7 @@ const Login = () => {
     setLoading(true);
     try {
       const res = await login(formData);
-      const userId = res?.user?._id || res?.user?.id;
+      const userId = res?.user?.id;
       if (res?.token && userId) {
         saveAccountToken(userId, res.token);
       }

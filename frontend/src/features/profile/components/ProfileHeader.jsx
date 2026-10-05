@@ -20,7 +20,7 @@ export const ProfileHeader = ({ user, onUserUpdated }) => {
   };
 
   const initials = getInitials(user.fullName || user.username);
-  const userIdDisplay = user._id || user.id;
+  const userIdDisplay = user.id;
 
   return (
     <>

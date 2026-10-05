@@ -5,7 +5,6 @@ import {
   Calendar,
   Target,
   History,
-  TrendingUp,
   User,
   Settings,
 } from "lucide-react";
@@ -25,7 +24,6 @@ const navItems = [
   { to: "/planner", icon: Calendar, label: "Plan" },
   { to: "/focus-page", icon: Target, label: "Focus" },
   { to: "/sessions", icon: History, label: "History" },
-  { to: "/dashboard", icon: TrendingUp, label: "Insights" },
 ];
 
 export const MobileNav = () => {

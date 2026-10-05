@@ -51,7 +51,6 @@ class UserService {
     const user = await this._findUser(userId);
     return {
       id: user.id,
-      _id: user.id,
       username: user.username,
       email: user.email,
       fullName: user.fullName,
@@ -106,7 +105,6 @@ class UserService {
 
     return {
       id: user.id,
-      _id: user.id,
       username: user.username,
       email: user.email,
       fullName: user.fullName,

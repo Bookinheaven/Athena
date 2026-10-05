@@ -1,6 +1,6 @@
 import React from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
-import { Palette, Target, Bell } from "lucide-react";
+import { Palette, Target, Volume2 } from "lucide-react";
 import AppearanceSettings from "./AppearanceSettings";
 import FocusSettings from "./FocusSettings";
 import NotificationSettings from "./NotificationSettings";
@@ -22,9 +22,9 @@ const CATEGORIES = [
   },
   {
     id: "notifications",
-    label: "Notifications",
-    description: "Audio & signal alerts",
-    icon: Bell,
+    label: "Audio & Alerts",
+    description: "Session cues & chimes",
+    icon: Volume2,
     component: NotificationSettings,
   },
 ];

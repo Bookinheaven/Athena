@@ -2,12 +2,11 @@ import { usePlannerStore } from "../src/stores/plannerStore.js";
 
 export const normalizeUser = (user) => {
   if (!user) return null;
-  const id = user._id || user.id;
+  const id = user.id || user._id;
   const normalizedId = id ? String(id) : undefined;
   return {
     ...user,
     id: normalizedId,
-    _id: normalizedId,
   };
 };
 

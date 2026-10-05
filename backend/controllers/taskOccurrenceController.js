@@ -4,7 +4,7 @@ import StreakService from "../services/streakService.js";
 class TaskOccurrenceController {
   async getOccurrences(req, res) {
     try {
-      const userId = req.user.id || req.user._id;
+      const userId = req.user.id;
       const occurrences = await TaskOccurrenceService.getOccurrences(
         userId,
         req.query,
@@ -22,7 +22,7 @@ class TaskOccurrenceController {
 
   async createOccurrence(req, res) {
     try {
-      const userId = req.user.id || req.user._id;
+      const userId = req.user.id;
       const occurrence = await TaskOccurrenceService.ensureOccurrence(
         userId,
         req.body,
@@ -41,7 +41,7 @@ class TaskOccurrenceController {
 
   async updateOutcome(req, res) {
     try {
-      const userId = req.user.id || req.user._id;
+      const userId = req.user.id;
       const occurrence = await TaskOccurrenceService.recordOutcome(
         userId,
         req.params.id,
@@ -60,7 +60,7 @@ class TaskOccurrenceController {
 
   async rescheduleOccurrence(req, res) {
     try {
-      const userId = req.user.id || req.user._id;
+      const userId = req.user.id;
       const result = await TaskOccurrenceService.reschedule(
         userId,
         req.params.id,
@@ -69,6 +69,30 @@ class TaskOccurrenceController {
       );
       await StreakService.processDailyStreak(userId, new Date(), req.timezone);
       res.status(200).json({ success: true, ...result });
+    } catch (error) {
+      const statusCode = error.statusCode || 500;
+      res.status(statusCode).json({
+        success: false,
+        message: error.message,
+      });
+    }
+  }
+
+  async rolloverTasks(req, res) {
+    try {
+      const userId = req.user.id;
+      const { fromProductDate, toProductDate, taskIds } = req.body;
+      const result = await TaskOccurrenceService.rolloverTasks(
+        userId,
+        fromProductDate,
+        toProductDate,
+        taskIds,
+        req.timezone
+      );
+      res.status(200).json({
+        success: true,
+        ...result,
+      });
     } catch (error) {
       const statusCode = error.statusCode || 500;
       res.status(statusCode).json({

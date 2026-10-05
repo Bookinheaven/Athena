@@ -5,7 +5,6 @@ import {
   Calendar,
   Target,
   History,
-  TrendingUp,
   Settings,
   LogOut,
 } from "lucide-react";
@@ -29,7 +28,6 @@ const mainNavItems = [
   { to: "/planner", icon: Calendar, label: "Plan" },
   { to: "/focus-page", icon: Target, label: "Focus" },
   { to: "/sessions", icon: History, label: "History" },
-  { to: "/dashboard", icon: TrendingUp, label: "Insights", isSecondary: true },
 ];
 
 const secondaryNavItems = [
@@ -45,7 +43,7 @@ export const Sidebar = ({ className }) => {
   const { user, logout } = useAuth();
   const { clearAccountToken } = useMultiAccount();
   const { sidebarCollapsed } = useUIStore();
-  const userId = user?._id || user?.id;
+  const userId = user?.id;
   const navigate = useNavigate();
   const location = useLocation();
 

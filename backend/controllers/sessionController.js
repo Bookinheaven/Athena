@@ -9,7 +9,7 @@ import { getStartOfDay } from "../utils/streakHelpers.js";
 class SessionController {
   async startSession(req, res) {
     try {
-      const session = await SessionService.start(req.user._id, req.body);
+      const session = await SessionService.start(req.user.id, req.body);
       res.status(201).json({ success: true, session });
     } catch (err) {
       res.status(400).json({
@@ -21,7 +21,7 @@ class SessionController {
 
   async updateSession(req, res) {
     try {
-      const userId = req.user._id;
+      const userId = req.user.id;
       const { sessionId: _bodySessionId, ...restBody } = req.body || {};
       const { session, transitionedToCompleted } = await SessionService.update(userId, {
         ...restBody,
@@ -48,7 +48,7 @@ class SessionController {
 
   async checkpointProgress(req, res) {
     try {
-      const userId = req.user._id;
+      const userId = req.user.id;
       const session = await SessionService.checkpointProgress(userId, {
         ...req.body,
         sessionId: req.params.id,
@@ -64,7 +64,7 @@ class SessionController {
 
   async feedbackSession(req, res) {
     try {
-      const userId = req.user._id || req.user.id;
+      const userId = req.user.id;
       const feedbackData = req.body?.feedback || req.body || {};
       const session = await SessionService.feedback(userId, {
         sessionId: req.params.id,
@@ -82,7 +82,7 @@ class SessionController {
 
   async recordTaskOutcome(req, res) {
     try {
-      const userId = req.user._id;
+      const userId = req.user.id;
       const { taskOutcome, asOfDate } = req.body;
       const session = await SessionService.recordTaskOutcome(userId, {
         sessionId: req.params.id,
@@ -101,7 +101,7 @@ class SessionController {
 
   async getActiveSession(req, res) {
     try {
-      const userId = req.user?._id;
+      const userId = req.user?.id;
       const session = await SessionService.activeSessions(userId);
       res.status(200).json(session);
     } catch (error) {
@@ -115,7 +115,7 @@ class SessionController {
 
   async getSessions(req, res) {
     try {
-      const userId = req.user._id;
+      const userId = req.user.id;
       const sessions = await SessionService.sessions(userId);
       res.status(200).json(sessions);
     } catch (error) {
@@ -129,7 +129,7 @@ class SessionController {
 
   async getHistory(req, res) {
     try {
-      const userId = req.user._id;
+      const userId = req.user.id;
       const history = await SessionService.history(userId, req.query);
       res.status(200).json({ success: true, ...history });
     } catch (error) {
@@ -143,7 +143,7 @@ class SessionController {
   }
   async getTodaysInsights(req, res) {
     try {
-      const userId = req.user?.id || req.user?._id;
+      const userId = req.user?.id;
       if (!userId) return res.status(404).json({ message: "user not found" });
 
       const startOfToday = getStartOfDay();
@@ -190,7 +190,7 @@ class SessionController {
 
   async getInsights(req, res) {
     try {
-      const userId = req.user?.id || req.user?._id;
+      const userId = req.user?.id;
       if (!userId) return res.status(404).json({ message: "user not found" });
       const allSessions = await sessionRepository.findUserSessions(userId);
       const insights = await generateInsights(userId, allSessions);

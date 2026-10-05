@@ -28,7 +28,7 @@ export const scheduleBlocks = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     taskId: uuid("task_id")
       .notNull()
-      .references(() => tasks.id, { onDelete: "restrict" }),
+      .references(() => tasks.id, { onDelete: "cascade" }),
     productDate: date("product_date").notNull(),
     startTime: timestamp("start_time", { withTimezone: true }).notNull(),
     endTime: timestamp("end_time", { withTimezone: true }).notNull(),

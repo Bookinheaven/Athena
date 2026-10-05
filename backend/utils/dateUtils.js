@@ -70,8 +70,8 @@ export async function resolveUserTimezone(userOrId, fallbackTimezone = "UTC") {
   if (typeof userOrId === "object" && userOrId !== null) {
     const tz = getUserTimezone(userOrId);
     if (isValidTimezone(tz)) return tz;
-    if (userOrId.id || userOrId._id) {
-      userOrId = userOrId.id || userOrId._id;
+    if (userOrId.id) {
+      userOrId = userOrId.id;
     } else {
       return normalizeTimezone(fallbackTimezone);
     }

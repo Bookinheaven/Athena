@@ -9,7 +9,7 @@ Athena provides a consolidated settings module organized into functional categor
 Settings/
 ├── Appearance        # Theme selection, visual tokens, mode preview
 ├── Focus             # Break duration, interval defaults, transition sounds
-└── Notifications     # Sound alerts, desktop notification permissions
+└── Audio & Alerts    # Session cues, audio feedback, and transition chimes
 ```
 
 ### 1. Appearance (`AppearanceSettings.jsx`)
@@ -25,5 +25,6 @@ Settings/
   - `isSoundEnabled` & `soundOnTransition`: Audio feedback at interval boundaries.
   - `confirmReset`: Protection prompt before resetting an active session.
 
-### 3. Notifications
-- Configures web and electron notification dispatch permissions for session alerts.
+### 3. Audio & Alerts (`NotificationSettings.jsx`)
+- Configures synthesized Web Audio chimes and cues for timer completions and interval transitions.
+- Adheres to distraction-free principles without invasive push notifications or background popups.

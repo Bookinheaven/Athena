@@ -21,7 +21,6 @@ export function toDomainUser(row) {
   if (!row) return null;
   return {
     id: row.id,
-    _id: row.id,
     username: row.username,
     usernameLower: row.usernameLower,
     email: row.email,

@@ -3,7 +3,10 @@ import pg from "pg";
 import env from "../config/env.js";
 import * as schema from "./schema/index.js";
 
-const { Pool } = pg;
+const { Pool, types } = pg;
+
+// Parse PostgreSQL DATE columns (oid 1082) as raw "YYYY-MM-DD" strings to prevent local timezone shifts
+types.setTypeParser(1082, (val) => val);
 
 let pool = null;
 let db = null;

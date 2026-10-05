@@ -1,11 +1,11 @@
 import React, { useState } from "react";
-import { Bell, Volume2, ShieldCheck, Check } from "lucide-react";
+import { Volume2, ShieldCheck, Check } from "lucide-react";
 import { useAuth } from "@contexts/AuthContext";
 import { useFocusSettings } from "@/features/focus/hooks/useFocusSettings";
 
 export const NotificationSettings = () => {
   const { user } = useAuth();
-  const userId = user?._id || user?.id;
+  const userId = user?.id;
   const { settings, setSetting, saveSettingsToBackend } = useFocusSettings(userId);
   const [saveNotice, setSaveNotice] = useState(false);
 
@@ -22,7 +22,7 @@ export const NotificationSettings = () => {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-base font-semibold text-foreground tracking-tight">
-            Notification & Audio Alerts
+            Audio & Alerts
           </h2>
           <p className="text-xs text-muted-foreground">
             Manage audio alerts and feedback cues during execution sessions.

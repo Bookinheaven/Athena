@@ -10,7 +10,7 @@ const ProtectedRoute = () => {
   
   if (!user) return <Navigate to="/login" replace />;
   
-  const userId = user?._id || user?.id;
+  const userId = user?.id;
   return <Outlet key={userId || 'authenticated'} />;
 };
 

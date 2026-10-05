@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, ArrowRight } from "lucide-react";
+import { Plus, ArrowRight, CalendarCheck } from "lucide-react";
 import { Button } from "@/components/ui/button.jsx";
 import { Badge } from "@/components/ui/badge.jsx";
 import { Input } from "@/components/ui/input.jsx";
@@ -16,6 +16,7 @@ export default function TodayWork({
   onQuickAddTask,
   isAddingTask,
   setIsAddingTask,
+  onOpenCloseout,
 }) {
   const navigate = useNavigate();
   const [newTaskTitle, setNewTaskTitle] = useState("");
@@ -60,6 +61,16 @@ export default function TodayWork({
               onClick={() => setIsAddingTask(true)}
             >
               <Plus className="w-3.5 h-3.5 mr-1" /> Add task
+            </Button>
+          )}
+          {onOpenCloseout && tasks.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs font-medium rounded-lg px-2.5 border-border hover:bg-card/80 text-foreground"
+              onClick={onOpenCloseout}
+            >
+              <CalendarCheck className="w-3.5 h-3.5 mr-1 text-primary" /> Wrap Up
             </Button>
           )}
           <Button

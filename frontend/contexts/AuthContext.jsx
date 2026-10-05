@@ -23,7 +23,7 @@ export const AuthProvider = ({ children }) => {
         const userData = await authService.getCurrentUser();
         const normalized = normalizeUser(userData);
         setUser(normalized);
-        useUIStore.getState().initSidebarForUser(normalized?.id || normalized?._id);
+        useUIStore.getState().initSidebarForUser(normalized?.id);
       } catch (error) {
         setUser(null);
         clearUserTransientState();
@@ -40,7 +40,7 @@ export const AuthProvider = ({ children }) => {
     const userData = await authService.login(credentials);
     const normalized = normalizeUser(userData.user);
     setUser(normalized);
-    useUIStore.getState().initSidebarForUser(normalized?.id || normalized?._id);
+    useUIStore.getState().initSidebarForUser(normalized?.id);
     return {
       ...userData,
       user: normalized,
@@ -73,7 +73,7 @@ export const AuthProvider = ({ children }) => {
     if (res?.success && res.user) {
       const normalized = normalizeUser(res.user);
       setUser(normalized);
-      useUIStore.getState().initSidebarForUser(normalized?.id || normalized?._id);
+      useUIStore.getState().initSidebarForUser(normalized?.id);
       return {
         ...res,
         user: normalized,

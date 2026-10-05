@@ -60,7 +60,7 @@ const Dashboard = () => {
     type: 'user',
   });
   const [editUser, setEditUser] = useState({
-    _id: '',
+    id: '',
     username: '',
     fullName: '',
     email: '',
@@ -71,7 +71,7 @@ const Dashboard = () => {
 
   // Get user name from userId
   const getUserName = (userId) => {
-    const foundUser = users.find(u => u._id === userId);
+    const foundUser = users.find(u => (u.id || u._id) === userId);
     return foundUser ? foundUser.fullName : 'Unknown User';
   };
 
@@ -80,7 +80,7 @@ const Dashboard = () => {
       const data = await adminService.getSessions();
       if (data.success && Array.isArray(data.sessions)) {
         const transformedSessions = data.sessions.map(session => ({
-          id: session._id,
+          id: session.id || session._id,
           sessionId: session.sessionId,
           userId: session.userId,
           userName: getUserName(session.userId),
@@ -110,7 +110,7 @@ const Dashboard = () => {
     try {
       const data = await adminService.getUsers();
       if (data.success && Array.isArray(data.users)) {
-        const filteredUsers = data.users.filter((u) => u._id !== user._id);
+        const filteredUsers = data.users.filter((u) => (u.id || u._id) !== user.id);
         
         const sortedUsers = filteredUsers.sort((a, b) => {
           const dateA = a?.lastLogin ? new Date(a.lastLogin).getTime() : 0;
@@ -176,7 +176,7 @@ const Dashboard = () => {
 
   const handleEditUser = (u) => {
     setEditUser({
-      _id: u._id,
+      id: u.id || u._id,
       username: u.username,
       fullName: u.fullName,
       email: u.email,
@@ -193,7 +193,7 @@ const Dashboard = () => {
     }
 
     try {
-      const data = await adminService.updateUser(editUser._id, {
+      const data = await adminService.updateUser(editUser.id, {
         username: editUser.username,
         fullName: editUser.fullName,
         email: editUser.email,
@@ -433,7 +433,7 @@ const Dashboard = () => {
                 <div className="space-y-3 overflow-y-auto">
                   {lastLoginUsers.map((u, index) => (
                     <div
-                      key={u._id}
+                      key={u.id || u._id}
                       className="flex items-center gap-4 p-4 rounded-xl hover:bg-background-secondary/50 transition-all duration-200 border border-transparent hover:border-card-border"
                     >
                       <div className="w-10 h-10 bg-gradient-to-br from-text-accent to-button-primary rounded-xl flex items-center justify-center text-white font-semibold shadow-md flex-shrink-0">
@@ -510,7 +510,7 @@ const Dashboard = () => {
                     <tbody className="divide-y divide-card-border">
                       {filteredUsers.length > 0 ? (
                         filteredUsers.map((u) => (
-                          <tr key={u._id} className="hover:bg-background-secondary/30 transition-colors duration-150">
+                          <tr key={u.id || u._id} className="hover:bg-background-secondary/30 transition-colors duration-150">
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex items-center gap-3">
                                 <div className="relative">
@@ -575,7 +575,7 @@ const Dashboard = () => {
                                   <Edit size={16} />
                                 </button>
                                 <button
-                                  onClick={() => handleDeleteUser(u._id)}
+                                  onClick={() => handleDeleteUser(u.id || u._id)}
                                   className="p-2 bg-button-danger/10 text-button-danger rounded-lg hover:bg-button-danger/20 transition-all duration-150"
                                   title="Delete User"
                                 >

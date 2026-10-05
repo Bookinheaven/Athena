@@ -13,12 +13,12 @@ Athena implements defensive engineering across authentication, input sanitizatio
 
 ## 2. Mass-Assignment & Parameter Pollution
 - In `backend/controllers/userController.js`, incoming mutation requests are filtered against strict allowlists.
-- Sensitive fields (`_id`, `email`, `role`, `isEmailVerified`) cannot be modified through general update endpoints.
+- Sensitive fields (`id`, `email`, `role`, `isEmailVerified`) cannot be modified through general update endpoints.
 
 ---
 
 ## 3. Multi-Tenant Authorization Enforcements
-- Every database query for user assets (Tasks, Notes, Goals, Sessions, ScheduleBlocks, Streaks) enforces `{ userId: req.user._id }` or `{ user: req.user._id }`.
+- Every database query for user assets (Tasks, Notes, Goals, Sessions, ScheduleBlocks, Streaks) enforces `userId = req.user.id` or foreign key scoping.
 - Attempting to query, update, or delete a task belonging to another user returns `404 Not Found` or `403 Forbidden`.
 
 ---

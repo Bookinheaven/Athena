@@ -1,5 +1,5 @@
-import { eq, and, asc, desc, lte, gte, sql } from "drizzle-orm";
-import { getDrizzleDb } from "../db/index.js";
+import { eq, and, or, inArray, asc, desc, lte, gte, sql } from "drizzle-orm";
+import { getDrizzleDb, getPgPool } from "../db/index.js";
 import { taskOccurrences } from "../db/schema/taskOccurrences.js";
 import { normalizeUserId } from "./userRepository.js";
 import { normalizeTaskId } from "./taskRepository.js";
@@ -255,6 +255,199 @@ class TaskOccurrenceRepository {
       )
       .orderBy(asc(taskOccurrences.productDate));
     return rows.map(toDomainOccurrence);
+  }
+
+  async hasHistoricalOccurrences(userId, taskId, todayProductDate) {
+    const cleanUserId = normalizeUserId(userId);
+    const cleanTaskId = normalizeTaskId(taskId);
+    if (!cleanUserId || !cleanTaskId) return false;
+
+    const db = getDrizzleDb();
+    const todayStr = typeof todayProductDate === "string" 
+      ? todayProductDate.slice(0, 10) 
+      : todayProductDate.toISOString().slice(0, 10);
+
+    const rows = await db
+      .select({ count: sql`count(*)` })
+      .from(taskOccurrences)
+      .where(
+        and(
+          eq(taskOccurrences.userId, cleanUserId),
+          eq(taskOccurrences.taskId, cleanTaskId),
+          or(
+            inArray(taskOccurrences.outcome, ["completed", "partially_completed", "rescheduled", "missed"]),
+            sql`${taskOccurrences.productDate} < ${todayStr}::date`
+          )
+        )
+      );
+
+    return Number(rows[0]?.count) > 0;
+  }
+
+  async deletePendingByTaskId(userId, taskId) {
+    const cleanUserId = normalizeUserId(userId);
+    const cleanTaskId = normalizeTaskId(taskId);
+    if (!cleanUserId || !cleanTaskId) return 0;
+
+    const db = getDrizzleDb();
+    const rows = await db
+      .delete(taskOccurrences)
+      .where(
+        and(
+          eq(taskOccurrences.userId, cleanUserId),
+          eq(taskOccurrences.taskId, cleanTaskId),
+          eq(taskOccurrences.outcome, "pending")
+        )
+      )
+      .returning();
+
+    return rows.length;
+  }
+
+  async rolloverBatch(userId, fromProductDate, toProductDate, taskIds) {
+    const cleanUserId = normalizeUserId(userId);
+    if (!cleanUserId) {
+      const err = new Error("Invalid userId");
+      err.statusCode = 400;
+      throw err;
+    }
+    const cleanFromDate = typeof fromProductDate === "string" ? fromProductDate.slice(0, 10) : fromProductDate.toISOString().slice(0, 10);
+    const cleanToDate = typeof toProductDate === "string" ? toProductDate.slice(0, 10) : toProductDate.toISOString().slice(0, 10);
+
+    const pool = getPgPool();
+    const client = await pool.connect();
+
+    const rolledOver = [];
+    const skipped = [];
+    const errors = [];
+
+    const toDateStr = (val) => {
+      if (!val) return null;
+      if (typeof val === "string") return val.slice(0, 10);
+      if (val instanceof Date) {
+        const y = val.getFullYear();
+        const m = String(val.getMonth() + 1).padStart(2, "0");
+        const d = String(val.getDate()).padStart(2, "0");
+        return `${y}-${m}-${d}`;
+      }
+      return String(val).slice(0, 10);
+    };
+
+    try {
+      await client.query("BEGIN");
+
+      for (const rawTaskId of taskIds) {
+        const cleanTaskId = normalizeTaskId(rawTaskId);
+        if (!cleanTaskId) {
+          const err = new Error("Invalid taskId format");
+          err.statusCode = 400;
+          throw err;
+        }
+
+        // 1. Verify task belongs to user
+        const taskRes = await client.query(
+          "SELECT id, user_id, title, priority, planned_product_date FROM tasks WHERE id = $1",
+          [cleanTaskId]
+        );
+        if (taskRes.rows.length === 0) {
+          const err = new Error("Task not found or access denied");
+          err.statusCode = 404;
+          throw err;
+        }
+        const taskRow = taskRes.rows[0];
+        if (String(taskRow.user_id) !== String(cleanUserId)) {
+          const err = new Error("Task not found or access denied");
+          err.statusCode = 404;
+          throw err;
+        }
+
+        // 2. Fetch occurrence on source date
+        const occRes = await client.query(
+          "SELECT id, outcome, rescheduled_to_date, snapshot_title, snapshot_priority FROM task_occurrences WHERE user_id = $1 AND task_id = $2 AND product_date = $3",
+          [cleanUserId, cleanTaskId, cleanFromDate]
+        );
+
+        if (occRes.rows.length === 0) {
+          const pDate = toDateStr(taskRow.planned_product_date);
+
+          if (pDate === cleanFromDate) {
+            await client.query(
+              `INSERT INTO task_occurrences (id, user_id, task_id, product_date, outcome, rescheduled_to_date, snapshot_title, snapshot_priority, created_at, updated_at)
+               VALUES (gen_random_uuid(), $1, $2, $3, 'rescheduled', $4, $5, $6, NOW(), NOW())
+               ON CONFLICT (user_id, task_id, product_date) DO UPDATE
+               SET outcome = 'rescheduled', rescheduled_to_date = $4, updated_at = NOW()`,
+              [cleanUserId, cleanTaskId, cleanFromDate, cleanToDate, taskRow.title, taskRow.priority || "medium"]
+            );
+          } else {
+            skipped.push({ taskId: cleanTaskId, title: taskRow.title, reason: "No occurrence found on source date" });
+            continue;
+          }
+        } else {
+          const occRow = occRes.rows[0];
+
+          if (occRow.outcome === "completed") {
+            skipped.push({ taskId: cleanTaskId, title: taskRow.title, reason: "Task occurrence is already completed" });
+            continue;
+          }
+          if (occRow.outcome === "cancelled") {
+            skipped.push({ taskId: cleanTaskId, title: taskRow.title, reason: "Task occurrence is cancelled" });
+            continue;
+          }
+          if (occRow.outcome === "rescheduled") {
+            const rDate = toDateStr(occRow.rescheduled_to_date);
+
+            if (rDate === cleanToDate) {
+              skipped.push({ taskId: cleanTaskId, title: taskRow.title, reason: "Already rolled over to destination date" });
+              continue;
+            } else {
+              skipped.push({ taskId: cleanTaskId, title: taskRow.title, reason: `Task occurrence already rescheduled to ${rDate}` });
+              continue;
+            }
+          }
+
+          // Eligible: 'pending' or 'missed'
+          await client.query(
+            `UPDATE task_occurrences
+             SET outcome = 'rescheduled', rescheduled_to_date = $1, updated_at = NOW()
+             WHERE id = $2`,
+            [cleanToDate, occRow.id]
+          );
+        }
+
+        // 3. Update task's planned date to destination date
+        await client.query(
+          `UPDATE tasks
+           SET planned_product_date = $1, updated_at = NOW()
+           WHERE id = $2 AND user_id = $3`,
+          [cleanToDate, cleanTaskId, cleanUserId]
+        );
+
+        // 4. Create/retain destination occurrence on toProductDate as 'pending'
+        await client.query(
+          `INSERT INTO task_occurrences (id, user_id, task_id, product_date, outcome, snapshot_title, snapshot_priority, created_at, updated_at)
+           VALUES (gen_random_uuid(), $1, $2, $3, 'pending', $4, $5, NOW(), NOW())
+           ON CONFLICT (user_id, task_id, product_date) DO UPDATE
+           SET outcome = CASE WHEN task_occurrences.outcome IN ('rescheduled', 'missed') THEN 'pending' ELSE task_occurrences.outcome END,
+               updated_at = NOW()`,
+          [cleanUserId, cleanTaskId, cleanToDate, taskRow.title, taskRow.priority || "medium"]
+        );
+
+        rolledOver.push({
+          taskId: cleanTaskId,
+          title: taskRow.title,
+          fromProductDate: cleanFromDate,
+          toProductDate: cleanToDate,
+        });
+      }
+
+      await client.query("COMMIT");
+      return { rolledOver, skipped, errors };
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
   }
 }
 

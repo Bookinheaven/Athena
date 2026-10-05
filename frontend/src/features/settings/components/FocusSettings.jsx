@@ -7,7 +7,7 @@ import { useFocusSettings } from "@/features/focus/hooks/useFocusSettings";
 
 export const FocusSettings = () => {
   const { user } = useAuth();
-  const userId = user?._id || user?.id;
+  const userId = user?.id;
   const { settings, setSetting, saveSettingsToBackend, resetSettings, isLoading } =
     useFocusSettings(userId);
 
