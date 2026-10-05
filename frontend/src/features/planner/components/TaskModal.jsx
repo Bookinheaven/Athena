@@ -15,6 +15,7 @@ import {
   getTaskProductDate,
   getTodayProductDate,
   getTomorrowProductDate,
+  formatScheduleConfirmation,
 } from "@/utils/dateUtils.js";
 
 const formatDateToInput = (date) => {
@@ -32,6 +33,7 @@ export default function TaskModal({
   goals = [],
   defaultGoalId = null,
   defaultPlannedToday = false,
+  defaultDate = null,
   onSave,
 }) {
   const [title, setTitle] = useState("");
@@ -92,13 +94,31 @@ export default function TaskModal({
         setDescription("");
         setGoal(defaultGoalId || "");
         setPriority("medium");
-        setPlanMode(defaultPlannedToday ? "today" : "today");
-        setCustomPlannedDate("");
+        if (defaultDate) {
+          const todayDate = getTodayProductDate();
+          const tomorrowDate = getTomorrowProductDate();
+          if (defaultDate === todayDate) {
+            setPlanMode("today");
+            setCustomPlannedDate("");
+          } else if (defaultDate === tomorrowDate) {
+            setPlanMode("tomorrow");
+            setCustomPlannedDate("");
+          } else {
+            setPlanMode("custom");
+            setCustomPlannedDate(defaultDate);
+          }
+        } else if (defaultPlannedToday) {
+          setPlanMode("today");
+          setCustomPlannedDate("");
+        } else {
+          setPlanMode("none");
+          setCustomPlannedDate("");
+        }
         setHasDueDate(false);
         setDueDate("");
       }
     }
-  }, [open, task, defaultGoalId, defaultPlannedToday]);
+  }, [open, task, defaultGoalId, defaultPlannedToday, defaultDate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -263,13 +283,21 @@ export default function TaskModal({
 
             {/* Custom Date Picker Input */}
             {planMode === "custom" && (
-              <div className="pt-1">
+              <div className="pt-1 space-y-1.5">
                 <Input
                   type="date"
                   value={customPlannedDate}
                   onChange={(e) => setCustomPlannedDate(e.target.value)}
                   className="h-9 rounded-xl text-xs"
                 />
+                {customPlannedDate && (
+                  <p className="text-[11px] text-muted-foreground font-medium pl-1">
+                    Scheduled for:{" "}
+                    <span className="text-foreground font-semibold">
+                      {formatScheduleConfirmation(customPlannedDate).replace("Task scheduled for ", "")}
+                    </span>
+                  </p>
+                )}
               </div>
             )}
           </div>

@@ -113,9 +113,10 @@ export default function DailyCloseoutModal({
         
         setActionFeedback({
           type: "success",
-          message: `${rolledCount} task${rolledCount !== 1 ? "s" : ""} moved to tomorrow.${
+          message: `Moved ${rolledCount} task${rolledCount !== 1 ? "s" : ""} to Tomorrow${
             skippedCount > 0 ? ` (${skippedCount} skipped)` : ""
           }`,
+          showPlanAction: true,
         });
 
         // Broadcast change so Today, Planner, and History update
@@ -123,7 +124,7 @@ export default function DailyCloseoutModal({
 
         setTimeout(() => {
           onOpenChange(false);
-        }, 1200);
+        }, 4000);
       } else {
         setActionFeedback({
           type: "error",
@@ -243,18 +244,35 @@ export default function DailyCloseoutModal({
         {/* Feedback Alert if any */}
         {actionFeedback && (
           <div
-            className={`px-6 py-2.5 text-xs font-medium flex items-center gap-2 ${
+            className={`px-6 py-2.5 text-xs font-medium flex items-center justify-between gap-3 ${
               actionFeedback.type === "success"
                 ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-b border-emerald-500/20"
                 : "bg-red-500/10 text-red-600 dark:text-red-400 border-b border-red-500/20"
             }`}
           >
-            {actionFeedback.type === "success" ? (
-              <Check className="w-3.5 h-3.5 shrink-0" />
-            ) : (
-              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+            <div className="flex items-center gap-2 min-w-0">
+              {actionFeedback.type === "success" ? (
+                <Check className="w-3.5 h-3.5 shrink-0" />
+              ) : (
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+              )}
+              <span className="truncate">{actionFeedback.message}</span>
+            </div>
+            {actionFeedback.showPlanAction && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs px-2.5 shrink-0 border-emerald-500/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/10"
+                onClick={() => {
+                  onOpenChange(false);
+                  navigate(`/planner?date=${tomorrowDate}&tab=timeline`);
+                }}
+              >
+                View in Plan
+                <ArrowRight className="w-3 h-3 ml-1" />
+              </Button>
             )}
-            <span>{actionFeedback.message}</span>
           </div>
         )}
 

@@ -30,8 +30,9 @@ export default function TimelineView({
 
   // Quick schedule a task from the unscheduled queue into the next open slot or default 9 AM
   const handleQuickSchedule = useCallback(
-    async (taskId) => {
+    async (taskId, durationMinutes = 60) => {
       const [year, month, day] = selectedDate.split("-").map(Number);
+      const effectiveMinutes = durationMinutes || 60;
 
       // Find an open hour slot
       const existingStarts = new Set(
@@ -47,7 +48,7 @@ export default function TimelineView({
       }
 
       const startTime = new Date(year, month - 1, day, targetHour, 0, 0, 0);
-      const endTime = new Date(startTime.getTime() + 60 * 60 * 1000); // 60 mins
+      const endTime = new Date(startTime.getTime() + effectiveMinutes * 60 * 1000);
 
       await createBlock({
         taskId,

@@ -6,7 +6,8 @@ import goalService from "../../../../services/goalService.js";
 import notesService from "../../../../services/notesService.js";
 import sessionService from "../../../../services/sessionService.js";
 import { usePlannerStore } from "../../../stores/plannerStore.js";
-import { isTaskPlannedForToday, getTodayProductDate } from "@/utils/dateUtils.js";
+import { isTaskPlannedForToday, getTodayProductDate, formatScheduleConfirmation } from "@/utils/dateUtils.js";
+import toast from "react-hot-toast";
 
 export const usePlannerData = () => {
   const navigate = useNavigate();
@@ -153,8 +154,10 @@ export const usePlannerData = () => {
     try {
       await taskService.updateTask(taskId, { plannedDate: today, customPlannedDate: today });
       window.dispatchEvent(new CustomEvent("athena:tasks-changed"));
+      toast.success("Task scheduled for Today");
     } catch (err) {
       console.error("Failed to add task to today:", err);
+      toast.error("Failed to add task to Today");
     }
   }, []);
 
@@ -165,31 +168,75 @@ export const usePlannerData = () => {
     try {
       await taskService.updateTask(taskId, { plannedDate: null, customPlannedDate: null });
       window.dispatchEvent(new CustomEvent("athena:tasks-changed"));
+      toast.success("Task moved to backlog");
     } catch (err) {
       console.error("Failed to remove task from today:", err);
+      toast.error("Failed to remove task from Today");
     }
   }, []);
 
+  const handleBatchUpdateTasks = useCallback(
+    async (taskIds, updatePayload, successMessage) => {
+      if (!taskIds || taskIds.length === 0) return;
+      const idsSet = new Set(taskIds);
+
+      // Optimistic local update
+      setTasks((prev) =>
+        prev.map((t) => (idsSet.has(t._id) ? { ...t, ...updatePayload } : t))
+      );
+
+      try {
+        await Promise.all(
+          taskIds.map((id) => taskService.updateTask(id, updatePayload))
+        );
+        window.dispatchEvent(new CustomEvent("athena:tasks-changed"));
+        if (successMessage) {
+          toast.success(successMessage);
+        }
+      } catch (err) {
+        console.error("Batch update tasks error:", err);
+        toast.error("Failed to update some tasks");
+        loadPlannerData();
+      }
+    },
+    [loadPlannerData]
+  );
+
   const handleSaveTask = useCallback(
     async (payload, taskId) => {
-      if (taskId) {
-        const updated = await taskService.updateTask(taskId, payload);
-        setTasks((prev) =>
-          prev.map((t) =>
-            t._id === taskId ? { ...t, ...payload, ...updated } : t
-          )
-        );
-      } else {
-        const created = await taskService.createTask({
-          ...payload,
-          order: tasks.length,
-        });
-        if (created) {
-          setTasks((prev) => [...prev, created]);
-          setSelectedTaskId(created._id);
+      try {
+        if (taskId) {
+          const updated = await taskService.updateTask(taskId, payload);
+          setTasks((prev) =>
+            prev.map((t) =>
+              t._id === taskId ? { ...t, ...payload, ...updated } : t
+            )
+          );
+        } else {
+          const created = await taskService.createTask({
+            ...payload,
+            order: tasks.length,
+          });
+          if (created) {
+            setTasks((prev) => [...prev, created]);
+            setSelectedTaskId(created._id);
+          }
         }
+        window.dispatchEvent(new CustomEvent("athena:tasks-changed"));
+
+        // Meaningful destination date confirmation
+        const destDate = payload.plannedDate || payload.customPlannedDate;
+        if (destDate) {
+          toast.success(formatScheduleConfirmation(destDate));
+        } else if (payload.plannedDate === null || payload.customPlannedDate === null) {
+          toast.success("Task saved to backlog");
+        } else {
+          toast.success(taskId ? "Task updated" : "Task created");
+        }
+      } catch (err) {
+        console.error("Failed to save task:", err);
+        toast.error("Failed to save task");
       }
-      window.dispatchEvent(new CustomEvent("athena:tasks-changed"));
     },
     [tasks.length, setSelectedTaskId]
   );
@@ -385,6 +432,7 @@ export const usePlannerData = () => {
       openCreateGoal,
       openEditGoal,
       openCreateNote,
+      batchUpdateTasks: handleBatchUpdateTasks,
     },
   };
 };

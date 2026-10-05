@@ -40,6 +40,7 @@ export function FocusProvider({ children, initialContext }) {
     focus: null,
     distractions: '',
     taskOutcome: null,
+    taskOutcomes: {},
   });
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
 
@@ -49,7 +50,7 @@ export function FocusProvider({ children, initialContext }) {
     if (runtime.sessionId !== lastSessionIdRef.current) {
       lastSessionIdRef.current = runtime.sessionId;
       if (runtime.phase === PHASES.IDLE || runtime.phase === PHASES.RUNNING) {
-        setSessionReview({ mood: null, focus: null, distractions: '', taskOutcome: null });
+        setSessionReview({ mood: null, focus: null, distractions: '', taskOutcome: null, taskOutcomes: {} });
         setIsSubmittingReview(false);
       }
     }
@@ -87,7 +88,10 @@ export function FocusProvider({ children, initialContext }) {
           try {
             window.dispatchEvent(
               new CustomEvent('athena:tasks-changed', {
-                detail: { taskOutcome: sessionReview.taskOutcome },
+                detail: {
+                  taskOutcome: sessionReview.taskOutcome,
+                  taskOutcomes: sessionReview.taskOutcomes,
+                },
               })
             );
           } catch { }
@@ -96,7 +100,7 @@ export function FocusProvider({ children, initialContext }) {
         }
       }
       runtime.commands.stop();
-      setSessionReview({ mood: null, focus: null, distractions: '', taskOutcome: null });
+      setSessionReview({ mood: null, focus: null, distractions: '', taskOutcome: null, taskOutcomes: {} });
     } finally {
       setIsSubmittingReview(false);
     }

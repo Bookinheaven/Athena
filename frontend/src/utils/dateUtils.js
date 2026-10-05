@@ -127,3 +127,178 @@ export function isTaskPlannedForToday(task, timezone) {
   const today = getTodayProductDate(timezone);
   return isTaskPlannedForDate(task, today);
 }
+
+/**
+ * Calculates day difference between two "YYYY-MM-DD" product date strings (date2 - date1).
+ */
+export function getDaysDifference(dateStr1, dateStr2) {
+  if (!dateStr1 || !dateStr2) return 0;
+  const p1 = parseProductDate(dateStr1);
+  const p2 = parseProductDate(dateStr2);
+  const d1 = Date.UTC(p1.year, p1.month - 1, p1.day);
+  const d2 = Date.UTC(p2.year, p2.month - 1, p2.day);
+  return Math.round((d2 - d1) / (1000 * 60 * 60 * 24));
+}
+
+/**
+ * Derives comprehensive scheduling metadata and labels for a task following product date presentation rules.
+ */
+export function getTaskScheduleInfo(task, timezone) {
+  const productDate = getTaskProductDate(task);
+  if (!productDate) {
+    return {
+      productDate: null,
+      type: "unscheduled",
+      label: "No date",
+      compactLabel: null,
+      detailLabel: "Not scheduled",
+      isToday: false,
+      isTomorrow: false,
+      isFuture: false,
+      isOverdue: false,
+    };
+  }
+
+  const tz = timezone || getUserTimezone();
+  const today = getTodayProductDate(tz);
+  const tomorrow = getTomorrowProductDate(tz);
+  const diffDays = getDaysDifference(today, productDate);
+
+  const { year, month, day } = parseProductDate(productDate);
+  const localNoon = new Date(year, month - 1, day, 12, 0, 0);
+
+  const monthDay = localNoon.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+
+  if (diffDays === 0) {
+    return {
+      productDate,
+      type: "today",
+      label: "Today",
+      compactLabel: "Today",
+      detailLabel: `Today · ${monthDay}`,
+      isToday: true,
+      isTomorrow: false,
+      isFuture: false,
+      isOverdue: false,
+    };
+  }
+
+  if (diffDays === 1) {
+    return {
+      productDate,
+      type: "tomorrow",
+      label: "Tomorrow",
+      compactLabel: "Tomorrow",
+      detailLabel: `Tomorrow · ${monthDay}`,
+      isToday: false,
+      isTomorrow: true,
+      isFuture: true,
+      isOverdue: false,
+    };
+  }
+
+  if (diffDays > 1 && diffDays <= 6) {
+    const weekdayMonthDay = localNoon.toLocaleDateString("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+    });
+    return {
+      productDate,
+      type: "future_near",
+      label: weekdayMonthDay,
+      compactLabel: weekdayMonthDay,
+      detailLabel: weekdayMonthDay,
+      isToday: false,
+      isTomorrow: false,
+      isFuture: true,
+      isOverdue: false,
+    };
+  }
+
+  if (diffDays > 6) {
+    const fullDate = localNoon.toLocaleDateString("en-US", {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+    });
+    const shortDate = localNoon.toLocaleDateString("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+    });
+    return {
+      productDate,
+      type: "future_far",
+      label: fullDate,
+      compactLabel: shortDate,
+      detailLabel: fullDate,
+      isToday: false,
+      isTomorrow: false,
+      isFuture: true,
+      isOverdue: false,
+    };
+  }
+
+  // diffDays < 0 (Past date)
+  const isCompleted = task?.status === "completed";
+  const overdueLabel = isCompleted ? monthDay : `Overdue · ${monthDay}`;
+  return {
+    productDate,
+    type: isCompleted ? "past_completed" : "overdue",
+    label: overdueLabel,
+    compactLabel: overdueLabel,
+    detailLabel: overdueLabel,
+    isToday: false,
+    isTomorrow: false,
+    isFuture: false,
+    isOverdue: !isCompleted,
+  };
+}
+
+/**
+ * Returns user-facing confirmation copy after scheduling a task (e.g. "Task scheduled for Tomorrow").
+ */
+export function formatScheduleConfirmation(productDateStr, timezone) {
+  if (!productDateStr) return "Task saved with no date";
+  const tz = timezone || getUserTimezone();
+  const info = getTaskScheduleInfo({ customPlannedDate: productDateStr }, tz);
+  return `Task scheduled for ${info.label}`;
+}
+
+/**
+ * Returns formatted Planner date header metadata including relative label ("Today", "Tomorrow").
+ */
+export function formatPlannerDateHeader(selectedDateStr, timezone) {
+  if (!selectedDateStr) return { relative: null, calendar: "", combined: "" };
+  const tz = timezone || getUserTimezone();
+  const today = getTodayProductDate(tz);
+  const tomorrow = getTomorrowProductDate(tz);
+  const diffDays = getDaysDifference(today, selectedDateStr);
+
+  const { year, month, day } = parseProductDate(selectedDateStr);
+  const localNoon = new Date(year, month - 1, day, 12, 0, 0);
+
+  const fullCalendar = localNoon.toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+
+  let relative = null;
+  if (diffDays === 0) relative = "Today";
+  else if (diffDays === 1) relative = "Tomorrow";
+  else if (diffDays === -1) relative = "Yesterday";
+
+  return {
+    relative,
+    calendar: fullCalendar,
+    combined: relative ? `${relative} · ${fullCalendar}` : fullCalendar,
+    shortDay: localNoon.toLocaleDateString("en-US", { weekday: "short" }),
+  };
+}
+

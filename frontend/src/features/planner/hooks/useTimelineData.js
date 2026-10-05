@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import scheduleService from "../../../../services/scheduleService.js";
+import { getTodayProductDate } from "@/utils/dateUtils.js";
 import toast from "react-hot-toast";
 
 export const START_HOUR = 7;
@@ -44,21 +45,24 @@ export const useTimelineData = (selectedDate, setSelectedDate) => {
   );
 
   const goToToday = useCallback(() => {
-    const today = new Date().toISOString().split("T")[0];
-    goToDate(today);
+    goToDate(getTodayProductDate());
   }, [goToDate]);
 
   const goToPrevDay = useCallback(() => {
-    const current = new Date(selectedDate + "T00:00:00");
-    current.setDate(current.getDate() - 1);
-    const prevStr = current.toISOString().split("T")[0];
+    if (!selectedDate) return;
+    const [y, m, d] = selectedDate.split("-").map(Number);
+    const dt = new Date(Date.UTC(y, m - 1, d));
+    dt.setUTCDate(dt.getUTCDate() - 1);
+    const prevStr = dt.toISOString().split("T")[0];
     goToDate(prevStr);
   }, [selectedDate, goToDate]);
 
   const goToNextDay = useCallback(() => {
-    const current = new Date(selectedDate + "T00:00:00");
-    current.setDate(current.getDate() + 1);
-    const nextStr = current.toISOString().split("T")[0];
+    if (!selectedDate) return;
+    const [y, m, d] = selectedDate.split("-").map(Number);
+    const dt = new Date(Date.UTC(y, m - 1, d));
+    dt.setUTCDate(dt.getUTCDate() + 1);
+    const nextStr = dt.toISOString().split("T")[0];
     goToDate(nextStr);
   }, [selectedDate, goToDate]);
 

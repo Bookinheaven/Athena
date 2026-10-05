@@ -83,12 +83,13 @@ class SessionController {
   async recordTaskOutcome(req, res) {
     try {
       const userId = req.user.id;
-      const { taskOutcome, asOfDate } = req.body;
+      const { taskOutcome, taskOutcomes, asOfDate } = req.body;
       const session = await SessionService.recordTaskOutcome(userId, {
         sessionId: req.params.id,
         taskOutcome,
+        taskOutcomes,
         asOfDate,
-        timezone: req.timezone,
+        timezone: req.timezone || req.headers["x-timezone"] || req.body?.timezone,
       });
       res.json({ success: true, session });
     } catch (err) {

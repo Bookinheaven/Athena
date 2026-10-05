@@ -4,6 +4,7 @@ import taskRepository from "../repositories/taskRepository.js";
 import taskOccurrenceRepository from "../repositories/taskOccurrenceRepository.js";
 import TaskOccurrenceService from "./taskOccurrenceService.js";
 import TaskService from "./taskService.js";
+import streakService from "./streakService.js";
 import {
   parseDateRange,
   resolveUserTimezone,
@@ -162,7 +163,7 @@ class SessionService {
   }
 
   async feedback(userId, payload) {
-    const { sessionId, feedback, timezone } = payload;
+    const { sessionId, feedback, timezone, asOfDate } = payload;
     let targetSession = await this.getSession(userId, sessionId);
     if (!targetSession) {
       const err = new Error("Session not found");
@@ -176,11 +177,17 @@ class SessionService {
       feedback?.taskOutcome ||
       feedback?.sessionTaskOutcome;
 
-    if (taskOutcome) {
+    const taskOutcomes =
+      payload.taskOutcomes ||
+      feedback?.taskOutcomes;
+
+    if (taskOutcome || taskOutcomes) {
       await this.recordTaskOutcome(userId, {
         sessionId,
         taskOutcome,
+        taskOutcomes,
         timezone,
+        asOfDate: asOfDate || feedback?.asOfDate,
       });
     }
 
@@ -193,7 +200,7 @@ class SessionService {
   }
 
   async recordTaskOutcome(userId, payload) {
-    const { sessionId, taskOutcome, timezone, asOfDate } = payload;
+    const { sessionId, taskOutcome, taskOutcomes, timezone, asOfDate } = payload;
     if (!sessionId) {
       const err = new Error("sessionId is required");
       err.statusCode = 400;
@@ -201,11 +208,6 @@ class SessionService {
     }
 
     const validOutcomes = ["completed", "partially_completed", "not_completed"];
-    if (!validOutcomes.includes(taskOutcome)) {
-      const err = new Error(`Invalid task outcome. Allowed: ${validOutcomes.join(", ")}`);
-      err.statusCode = 400;
-      throw err;
-    }
 
     const session = await this.getSession(userId, sessionId);
     if (!session) {
@@ -215,103 +217,178 @@ class SessionService {
     }
 
     const effectiveTaskIds = (session.taskIds || []).map((id) => String(id));
-    let singleTaskId = null;
+    let fallbackSingleTaskId = null;
     if (effectiveTaskIds.length === 1) {
-      singleTaskId = effectiveTaskIds[0];
+      fallbackSingleTaskId = effectiveTaskIds[0];
     } else if (effectiveTaskIds.length === 0 && session.scheduleBlockId?.taskId) {
-      singleTaskId = String(session.scheduleBlockId.taskId);
+      fallbackSingleTaskId = String(session.scheduleBlockId.taskId);
     }
 
-    if (!singleTaskId || effectiveTaskIds.length > 1) {
+    // Build normalized task outcomes list: [{ taskId, outcome }]
+    let normalizedEntries = [];
+
+    if (taskOutcomes && typeof taskOutcomes === "object") {
+      if (Array.isArray(taskOutcomes)) {
+        normalizedEntries = taskOutcomes
+          .map((item) => ({
+            taskId: String(item.taskId || item.id || ""),
+            outcome: item.outcome || item.taskOutcome,
+          }))
+          .filter((entry) => entry.taskId && validOutcomes.includes(entry.outcome));
+      } else {
+        normalizedEntries = Object.entries(taskOutcomes)
+          .map(([tId, val]) => ({
+            taskId: String(tId),
+            outcome: typeof val === "object" ? (val?.outcome || val?.taskOutcome) : val,
+          }))
+          .filter((entry) => entry.taskId && validOutcomes.includes(entry.outcome));
+      }
+    }
+
+    // If no explicit taskOutcomes entries, but single taskOutcome is provided
+    if (normalizedEntries.length === 0 && taskOutcome) {
+      if (!validOutcomes.includes(taskOutcome)) {
+        const err = new Error(`Invalid task outcome. Allowed: ${validOutcomes.join(", ")}`);
+        err.statusCode = 400;
+        throw err;
+      }
+      if (fallbackSingleTaskId) {
+        normalizedEntries.push({ taskId: fallbackSingleTaskId, outcome: taskOutcome });
+      } else if (effectiveTaskIds.length > 0) {
+        normalizedEntries = effectiveTaskIds.map((tId) => ({ taskId: tId, outcome: taskOutcome }));
+      }
+    }
+
+    // Zero linked tasks edge case: nothing to update on tasks/occurrences
+    if (normalizedEntries.length === 0) {
       return session;
     }
-
-    await sessionRepository.recordTaskOutcome(userId, sessionId, taskOutcome);
-    session.sessionTaskOutcome = taskOutcome;
 
     const tz = timezone || (await resolveUserTimezone(userId));
     const asOf = asOfDate || session.endedAt || session.startedAt || new Date();
     const currentProductDate = getProductDate(asOf, tz);
     const currentNormalizedDate = toStartOfDayUTC(currentProductDate, "UTC");
 
-    let targetOcc = await taskOccurrenceRepository.findUserTaskOccurrenceOnDate(
-      userId,
-      singleTaskId,
-      currentProductDate
-    );
-    if (!targetOcc) {
-      const occurrence = await TaskOccurrenceService.getOccurrences(
+    for (const { taskId, outcome } of normalizedEntries) {
+      const task = await taskRepository.findById(userId, taskId);
+      if (!task) continue;
+
+      let targetOcc = await taskOccurrenceRepository.findUserTaskOccurrenceOnDate(
         userId,
-        { date: currentProductDate, taskId: singleTaskId },
-        tz
+        taskId,
+        currentProductDate
       );
-      targetOcc = occurrence?.[0] || null;
-    }
-
-    const task = await taskRepository.findById(userId, singleTaskId);
-
-    if (!targetOcc) {
-      if (taskOutcome === "completed") {
-        if (task && (task.plannedDate || task.plannedProductDate) && getProductDate(task.plannedProductDate || task.plannedDate, tz) === currentProductDate) {
-          await TaskOccurrenceService.ensureOccurrence(
-            userId,
-            {
-              taskId: singleTaskId,
-              date: currentNormalizedDate,
-              productDate: currentProductDate,
-              outcome: "completed",
-              taskSnapshot: { title: task.title, priority: task.priority },
-            },
-            tz
-          );
-        }
-        if (task && task.status !== "completed") {
-          await TaskService.updateTask(userId, singleTaskId, { status: "completed" }, asOf, tz);
-        }
-      } else if (taskOutcome === "partially_completed") {
-        if (task && (task.plannedDate || task.plannedProductDate) && getProductDate(task.plannedProductDate || task.plannedDate, tz) === currentProductDate) {
-          await TaskOccurrenceService.ensureOccurrence(
-            userId,
-            {
-              taskId: singleTaskId,
-              date: currentNormalizedDate,
-              productDate: currentProductDate,
-              outcome: "partially_completed",
-              taskSnapshot: { title: task.title, priority: task.priority },
-            },
-            tz
-          );
-        }
+      if (!targetOcc) {
+        const occurrence = await TaskOccurrenceService.getOccurrences(
+          userId,
+          { date: currentProductDate, taskId },
+          tz
+        );
+        targetOcc = occurrence?.[0] || null;
       }
-      return session;
-    }
 
-    const occId = targetOcc.id || targetOcc._id;
-    if (["rescheduled", "cancelled", "missed"].includes(targetOcc.outcome)) {
-      return session;
-    }
-
-    if (targetOcc.outcome === "completed") {
-      if (taskOutcome === "completed" && task && task.status !== "completed") {
-        await TaskService.updateTask(userId, singleTaskId, { status: "completed" }, asOf, tz);
-      }
-      return session;
-    }
-
-    if (targetOcc.outcome === "partially_completed" || targetOcc.outcome === "pending") {
-      if (taskOutcome === "completed") {
-        await TaskOccurrenceService.recordOutcome(userId, occId, {
-          outcome: "completed",
-          completedAt: asOf,
-        });
-        if (task && task.status !== "completed") {
-          await TaskService.updateTask(userId, singleTaskId, { status: "completed" }, asOf, tz);
+      if (!targetOcc) {
+        if (outcome === "completed") {
+          if (
+            task &&
+            (task.plannedDate || task.plannedProductDate) &&
+            getProductDate(task.plannedProductDate || task.plannedDate, tz) === currentProductDate
+          ) {
+            await TaskOccurrenceService.ensureOccurrence(
+              userId,
+              {
+                taskId,
+                date: currentNormalizedDate,
+                productDate: currentProductDate,
+                outcome: "completed",
+                taskSnapshot: { title: task.title, priority: task.priority },
+              },
+              tz
+            );
+          }
+          if (task && task.status !== "completed") {
+            await TaskService.updateTask(userId, taskId, { status: "completed" }, asOf, tz);
+          }
+        } else if (outcome === "partially_completed") {
+          if (
+            task &&
+            (task.plannedDate || task.plannedProductDate || task.customPlannedDate) &&
+            getProductDate(task.plannedProductDate || task.customPlannedDate || task.plannedDate, tz) === currentProductDate
+          ) {
+            await TaskOccurrenceService.ensureOccurrence(
+              userId,
+              {
+                taskId,
+                date: currentNormalizedDate,
+                productDate: currentProductDate,
+                outcome: "partially_completed",
+                taskSnapshot: { title: task.title, priority: task.priority },
+              },
+              tz
+            );
+            if (task && task.status === "todo") {
+              await TaskService.updateTask(userId, taskId, { status: "in-progress" }, asOf, tz);
+            }
+          }
         }
-      } else if (taskOutcome === "partially_completed") {
-        await TaskOccurrenceService.recordOutcome(userId, occId, {
-          outcome: "partially_completed",
-        });
+        continue;
       }
+
+      const occId = targetOcc.id || targetOcc._id;
+      if (["rescheduled", "cancelled", "missed"].includes(targetOcc.outcome)) {
+        continue;
+      }
+
+      if (targetOcc.outcome === "completed") {
+        if (outcome === "completed" && task && task.status !== "completed") {
+          await TaskService.updateTask(userId, taskId, { status: "completed" }, asOf, tz);
+        }
+        continue;
+      }
+
+      if (targetOcc.outcome === "partially_completed" || targetOcc.outcome === "pending") {
+        if (outcome === "completed") {
+          await TaskOccurrenceService.recordOutcome(userId, occId, {
+            outcome: "completed",
+            completedAt: asOf,
+          });
+          if (task && task.status !== "completed") {
+            await TaskService.updateTask(userId, taskId, { status: "completed" }, asOf, tz);
+          }
+        } else if (outcome === "partially_completed") {
+          await TaskOccurrenceService.recordOutcome(userId, occId, {
+            outcome: "partially_completed",
+          });
+          if (task && task.status === "todo") {
+            await TaskService.updateTask(userId, taskId, { status: "in-progress" }, asOf, tz);
+          }
+        }
+        // not_completed leaves occurrence as pending
+      }
+    }
+
+    // Determine overall sessionTaskOutcome
+    let aggregateOutcome = "not_completed";
+    const allOutcomes = normalizedEntries.map((e) => e.outcome);
+    if (allOutcomes.length > 0 && allOutcomes.every((o) => o === "completed")) {
+      aggregateOutcome = "completed";
+    } else if (allOutcomes.some((o) => o === "completed" || o === "partially_completed")) {
+      aggregateOutcome = "partially_completed";
+    } else {
+      aggregateOutcome = "not_completed";
+    }
+
+    if (normalizedEntries.length === 1 && taskOutcome && validOutcomes.includes(taskOutcome)) {
+      aggregateOutcome = taskOutcome;
+    }
+
+    await sessionRepository.recordTaskOutcome(userId, sessionId, aggregateOutcome);
+    session.sessionTaskOutcome = aggregateOutcome;
+
+    try {
+      await streakService.processDailyStreak(userId, asOf, tz);
+    } catch (err) {
+      console.error("[sessionService] Failed to process streak on recordTaskOutcome:", err);
     }
 
     return session;

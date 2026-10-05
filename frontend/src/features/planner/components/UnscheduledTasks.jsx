@@ -6,12 +6,14 @@ import {
   Target,
   CheckCircle2,
   Calendar,
-  AlertTriangle,
+  Clock,
   ArrowRight,
 } from "lucide-react";
 import { Input } from "@/components/ui/input.jsx";
 import { Button } from "@/components/ui/button.jsx";
+import { Badge } from "@/components/ui/badge.jsx";
 import { PLACEHOLDERS } from "@/constants/placeholders.js";
+import { getTaskProductDate, getTaskScheduleInfo } from "@/utils/dateUtils.js";
 
 export default function UnscheduledTasks({
   tasks = [],
@@ -23,6 +25,8 @@ export default function UnscheduledTasks({
 }) {
   const [filterMode, setFilterMode] = useState("all"); // 'all' | 'planned' | 'unscheduled'
   const [searchQuery, setSearchQuery] = useState("");
+  const [defaultDuration, setDefaultDuration] = useState(60);
+  const [taskDurations, setTaskDurations] = useState({});
 
   const scheduledTaskIds = useMemo(() => {
     return new Set(
@@ -42,9 +46,8 @@ export default function UnscheduledTasks({
         return false;
       }
       if (filterMode === "planned") {
-        if (!t.plannedDate) return false;
-        const taskDateStr = new Date(t.plannedDate).toISOString().split("T")[0];
-        if (taskDateStr !== selectedDate) return false;
+        const taskDateStr = getTaskProductDate(t);
+        if (!taskDateStr || taskDateStr !== selectedDate) return false;
       }
 
       // Search Query
@@ -60,12 +63,13 @@ export default function UnscheduledTasks({
   }, [tasks, filterMode, scheduledTaskIds, selectedDate, searchQuery]);
 
   const handleDragStart = (e, task) => {
+    const duration = taskDurations[task._id] || defaultDuration;
     e.dataTransfer.setData(
       "application/json",
       JSON.stringify({
         type: "new_task",
         taskId: task._id,
-        durationMinutes: 60,
+        durationMinutes: duration,
       })
     );
     e.dataTransfer.effectAllowed = "copyMove";
@@ -144,6 +148,31 @@ export default function UnscheduledTasks({
             Planned
           </button>
         </div>
+
+        {/* Default duration presets for Task Queue */}
+        <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-0.5 px-0.5">
+          <span className="flex items-center gap-1 font-medium">
+            <Clock className="w-3 h-3 text-primary" />
+            <span>Duration:</span>
+          </span>
+          <div className="flex items-center gap-1">
+            {[15, 30, 45, 60, 90, 120].map((dur) => (
+              <button
+                key={dur}
+                type="button"
+                onClick={() => setDefaultDuration(dur)}
+                className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors ${
+                  defaultDuration === dur
+                    ? "bg-primary text-primary-foreground font-semibold"
+                    : "bg-secondary/60 text-muted-foreground hover:text-foreground"
+                }`}
+                title={`Set default scheduling duration to ${dur}m`}
+              >
+                {dur >= 60 ? `${dur / 60}h` : `${dur}m`}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Task List Area */}
@@ -160,10 +189,10 @@ export default function UnscheduledTasks({
             const isScheduled = scheduledTaskIds.has(task._id.toString());
             const goalTitle = task.goal ? goalsMap.get(task.goal.toString()) : null;
 
-            // Date mismatch warning indicator
-            const hasDateMismatch =
-              task.plannedDate &&
-              new Date(task.plannedDate).toISOString().split("T")[0] !== selectedDate;
+            // Canonical schedule info
+            const taskProductDate = getTaskProductDate(task);
+            const scheduleInfo = getTaskScheduleInfo(task);
+            const isDifferentDate = taskProductDate && taskProductDate !== selectedDate;
 
             return (
               <div
@@ -205,13 +234,13 @@ export default function UnscheduledTasks({
                         </span>
                       )}
 
-                      {hasDateMismatch && (
+                      {isDifferentDate && (
                         <span
-                          className="flex items-center gap-0.5 text-amber-500 font-medium"
-                          title={`Planned for ${new Date(task.plannedDate).toLocaleDateString()}`}
+                          className="flex items-center gap-1 text-[10px] font-medium text-sky-600 dark:text-sky-400 bg-sky-500/10 px-1.5 py-0.5 rounded"
+                          title={`Planned for ${scheduleInfo.label}`}
                         >
-                          <AlertTriangle className="w-2.5 h-2.5" />
-                          <span>Planned diff date</span>
+                          <Calendar className="w-2.5 h-2.5" />
+                          <span>{scheduleInfo.compactLabel}</span>
                         </span>
                       )}
 
@@ -224,15 +253,43 @@ export default function UnscheduledTasks({
                   </div>
                 </div>
 
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={() => onScheduleTask(task._id)}
-                  className="h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-1"
-                  title="Quick-schedule on timeline"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                </Button>
+                <div className="flex items-center gap-1 shrink-0 ml-1">
+                  <select
+                    value={taskDurations[task._id] || defaultDuration}
+                    onChange={(e) => {
+                      e.stopPropagation();
+                      setTaskDurations((prev) => ({
+                        ...prev,
+                        [task._id]: Number(e.target.value),
+                      }));
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="h-6 px-1 text-[10px] font-semibold rounded border border-border/50 bg-secondary/50 text-muted-foreground hover:text-foreground cursor-pointer focus:outline-none"
+                    title="Set scheduled block duration"
+                  >
+                    <option value={15}>15m</option>
+                    <option value={30}>30m</option>
+                    <option value={45}>45m</option>
+                    <option value={60}>1h</option>
+                    <option value={90}>1.5h</option>
+                    <option value={120}>2h</option>
+                  </select>
+
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() =>
+                      onScheduleTask(
+                        task._id,
+                        taskDurations[task._id] || defaultDuration
+                      )
+                    }
+                    className="h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary shrink-0"
+                    title={`Schedule for ${taskDurations[task._id] || defaultDuration} mins`}
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
               </div>
             );
           })

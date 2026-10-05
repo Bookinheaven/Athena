@@ -1,4 +1,5 @@
-import { useNavigate } from "react-router-dom";
+import { useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { usePlannerStore } from "../../../stores/plannerStore.js";
 import {
   usePlannerData,
@@ -19,6 +20,9 @@ import { Skeleton } from "@/components/ui/skeleton.jsx";
 
 export default function Planner() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const dateParam = searchParams.get("date");
+  const tabParam = searchParams.get("tab");
 
   const {
     activeTab,
@@ -29,7 +33,17 @@ export default function Planner() {
     setSelectedGoalId,
     selectedNoteId,
     setSelectedNoteId,
+    setSelectedDate,
   } = usePlannerStore();
+
+  useEffect(() => {
+    if (dateParam) {
+      setSelectedDate(dateParam);
+      setActiveTab(tabParam || "timeline");
+    } else if (tabParam) {
+      setActiveTab(tabParam);
+    }
+  }, [dateParam, tabParam, setSelectedDate, setActiveTab]);
 
   const {
     isLoading,
@@ -167,6 +181,7 @@ export default function Planner() {
                 onEditTask={actions.openEditTask}
                 onDeleteTask={actions.deleteTask}
                 onOpenCreateTask={() => actions.openCreateTask(null, false)}
+                onBatchUpdateTasks={actions.batchUpdateTasks}
               />
             )}
 

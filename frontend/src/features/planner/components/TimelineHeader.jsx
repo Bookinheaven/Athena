@@ -1,6 +1,8 @@
 import { useMemo } from "react";
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button.jsx";
+import { Badge } from "@/components/ui/badge.jsx";
+import { formatPlannerDateHeader } from "@/utils/dateUtils.js";
 
 export default function TimelineHeader({
   selectedDate,
@@ -8,22 +10,11 @@ export default function TimelineHeader({
   blocks = [],
   isSaving = false,
 }) {
-  const isToday = useMemo(() => {
-    const today = new Date().toISOString().split("T")[0];
-    return selectedDate === today;
+  const headerInfo = useMemo(() => {
+    return formatPlannerDateHeader(selectedDate);
   }, [selectedDate]);
 
-  const formattedDate = useMemo(() => {
-    if (!selectedDate) return "";
-    const [year, month, day] = selectedDate.split("-").map(Number);
-    const d = new Date(year, month - 1, day);
-    return d.toLocaleDateString("en-US", {
-      weekday: "long",
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-  }, [selectedDate]);
+  const isToday = headerInfo.relative === "Today";
 
   const totalScheduledMinutes = useMemo(() => {
     return blocks.reduce((acc, b) => acc + (b.durationMinutes || 0), 0);
@@ -84,8 +75,22 @@ export default function TimelineHeader({
             title="Jump to date"
           />
           <div className="flex items-center gap-2 px-3 py-1.5 bg-secondary/40 hover:bg-secondary/70 border border-border/40 rounded-xl transition-colors cursor-pointer text-xs font-medium text-foreground">
-            <CalendarIcon className="w-3.5 h-3.5 text-muted-foreground" />
-            <span className="font-semibold">{formattedDate}</span>
+            <CalendarIcon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+            {headerInfo.relative && (
+              <Badge
+                variant="secondary"
+                className={`text-[11px] font-semibold px-2 py-0.5 rounded-md ${
+                  headerInfo.relative === "Today"
+                    ? "bg-primary/10 text-primary border-primary/20"
+                    : headerInfo.relative === "Tomorrow"
+                    ? "bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20"
+                    : "bg-muted text-muted-foreground"
+                }`}
+              >
+                {headerInfo.relative}
+              </Badge>
+            )}
+            <span className="font-semibold">{headerInfo.calendar}</span>
           </div>
         </div>
       </div>

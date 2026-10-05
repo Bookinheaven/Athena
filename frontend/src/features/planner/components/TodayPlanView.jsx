@@ -12,8 +12,9 @@ import {
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card.jsx";
 import { Button } from "@/components/ui/button.jsx";
+import { Badge } from "@/components/ui/badge.jsx";
 import { Input } from "@/components/ui/input.jsx";
-import { isTaskPlannedForToday } from "@/utils/dateUtils.js";
+import { isTaskPlannedForToday, getTaskScheduleInfo } from "@/utils/dateUtils.js";
 import { PLACEHOLDERS } from "@/constants/placeholders.js";
 
 export default function TodayPlanView({
@@ -98,6 +99,9 @@ export default function TodayPlanView({
                       type="button"
                       onClick={() => onToggleStatus(task._id, task.status)}
                       className="shrink-0 text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none"
+                      aria-label={
+                        isCompleted ? "Mark task as incomplete" : "Mark task as complete"
+                      }
                     >
                       {isCompleted ? (
                         <CheckCircle2 className="w-5 h-5 text-primary" />
@@ -235,20 +239,38 @@ export default function TodayPlanView({
                 {unplannedTasks.length > 0 ? (
                   unplannedTasks.map((task) => {
                     const goalObj = goals.find((g) => g._id === task.goal);
+                    const scheduleInfo = getTaskScheduleInfo(task);
+
                     return (
                       <div
                         key={task._id}
                         className="p-3 bg-secondary/30 hover:bg-secondary/60 rounded-xl border border-border/40 transition-colors flex items-center justify-between gap-3 group"
                       >
-                        <div className="min-w-0 flex-1 space-y-0.5">
+                        <div className="min-w-0 flex-1 space-y-1">
                           <p className="text-xs font-medium text-foreground truncate">
                             {task.title}
                           </p>
-                          {goalObj && (
-                            <p className="text-[11px] text-muted-foreground truncate">
-                              {goalObj.title}
-                            </p>
-                          )}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {goalObj && (
+                              <span className="text-[11px] text-muted-foreground truncate max-w-[120px]">
+                                {goalObj.title}
+                              </span>
+                            )}
+                            {scheduleInfo.productDate && (
+                              <Badge
+                                variant="secondary"
+                                className={`text-[10px] font-medium px-1.5 py-0 h-4 rounded ${
+                                  scheduleInfo.isTomorrow
+                                    ? "bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20"
+                                    : scheduleInfo.isOverdue
+                                    ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
+                                    : "bg-secondary text-muted-foreground border-border"
+                                }`}
+                              >
+                                {scheduleInfo.compactLabel}
+                              </Badge>
+                            )}
+                          </div>
                         </div>
 
                         <Button
@@ -256,6 +278,7 @@ export default function TodayPlanView({
                           variant="secondary"
                           className="h-7 px-2.5 text-xs font-medium rounded-lg shrink-0 gap-1 bg-card hover:bg-primary hover:text-primary-foreground transition-colors"
                           onClick={() => onAddToToday(task._id)}
+                          title="Move to Today's Plan"
                         >
                           <Plus className="w-3 h-3" />
                           Add

@@ -102,10 +102,58 @@ export const SessionReview = ({
   onSkipReview,
   isSingleTask = false,
   taskTitle = null,
+  linkedTasks = [],
 }) => {
   const currentMood = reviewData?.mood || null;
   const currentFocus = reviewData?.focus || null;
-  const showTaskOutcome = isSingleTask || Boolean(taskTitle) || Boolean(reviewData?.isSingleTask) || Boolean(reviewData?.taskOutcome);
+
+  const isMultiTask = Boolean(linkedTasks && linkedTasks.length > 1);
+  const showSingleTaskOutcome =
+    !isMultiTask &&
+    (isSingleTask ||
+      (linkedTasks && linkedTasks.length === 1) ||
+      Boolean(reviewData?.taskOutcome) ||
+      (Boolean(taskTitle) && taskTitle !== "Quick Focus" && taskTitle !== "Focus Session"));
+
+  const singleTitle =
+    taskTitle ||
+    (linkedTasks && linkedTasks.length === 1 ? linkedTasks[0]?.title : null);
+
+  // Initialize multi-task outcomes based on checklist status if not set
+  useEffect(() => {
+    if (linkedTasks && linkedTasks.length > 1) {
+      const existing = reviewData?.taskOutcomes || {};
+      let hasChanges = false;
+      const initialMap = { ...existing };
+      for (const t of linkedTasks) {
+        const id = String(t.id);
+        if (!initialMap[id]) {
+          if (t.status === "Completed") {
+            initialMap[id] = "completed";
+            hasChanges = true;
+          } else if (t.status === "In Progress") {
+            initialMap[id] = "partially_completed";
+            hasChanges = true;
+          }
+        }
+      }
+      if (hasChanges) {
+        onUpdate("taskOutcomes", initialMap);
+      }
+    }
+  }, [linkedTasks]);
+
+  const handleSingleTaskOutcome = (value) => {
+    onUpdate("taskOutcome", value);
+    if (linkedTasks && linkedTasks.length === 1 && linkedTasks[0]?.id) {
+      onUpdate("taskOutcomes", { [linkedTasks[0].id]: value });
+    }
+  };
+
+  const handleMultiTaskOutcome = (taskId, value) => {
+    const current = reviewData?.taskOutcomes || {};
+    onUpdate("taskOutcomes", { ...current, [taskId]: value });
+  };
 
   // Parse preset tags and custom note from reviewData.distractions
   const { selectedTags, customNote: parsedCustomNote } = useMemo(
@@ -182,17 +230,84 @@ export const SessionReview = ({
       </div>
 
       <div className="space-y-6 sm:space-y-7">
+        {/* Multi-Task Outcome Section */}
+        {isMultiTask && (
+          <section className="space-y-3 p-4 rounded-2xl bg-secondary/30 border border-border/60">
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="text-xs sm:text-sm font-bold uppercase tracking-wider text-foreground block">
+                  Task Outcomes
+                </label>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {`Record the outcome for each linked task (${linkedTasks.length} tasks)`}
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-2.5 mt-1">
+              {linkedTasks.map((task) => {
+                const taskId = String(task.id);
+                const currentOutcome = reviewData?.taskOutcomes?.[taskId];
+
+                return (
+                  <div
+                    key={taskId}
+                    className="p-3 rounded-xl bg-background/80 border border-border/70 shadow-2xs space-y-2"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span
+                        className="text-xs font-semibold text-foreground truncate max-w-[220px] sm:max-w-xs"
+                        title={task.title}
+                      >
+                        {task.title}
+                      </span>
+                      {currentOutcome && (
+                        <span className="text-[10px] font-semibold text-primary capitalize px-1.5 py-0.5 rounded bg-primary/10 shrink-0">
+                          {currentOutcome.replace("_", " ")}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+                      {TASK_OUTCOME_OPTIONS.map(({ value, label, icon: Icon, activeClass }) => {
+                        const isSelected = currentOutcome === value;
+                        return (
+                          <button
+                            key={value}
+                            type="button"
+                            onClick={() => handleMultiTaskOutcome(taskId, value)}
+                            className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg border text-[11px] font-semibold transition-all duration-150 cursor-pointer ${
+                              isSelected
+                                ? `${activeClass} shadow-2xs ring-1 ring-primary/30`
+                                : "bg-secondary/40 border-border/60 text-muted-foreground hover:text-foreground hover:bg-secondary/80"
+                            }`}
+                          >
+                            <Icon className="w-3.5 h-3.5 shrink-0" strokeWidth={isSelected ? 2.5 : 2} />
+                            <span className="truncate leading-tight">
+                              {value === "partially_completed" ? "Partial" : label}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
         {/* Task Outcome Section (Single-Task Session) */}
-        {showTaskOutcome && (
+        {showSingleTaskOutcome && (
           <section className="space-y-3 p-4 rounded-2xl bg-secondary/30 border border-border/60">
             <div className="flex items-center justify-between">
               <div>
                 <label className="text-xs sm:text-sm font-bold uppercase tracking-wider text-foreground block">
                   How did this task go?
                 </label>
-                {taskTitle && (
+                {singleTitle && (
                   <p className="text-xs text-muted-foreground truncate max-w-xs mt-0.5">
-                    {taskTitle}
+                    {singleTitle}
                   </p>
                 )}
               </div>
@@ -210,7 +325,7 @@ export const SessionReview = ({
                   <button
                     key={value}
                     type="button"
-                    onClick={() => onUpdate("taskOutcome", value)}
+                    onClick={() => handleSingleTaskOutcome(value)}
                     className={`flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border text-xs font-semibold transition-all duration-200 cursor-pointer ${
                       isSelected
                         ? `${activeClass} shadow-2xs ring-1 ring-primary/30`

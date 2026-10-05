@@ -150,6 +150,22 @@ export const FocusWorkspace = ({
     [todos]
   );
 
+  const linkedTasks = useMemo(() => {
+    const rawIds = runtime?.state?.taskIds || [];
+    if (!rawIds.length) return [];
+    return rawIds.map((id) => {
+      const match =
+        todos?.find((t) => String(t.id || t._id) === String(id)) ||
+        notesProps?.tasks?.find((t) => String(t.id || t._id) === String(id));
+      return {
+        id: String(id),
+        title: match?.title || "Linked Task",
+        priority: match?.priority || "medium",
+        status: match?.status || "todo",
+      };
+    });
+  }, [runtime?.state?.taskIds, todos, notesProps?.tasks]);
+
   // Primary controls actions
   const handleStart = useCallback(() => {
     if (isIdle) {
@@ -286,11 +302,13 @@ export const FocusWorkspace = ({
                 isSubmitting={isSubmittingReview}
                 isDiscarded={runtime.state.completionType === "abandoned"}
                 onSkipReview={() => commands.stop()}
-                isSingleTask={Boolean(runtime?.state?.taskIds?.length === 1)}
+                isSingleTask={linkedTasks.length === 1}
+                linkedTasks={linkedTasks}
                 taskTitle={
+                  linkedTasks[0]?.title ||
                   todos?.find((t) => String(t.id || t._id) === String(runtime?.state?.taskIds?.[0]))?.title ||
                   notesProps?.tasks?.find((t) => String(t.id || t._id) === String(runtime?.state?.taskIds?.[0]))?.title ||
-                  runtime?.state?.sessionTitle
+                  (runtime?.state?.taskIds?.length === 0 ? null : runtime?.state?.sessionTitle)
                 }
               />
             )}

@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { getTodayProductDate } from "@/utils/dateUtils.js";
 
 /**
  * Planner Store
@@ -7,7 +8,7 @@ import { create } from "zustand";
  */
 export const usePlannerStore = create((set) => ({
   activeTab: "today", // 'today' | 'tasks' | 'goals' | 'notes'
-  selectedDate: new Date().toISOString().split("T")[0],
+  selectedDate: getTodayProductDate(),
   viewMode: "day", // 'day' | 'week' | 'month'
   selectedTaskId: null,
   selectedGoalId: null,
@@ -26,7 +27,7 @@ export const usePlannerStore = create((set) => ({
   reset: () =>
     set({
       activeTab: "today",
-      selectedDate: new Date().toISOString().split("T")[0],
+      selectedDate: getTodayProductDate(),
       viewMode: "day",
       selectedTaskId: null,
       selectedGoalId: null,

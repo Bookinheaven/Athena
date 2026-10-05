@@ -17,8 +17,12 @@ class SessionService extends RequestService {
     return this.request(`/session/${payload.sessionId}/feedback`, { method: "POST", body: payload.feedback })
   }
 
-  recordTaskOutcome(sessionId, taskOutcome) {
-    return this.request(`/session/${sessionId}/task-outcome`, { method: "POST", body: { taskOutcome } });
+  recordTaskOutcome(sessionId, outcomePayload) {
+    const body =
+      typeof outcomePayload === "object" && outcomePayload !== null
+        ? outcomePayload
+        : { taskOutcome: outcomePayload };
+    return this.request(`/session/${sessionId}/task-outcome`, { method: "POST", body });
   }
 
   getActiveSession() {
