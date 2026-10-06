@@ -7,6 +7,12 @@ class AdminService extends RequestService {
     });
   }
 
+  async getUserDetails(id) {
+    return this.request(`/admin/users/${id}`, {
+      method: "GET"
+    });
+  }
+
   async addUsers(data) {
     let response = await this.request("/admin/add", {
       method: "POST",
@@ -34,6 +40,37 @@ class AdminService extends RequestService {
       method: "GET"
     });
     return response;
+  }
+
+  async getDeveloperDatasets() {
+    return this.request("/admin/developer-data/datasets", { method: "GET" });
+  }
+
+  async previewDeveloperData(payload) {
+    return this.request("/admin/developer-data/preview", {
+      method: "POST",
+      body: payload
+    });
+  }
+
+  async generateDeveloperData(payload) {
+    return this.request("/admin/developer-data/generate", {
+      method: "POST",
+      body: payload
+    });
+  }
+
+  async addDataToUser(payload) {
+    return this.request("/admin/developer-data/add-to-user", {
+      method: "POST",
+      body: payload
+    });
+  }
+
+  async deleteDeveloperDataset(datasetId) {
+    return this.request(`/admin/developer-data/datasets/${datasetId}`, {
+      method: "DELETE"
+    });
   }
 }
 

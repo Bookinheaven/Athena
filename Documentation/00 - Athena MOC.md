@@ -21,6 +21,7 @@
 - [[Data Model]] — Complete MongoDB / Mongoose schema specifications, entity relations, and invariants.
 - [[State Ownership]] — Authoritative sources of truth across memory, local storage, and database.
 - [[API Architecture]] — RESTful endpoint catalogue, serialization contracts, and payload schemas.
+- [[Adaptive Intelligence Architecture]] — Behavioral signal inventory, derived features, deterministic and statistical adaptation layers.
 
 ---
 
@@ -58,6 +59,7 @@
 - [[Security]] — Authentication guards, mass-assignment prevention, multi-tenant ID isolation.
 - [[Persistence and Recovery]] — Route persistence, crash/reload recovery, serialized write queues.
 - [[Multi Account Isolation]] — Namespaced storage keys (`getUserScopedKey`), cross-account contamination defense.
+- [[Developer CLI Tools]] — Local database utilities for administrative role management (`set-admin`, `set-user`).
 - [[Testing]] — Vitest test suites, pure reducer verification, timer clock accuracy tests.
 - [[Known Issues]] — Documented system limitations, unpopulated fields, and semantic mismatches.
 

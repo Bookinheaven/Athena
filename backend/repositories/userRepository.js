@@ -89,6 +89,11 @@ class UserRepository {
     return toDomainUser(rows[0]);
   }
 
+  async findByUsername(username) {
+    if (!username) return null;
+    return this.findByUsernameLower(username.trim().toLowerCase());
+  }
+
   async findByEmailOrUsername(identifier) {
     if (!identifier) return null;
     const clean = identifier.trim();
@@ -157,8 +162,16 @@ class UserRepository {
       updatedAt: new Date(),
     };
 
+    if (updateData.username !== undefined) {
+      const cleanUsername = updateData.username.trim();
+      fieldsToSet.username = cleanUsername;
+      fieldsToSet.usernameLower = cleanUsername.toLowerCase();
+    }
     if (updateData.fullName !== undefined) {
       fieldsToSet.fullName = updateData.fullName.trim();
+    }
+    if (updateData.accountType !== undefined || updateData.type !== undefined) {
+      fieldsToSet.accountType = String(updateData.accountType || updateData.type).slice(0, 20);
     }
     if (updateData.isEmailVerified !== undefined) {
       fieldsToSet.isEmailVerified = Boolean(updateData.isEmailVerified);

@@ -18,6 +18,17 @@ class ScheduleService extends RequestService {
   }
 
   /**
+   * Get adaptive capacity alert for target date (C14 vs scheduled minutes)
+   */
+  getCapacityAlert(params = {}) {
+    const query = new URLSearchParams();
+    if (params.date) query.append("date", params.date);
+    const queryString = query.toString();
+    const endpoint = queryString ? `/schedule-block/capacity?${queryString}` : "/schedule-block/capacity";
+    return this.request(endpoint, { method: "GET" });
+  }
+
+  /**
    * Get single schedule block by ID
    */
   getScheduleBlock(id) {

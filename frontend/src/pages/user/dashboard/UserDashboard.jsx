@@ -34,7 +34,7 @@ const UserDashboard = () => {
   }
 
   return (
-    <div className="flex-1 bg-background text-foreground h-full overflow-y-auto">
+    <div className="flex-1 bg-background text-foreground">
       <div className="max-w-6xl mx-auto px-6 sm:px-8 md:px-10 py-8 lg:py-10 space-y-8 pb-24">
         {isLoading ? (
           <TodaySkeleton />

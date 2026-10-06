@@ -10,6 +10,7 @@ import {
   History,
   User,
   Settings,
+  Shield,
   Users,
   Keyboard,
   Moon,
@@ -101,6 +102,19 @@ const CommandPalette = ({
         shortcut: "G S",
         action: () => navigate("/settings"),
       },
+      ...(user?.type === "admin" || user?.accountType === "admin"
+        ? [
+            {
+              id: "nav-admin",
+              category: "Administration",
+              title: "Go to Admin Dashboard",
+              subtitle: "Manage users, inspect focus sessions, and view platform metrics",
+              icon: Shield,
+              shortcut: "G A",
+              action: () => navigate("/admin/dashboard"),
+            },
+          ]
+        : []),
       {
         id: "act-switch-acc",
         category: "System & Accounts",

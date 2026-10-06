@@ -1,6 +1,13 @@
 import scheduleBlockRepository from "../repositories/scheduleBlockRepository.js";
 import taskRepository from "../repositories/taskRepository.js";
+import dailyStatsRepository from "../repositories/dailyStatsRepository.js";
 import { parseDateRange, resolveUserTimezone, getProductDate } from "../utils/dateUtils.js";
+import {
+  calculateRollingCapacity,
+  calculatePlanningOverload,
+  getPrecedingDateWindow,
+  CAPACITY_WINDOW_DAYS,
+} from "../utils/capacityEngine.js";
 
 class ScheduleService {
   _createError(message, statusCode = 400) {
@@ -115,6 +122,52 @@ class ScheduleService {
 
   async deleteScheduleBlock(userId, blockId) {
     return scheduleBlockRepository.delete(userId, blockId);
+  }
+
+  /**
+   * Adaptive Intelligence: Planner Capacity Overload Alert
+   * Evaluates rolling capacity C14 vs scheduled minutes for target product date.
+   *
+   * @param {string} userId
+   * @param {string} [dateParam=null] Target product date or instant
+   * @param {string} [timezone=null]
+   * @returns {Promise<object>}
+   */
+  async getCapacityAlert(userId, dateParam = null, timezone = null) {
+    const tz = timezone || (await resolveUserTimezone(userId));
+    const targetProductDate = getProductDate(dateParam || new Date(), tz);
+    const { windowStart, windowEnd } = getPrecedingDateWindow(
+      targetProductDate,
+      CAPACITY_WINDOW_DAYS
+    );
+
+    // 1. Fetch historical daily stats in preceding 14-day window
+    const pastStats = await dailyStatsRepository.findByUserAndDateRange(
+      userId,
+      windowStart,
+      windowEnd
+    );
+
+    // 2. Fetch schedule blocks for the target product date
+    const blocks = await scheduleBlockRepository.findByUserAndDate(
+      userId,
+      targetProductDate
+    );
+
+    // 3. Compute total planned focus minutes (excluding skipped blocks)
+    const scheduledMinutes = blocks
+      .filter((b) => b.status !== "skipped")
+      .reduce((sum, b) => sum + (b.durationMinutes || 0), 0);
+
+    // 4. Compute rolling capacity C14
+    const capacityResult = calculateRollingCapacity(pastStats, targetProductDate);
+
+    // 5. Evaluate planning overload ratio O_day > 1.30
+    return calculatePlanningOverload(
+      scheduledMinutes,
+      capacityResult,
+      targetProductDate
+    );
   }
 }
 

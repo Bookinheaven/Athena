@@ -10,6 +10,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Command,
+  Shield,
 } from "lucide-react";
 import { useAuth } from "@contexts/AuthContext";
 import { useMultiAccount } from "@contexts/MultiAccountContext";
@@ -182,9 +183,16 @@ export const Topbar = () => {
                   </AvatarFallback>
                 </Avatar>
                 <div className="min-w-0">
-                  <p className="text-xs font-semibold text-foreground truncate leading-tight">
-                    {user?.fullName || user?.username || "Account"}
-                  </p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-xs font-semibold text-foreground truncate leading-tight">
+                      {user?.fullName || user?.username || "Account"}
+                    </p>
+                    {(user?.type === "admin" || user?.accountType === "admin") && (
+                      <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 bg-primary/15 text-primary rounded">
+                        Admin
+                      </span>
+                    )}
+                  </div>
                   <p className="text-[11px] text-muted-foreground truncate leading-tight mt-0.5">
                     {user?.email || "user@workspace"}
                   </p>
@@ -203,6 +211,13 @@ export const Topbar = () => {
               <SettingsIcon className="mr-2 h-3.5 w-3.5" />
               <span>Settings</span>
             </DropdownMenuItem>
+
+            {(user?.type === "admin" || user?.accountType === "admin") && (
+              <DropdownMenuItem onClick={() => navigate("/admin/dashboard")}>
+                <Shield className="mr-2 h-3.5 w-3.5 text-primary" />
+                <span className="font-medium text-foreground">Admin Dashboard</span>
+              </DropdownMenuItem>
+            )}
 
             <DropdownMenuSeparator />
 

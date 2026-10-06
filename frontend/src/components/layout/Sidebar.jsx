@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -6,6 +6,7 @@ import {
   Target,
   History,
   Settings,
+  Shield,
   LogOut,
 } from "lucide-react";
 import { useAuth } from "@contexts/AuthContext";
@@ -30,10 +31,6 @@ const mainNavItems = [
   { to: "/sessions", icon: History, label: "History" },
 ];
 
-const secondaryNavItems = [
-  { to: "/settings", icon: Settings, label: "Settings" },
-];
-
 const getInitials = (name) => {
   if (!name) return "U";
   return name.split(" ").map((p) => p[0]).join("").toUpperCase().slice(0, 2);
@@ -46,6 +43,14 @@ export const Sidebar = ({ className }) => {
   const userId = user?.id;
   const navigate = useNavigate();
   const location = useLocation();
+
+  const secondaryNavItems = useMemo(() => {
+    const items = [{ to: "/settings", icon: Settings, label: "Settings" }];
+    if (user?.type === "admin" || user?.accountType === "admin") {
+      items.push({ to: "/admin/dashboard", icon: Shield, label: "Admin" });
+    }
+    return items;
+  }, [user?.type, user?.accountType]);
 
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showSwitcherModal, setShowSwitcherModal] = useState(false);

@@ -2,7 +2,11 @@ import userRepository from "../repositories/userRepository.js";
 import streakRepository from "../repositories/streakRepository.js";
 import { getDrizzleDb } from "../db/index.js";
 import { sessions } from "../db/schema/sessions.js";
-import { count, desc } from "drizzle-orm";
+import { users } from "../db/schema/users.js";
+import { tasks } from "../db/schema/tasks.js";
+import { goals } from "../db/schema/goals.js";
+import { count, desc, eq, sql } from "drizzle-orm";
+import DeveloperDataService from "../services/developerDataService.js";
 
 class adminController {
   static async getUsers(req, res) {
@@ -148,6 +152,77 @@ class adminController {
     }
   }
 
+  static async getUserDetails(req, res) {
+    try {
+      const { id } = req.params;
+      const user = await userRepository.findById(id);
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: "User not found.",
+        });
+      }
+
+      const db = getDrizzleDb();
+      const [streak, sessionsStats, tasksStats, goalsStats, recentSessions, recentTasks] = await Promise.all([
+        streakRepository.findByUserId(user.id),
+        db
+          .select({
+            count: count(),
+            totalMinutes: sql`coalesce(sum(${sessions.totalFocusMinutes}), 0)`,
+          })
+          .from(sessions)
+          .where(eq(sessions.userId, user.id)),
+        db
+          .select({
+            count: count(),
+            completedCount: sql`coalesce(count(case when ${tasks.status} = 'completed' then 1 end), 0)`,
+          })
+          .from(tasks)
+          .where(eq(tasks.userId, user.id)),
+        db
+          .select({ count: count() })
+          .from(goals)
+          .where(eq(goals.userId, user.id)),
+        db
+          .select()
+          .from(sessions)
+          .where(eq(sessions.userId, user.id))
+          .orderBy(desc(sessions.createdAt))
+          .limit(8),
+        db
+          .select()
+          .from(tasks)
+          .where(eq(tasks.userId, user.id))
+          .orderBy(desc(tasks.createdAt))
+          .limit(8),
+      ]);
+
+      const { password, passwordHash, ...sanitizedUser } = user;
+
+      res.status(200).json({
+        success: true,
+        user: sanitizedUser,
+        streak: streak || null,
+        stats: {
+          totalSessions: Number(sessionsStats[0]?.count || 0),
+          totalFocusMinutes: Number(sessionsStats[0]?.totalMinutes || 0),
+          totalTasks: Number(tasksStats[0]?.count || 0),
+          completedTasks: Number(tasksStats[0]?.completedCount || 0),
+          totalGoals: Number(goalsStats[0]?.count || 0),
+        },
+        recentSessions: recentSessions || [],
+        recentTasks: recentTasks || [],
+      });
+    } catch (error) {
+      console.error("Error in getUserDetails:", error);
+      res.status(500).json({
+        success: false,
+        message: error.message,
+      });
+    }
+  }
+
   static async getSessions(req, res) {
     try {
       const page = Math.max(1, parseInt(req.query.page, 10) || 1);
@@ -157,14 +232,31 @@ class adminController {
       const db = getDrizzleDb();
       const [countResult, rows] = await Promise.all([
         db.select({ count: count() }).from(sessions),
-        db.select().from(sessions).orderBy(desc(sessions.createdAt)).offset(skip).limit(limit),
+        db
+          .select({
+            session: sessions,
+            userFullName: users.fullName,
+            username: users.username,
+            userEmail: users.email,
+          })
+          .from(sessions)
+          .leftJoin(users, eq(sessions.userId, users.id))
+          .orderBy(desc(sessions.createdAt))
+          .offset(skip)
+          .limit(limit),
       ]);
 
       const total = Number(countResult[0]?.count || 0);
 
+      const formatted = rows.map(({ session, userFullName, username, userEmail }) => ({
+        ...session,
+        userName: userFullName || username || "Unknown User",
+        userEmail: userEmail || "",
+      }));
+
       res.status(200).json({
         success: true,
-        sessions: rows,
+        sessions: formatted,
         pagination: {
           page,
           limit,
@@ -178,6 +270,56 @@ class adminController {
         message: "Server error while fetching session.",
         error: error.message,
       });
+    }
+  }
+
+  static async getDeveloperDatasets(req, res) {
+    try {
+      const datasets = await DeveloperDataService.getDatasets();
+      res.status(200).json({ success: true, datasets });
+    } catch (error) {
+      console.error("Error in getDeveloperDatasets:", error);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  }
+
+  static async previewDeveloperData(req, res) {
+    try {
+      const preview = await DeveloperDataService.preview(req.body);
+      res.status(200).json({ success: true, preview });
+    } catch (error) {
+      console.error("Error in previewDeveloperData:", error);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  }
+
+  static async generateDeveloperData(req, res) {
+    try {
+      const result = await DeveloperDataService.generate(req.body);
+      res.status(200).json(result);
+    } catch (error) {
+      console.error("Error in generateDeveloperData:", error);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  }
+
+  static async addDataToUser(req, res) {
+    try {
+      const result = await DeveloperDataService.addDataToUser(req.body);
+      res.status(200).json(result);
+    } catch (error) {
+      console.error("Error in addDataToUser:", error);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  }
+
+  static async deleteDeveloperDataset(req, res) {
+    try {
+      const result = await DeveloperDataService.deleteDataset(req.params.id);
+      res.status(200).json(result);
+    } catch (error) {
+      console.error("Error in deleteDeveloperDataset:", error);
+      res.status(500).json({ success: false, message: error.message });
     }
   }
 }
