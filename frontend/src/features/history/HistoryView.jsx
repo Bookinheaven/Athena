@@ -69,6 +69,20 @@ export function HistoryView() {
   const hasSessions = sessions?.length > 0;
   const sessionTotal = pagination.total ?? sessions.length;
 
+  const computedStats = useMemo(() => {
+    if (selectedDayStats?.totalFocusMinutes !== undefined && selectedDayStats?.totalFocusMinutes > 0) {
+      return selectedDayStats;
+    }
+    const liveFocusMinutes = (sessions || []).reduce((acc, s) => {
+      const mins = s.totalFocusMinutes ?? Math.round((s.duration || 0) / 60);
+      return acc + mins;
+    }, 0);
+    return {
+      ...(selectedDayStats || {}),
+      totalFocusMinutes: liveFocusMinutes > 0 ? liveFocusMinutes : (selectedDayStats?.totalFocusMinutes ?? 0),
+    };
+  }, [selectedDayStats, sessions]);
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Page container */}
@@ -109,7 +123,7 @@ export function HistoryView() {
             {/* Day summary */}
             <SelectedDaySummary
               productDate={selectedDate}
-              stats={selectedDayStats}
+              stats={computedStats}
               occurrenceCount={occurrences.length}
               sessionCount={sessionTotal}
             />

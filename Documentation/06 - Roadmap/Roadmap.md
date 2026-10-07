@@ -18,51 +18,28 @@ This document outlines development milestones across Athena, categorized into co
   - Corrected planned duration precedence from modal.
   - Eliminated reducer state leakage across session resets.
   - Corrected 45-minute continuous focus segment partitioning.
-- [x] **Session Review Overhaul:** Empathetic discard flow, numeric mood and focus depth scoring, custom distraction reflection.
-- [x] **Settings & Appearance V2:** 12 curated themes, zero-FOUC user-scoped persistence, retired obsolete settings.
+- [x] **Relational Database Migration:** Migrated database to PostgreSQL with Drizzle ORM schemas and strictly scoped repositories.
+- [x] **History V2 System:** Monday-first calendar grid, deterministic product date resolution, day state outcome evaluation, inline session telemetry, and task occurrence audit.
+- [x] **Adaptive Intelligence Engines:**
+  - `targetEngine.js` & `targetService.js`: 7-day rolling performance analysis with dynamic +5m / -5m target adjustments and freeze preservation.
+  - `capacityEngine.js`: Rolling median workload capacity calculation and 130% overload threshold warning.
+  - Developer Data Generation & Audit suite with 100% test validation.
+- [x] **Workspace Theme Engine (14 Themes):** Standard and Pro theme collections, zero-FOUC instant styling, adaptive previews, and user-scoped persistence.
 
 ---
 
 ## Phase 2: CURRENT (Active Development)
 
-- [/] **Focus Stabilization & Integration:**
-  - Final integration between Focus Scratchpad, session todos, and global task records.
-  - Edge-case testing on low-memory devices and network transitions.
-- [ ] **Technical Documentation:** Comprehensive Obsidian knowledge graph covering architecture, data models, and behavioral semantics.
+- [/] **Focus & Planner Hardening:**
+  - Active session multi-device continuity and recovery.
+  - Edge-case testing across varied local timezones and device boundaries.
+- [x] **Technical Documentation:** Comprehensive architecture, PostgreSQL data model, and feature knowledge graph.
 
 ---
 
 ## Phase 3: NEXT (Planned Horizon)
 
-The roadmap follows an explicit priority sequence:
-
-```text
-Focus Stabilization
-      ↓
-History (Chronological Aggregation)
-      ↓
-Daily Plan / Recurring Tasks / Outcomes
-      ↓
-Streak & Multi-State Activity Heatmap
-      ↓
-Insights (Telemetry Analysis)
-      ↓
-Data Collection Audit
-      ↓
-Final Domain & Behavioral Schema
-      ↓
-MongoDB → PostgreSQL Migration
-      ↓
-AI / Adaptive Planning Layer
-      ↓
-Contextual Persona Extensions (Student, Dev, Academic)
-```
-
-1. **[[History]]:** Multi-dimensional chronological review (daily, weekly, monthly sessions and completed tasks).
-2. **[[Daily Outcome Model]]:** Formalizing occurrence-level task planning, neutral rescheduling, and planned work streak logic.
-3. **[[Streaks and Daily Stats]]:** Upgrading streak heatmap to LeetCode-style multi-state visualization.
-4. **[[Insights]]:** Automated diagnosis of focus patterns, distraction frequency, and planning accuracy.
-5. **[[Data Collection Audit]]:** Rigorous audit of collected telemetry to establish the final domain model.
-6. **Database Migration:** Migrating MongoDB to relational PostgreSQL once domain schemas are locked.
-7. **[[AI Direction]]:** Adaptive daily targets and scheduling assistance powered by real behavioral data.
-8. **[[Personas and Contexts]]:** Domain extensions for students, software engineers, and researchers.
+1. **[[Insights]]:** Automated diagnosis of deep work patterns, peak focus windows, distraction frequency, and planning accuracy.
+2. **Multi-State Activity Heatmap:** Upgraded LeetCode / GitHub-style multi-tier activity visualization.
+3. **[[Personas and Contexts]]:** Domain-specific templates and behavioral modules for students, software engineers, and researchers.
+4. **Machine Learning Behavioral Intelligence:** Next-generation predictive schedule block recommendations and fatigue forecasting.

@@ -17,8 +17,8 @@
 ## 02. Architecture
 - [[System Architecture]] — Client-server boundaries, technology stack, and macro system flow.
 - [[Frontend Architecture]] — React 19, Vite, routing tree, route-persistent runtime, state hierarchy.
-- [[Backend Architecture]] — Express API, layered Controller-Service-Model architecture, middleware chain.
-- [[Data Model]] — Complete MongoDB / Mongoose schema specifications, entity relations, and invariants.
+- [[Backend Architecture]] — Express 5 API, layered Controller-Service-Repository architecture, middleware chain.
+- [[Data Model]] — Relational PostgreSQL / Drizzle ORM schema specifications, entity relations, and invariants.
 - [[State Ownership]] — Authoritative sources of truth across memory, local storage, and database.
 - [[API Architecture]] — RESTful endpoint catalogue, serialization contracts, and payload schemas.
 - [[Adaptive Intelligence Architecture]] — Behavioral signal inventory, derived features, deterministic and statistical adaptation layers.
@@ -28,7 +28,7 @@
 ## 03. Features
 - [[Authentication]] — JWT cookies, bcrypt hashing, email OTP verification, password reset flows.
 - [[Profile]] — User identity management, security boundaries, allowlisted fields.
-- [[Settings]] — User preferences, scoped configuration, theme engine, retired legacy options.
+- [[Settings]] — User preferences, scoped configuration, 14-theme engine, retired legacy options.
 - [[Today]] — Execution command center, Next Action derivation, planned work filtering, progress metrics.
 - [[Tasks]] — Task entity lifecycle, ordering, priorities, date semantics, limitations.
 - [[Goals]] — Strategic milestones, task association, and hierarchy.
@@ -38,8 +38,9 @@
 - [[Focus Runtime]] — Authoritative state machine (`focusReducer`), pure timer clock (`WallClockTimer`), persistence queue.
 - [[Sessions]] — Focus session entity, segment progression, pause accounting, completion semantics.
 - [[Session Review]] — Post-session reflection, mood and focus depth scoring, distraction analysis, discard flow.
+- [[History]] — History V2: Monday-first calendar grid, day state outcomes, inline session breakdown, task occurrences.
 - [[Notes]] — Scratchpad and knowledge capture, task-context linking, auto-save pipeline.
-- [[Streaks and Daily Stats]] — Habit consistency engine, freeze mechanism, evaluation thresholds, known date mismatch.
+- [[Streaks and Daily Stats]] — Habit consistency engine, freeze mechanism, evaluation thresholds.
 
 ---
 

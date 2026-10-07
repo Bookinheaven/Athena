@@ -1,4 +1,5 @@
-import { eq, and, desc, asc, sql, inArray, gte, lte, lt } from "drizzle-orm";
+import { eq, and, or, desc, asc, sql, inArray, gte, lte, lt } from "drizzle-orm";
+import { productDateToStart, productDateToEnd, normalizeTimezone } from "../utils/dateUtils.js";
 import { getDrizzleDb, getPgPool } from "../db/index.js";
 import { sessions } from "../db/schema/sessions.js";
 import { sessionTasks } from "../db/schema/sessionTasks.js";
@@ -121,6 +122,8 @@ async function hydrateSession(db, sessionRow) {
     duration: sessionRow.durationSeconds ?? sessionRow.duration_seconds ?? 0,
     totalFocusMinutes: sessionRow.totalFocusMinutes ?? sessionRow.total_focus_minutes ?? 0,
     totalBreakMinutes: sessionRow.totalBreakMinutes ?? sessionRow.total_break_minutes ?? 0,
+    createdAt: sessionRow.createdAt || sessionRow.created_at,
+    updatedAt: sessionRow.updatedAt || sessionRow.updated_at,
     sessionStats: {
       pauseCount: sessionRow.pauseCount ?? sessionRow.pause_count ?? pausesRows.length,
       totalPauseDuration: sessionRow.totalPauseDurationSeconds ?? sessionRow.total_pause_duration_seconds ?? 0,
@@ -726,12 +729,37 @@ class SessionRepository {
       }
     }
     if (query.startDate) {
-      conditions.push(gte(sessions.startedAt, new Date(query.startDate)));
-    }
-    if (query.endDate) {
-      const endStr = String(query.endDate);
-      const endDate = endStr.includes("T") ? new Date(endStr) : new Date(`${endStr}T23:59:59.999Z`);
-      conditions.push(lte(sessions.startedAt, endDate));
+      const tz = normalizeTimezone(query.timezone || "UTC");
+      const isDateOnly = (str) => typeof str === "string" && /^\d{4}-\d{2}-\d{2}$/.test(str);
+
+      const startUtc = isDateOnly(query.startDate)
+        ? productDateToStart(query.startDate, tz)
+        : new Date(query.startDate);
+
+      const endParam = query.endDate || query.startDate;
+      const endUtc = isDateOnly(endParam)
+        ? productDateToEnd(endParam, tz)
+        : (String(endParam).includes("T") ? new Date(endParam) : new Date(`${endParam}T23:59:59.999Z`));
+
+      const dateMatches = [
+        and(gte(sessions.startedAt, startUtc), lte(sessions.startedAt, endUtc)),
+        and(gte(sessions.createdAt, startUtc), lte(sessions.createdAt, endUtc)),
+      ];
+
+      if (isDateOnly(query.startDate)) {
+        if (query.startDate === endParam) {
+          dateMatches.push(eq(sessions.snapshotScheduleDate, query.startDate));
+        } else {
+          dateMatches.push(
+            and(
+              gte(sessions.snapshotScheduleDate, query.startDate),
+              lte(sessions.snapshotScheduleDate, endParam)
+            )
+          );
+        }
+      }
+
+      conditions.push(or(...dateMatches));
     }
 
     const whereClause = and(...conditions);

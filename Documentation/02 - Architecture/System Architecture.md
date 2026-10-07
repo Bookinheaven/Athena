@@ -1,6 +1,6 @@
 # System Architecture
 
-Athena is engineered as a decoupled, multi-tiered client-server system. It couples an asynchronous web and desktop frontend with a RESTful Node.js API and document-oriented MongoDB persistence.
+Athena is engineered as a decoupled, multi-tiered client-server system. It couples an asynchronous web and desktop frontend with a RESTful Node.js API and relational PostgreSQL persistence managed through Drizzle ORM.
 
 ---
 
@@ -19,14 +19,15 @@ graph TB
         WS[WebSocket / Socket.io]
     end
 
-    subgraph Application Tier ["Application Tier (Node.js / Express)"]
+    subgraph Application Tier ["Application Tier (Node.js / Express 5)"]
         MW[Auth, CORS & Rate-Limit Middleware]
         Controllers[Domain Controllers]
-        Services[Business Logic Services]
+        Services[Business Logic & Intelligence Engines]
+        Repos[Data Access Repositories]
     end
 
     subgraph Data Tier ["Data Tier"]
-        Mongo[(MongoDB 7+ / Mongoose)]
+        Postgres[(PostgreSQL 15+ / Drizzle ORM)]
     end
 
     UI <--> Runtime
@@ -36,7 +37,8 @@ graph TB
     HTTP --> MW
     MW --> Controllers
     Controllers --> Services
-    Services --> Mongo
+    Services --> Repos
+    Repos --> Postgres
 ```
 
 ---
@@ -60,15 +62,20 @@ graph TB
 - **Real-Time Sockets:** Socket.io server initialized in `backend/config/socket.js` for lightweight event dispatch.
 
 ### 3. Application Tier (Backend)
-- **Framework:** Express on Node.js (ES modules).
-- **Design Pattern:** Strictly layered `Route → Middleware → Controller → Service → Model`.
-- **Stateless Execution:** Server processes maintain no in-memory session locks. Any server instance can fulfill any user request via stateless JWT validation against MongoDB.
+- **Framework:** Express 5 on Node.js (ES modules).
+- **Design Pattern:** Strictly layered `Route → Middleware → Controller → Service → Repository → Database`.
+- **Stateless Execution:** Server processes maintain no in-memory session locks. Any server instance can fulfill any user request via stateless JWT validation against PostgreSQL.
+- **Engines:**
+  - `targetEngine.js` & `targetService.js`: Adaptive 7-day rolling target adjustment.
+  - `capacityEngine.js`: Rolling median workload capacity & 130% overload detection.
 
 ### 4. Persistence Tier
-- **Database:** MongoDB configured through Mongoose schemas.
-- **Indexes:** Compound indexes enforced on high-frequency queries:
-  - `Session`: `{ sessionId: 1, userId: 1 }` (unique), `{ userId: 1, createdAt: -1 }`, `{ scheduleBlockId: 1, userId: 1 }`.
-  - `ScheduleBlock`: `{ userId: 1, date: 1 }`, `{ taskId: 1, userId: 1 }`, `{ sessionId: 1, userId: 1 }`.
-  - `Task`: `{ user: 1, status: 1 }`, `{ goal: 1 }`.
-  - `DailyStats`: `{ userId: 1, date: 1 }`.
-  - `Streak`: `{ userId: 1 }` (unique).
+- **Database:** PostgreSQL (15+) configured through Drizzle ORM schema definitions in `backend/db/schema/`.
+- **Primary Entities:**
+  - `users`: Core profile, credentials, preferences JSONB, timezone.
+  - `tasks` & `taskOccurrences`: Canonical tasks and calendar-date occurrence snapshots.
+  - `scheduleBlocks`: Time blocks linked to tasks and focus sessions.
+  - `sessions`, `sessionSegments`, `sessionPauseEvents`, `sessionFeedback`: Hardware-accurate focus telemetry.
+  - `streaks` & `dailyStats`: Daily habit progression, freeze records, and performance metrics.
+  - `goals` & `notes`: Strategic containers and Tiptap rich notes.
+

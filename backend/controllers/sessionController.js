@@ -131,7 +131,8 @@ class SessionController {
   async getHistory(req, res) {
     try {
       const userId = req.user.id;
-      const history = await SessionService.history(userId, req.query);
+      const timezone = req.timezone || req.headers["x-timezone"] || req.user?.timezone || "UTC";
+      const history = await SessionService.history(userId, { ...req.query, timezone });
       res.status(200).json({ success: true, ...history });
     } catch (error) {
       console.error("Error in getHistory:", error);
