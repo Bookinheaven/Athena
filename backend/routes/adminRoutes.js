@@ -20,6 +20,8 @@ router.get('/developer-data/datasets', adminAuth, AdminController.getDeveloperDa
 router.post('/developer-data/preview', adminAuth, AdminController.previewDeveloperData);
 router.post('/developer-data/generate', adminAuth, AdminController.generateDeveloperData);
 router.post('/developer-data/add-to-user', adminAuth, AdminController.addDataToUser);
+router.post('/developer-data/validate', adminAuth, AdminController.validateDeveloperData);
+router.post('/developer-data/cleanup-user', adminAuth, AdminController.cleanupDeveloperData);
 router.delete('/developer-data/datasets/:id', adminAuth, AdminController.deleteDeveloperDataset);
 
 export default router;

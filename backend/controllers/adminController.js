@@ -322,6 +322,28 @@ class adminController {
       res.status(500).json({ success: false, message: error.message });
     }
   }
+
+  static async validateDeveloperData(req, res) {
+    try {
+      const { userId } = req.body;
+      const result = await DeveloperDataService.validateUserData(userId);
+      res.status(200).json(result);
+    } catch (error) {
+      console.error("Error in validateDeveloperData:", error);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  }
+
+  static async cleanupDeveloperData(req, res) {
+    try {
+      const { userId } = req.body;
+      const result = await DeveloperDataService.cleanupUserData(userId);
+      res.status(200).json(result);
+    } catch (error) {
+      console.error("Error in cleanupDeveloperData:", error);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  }
 }
 
 export default adminController;

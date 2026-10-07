@@ -414,6 +414,7 @@ export function useFocusRuntime({ context = {}, settings = {}, onSoundEvent, use
 
       case EFFECTS.PATCH_TITLE:
         queueRef.current?.enqueue('title', payload);
+        queueRef.current?.flush();
         break;
 
       case EFFECTS.PATCH_TODOS:

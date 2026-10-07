@@ -53,6 +53,8 @@ const UserDashboard = () => {
                 targetMinutes={progress.targetMinutes}
                 progressPercent={progress.progressPercent}
                 remainingMinutes={progress.remainingMinutes}
+                adaptiveTarget={progress.adaptiveTarget}
+                onApplyTarget={actions.handleApplyTarget}
               />
               <StreakSummary
                 streakDays={streak.streakDays}

@@ -194,6 +194,20 @@ export const useTodayData = () => {
     [todayTasks.length]
   );
 
+  const handleApplyTarget = useCallback(
+    async (targetMinutes = null) => {
+      try {
+        await StreakService.applyAdaptiveTarget(targetMinutes);
+        await loadData();
+        return true;
+      } catch (err) {
+        console.error("Failed to apply adaptive target:", err);
+        return false;
+      }
+    },
+    [loadData]
+  );
+
   return {
     isLoading,
     isError,
@@ -215,6 +229,7 @@ export const useTodayData = () => {
       targetMinutes,
       progressPercent,
       remainingMinutes,
+      adaptiveTarget: data.streak?.adaptiveTarget || null,
     },
     streak: {
       streakDays,
@@ -226,6 +241,7 @@ export const useTodayData = () => {
       handleStartFocus,
       handleToggleTaskStatus,
       handleQuickAddTask,
+      handleApplyTarget,
     },
   };
 };

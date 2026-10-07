@@ -67,6 +67,20 @@ class AdminService extends RequestService {
     });
   }
 
+  async validateDeveloperData(userId) {
+    return this.request("/admin/developer-data/validate", {
+      method: "POST",
+      body: { userId }
+    });
+  }
+
+  async cleanupDeveloperData(userId) {
+    return this.request("/admin/developer-data/cleanup-user", {
+      method: "POST",
+      body: { userId }
+    });
+  }
+
   async deleteDeveloperDataset(datasetId) {
     return this.request(`/admin/developer-data/datasets/${datasetId}`, {
       method: "DELETE"

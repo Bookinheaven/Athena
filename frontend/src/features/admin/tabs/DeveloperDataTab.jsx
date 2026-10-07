@@ -19,7 +19,8 @@ import {
   ChevronRight,
   UserCheck,
   Search,
-  X
+  X,
+  ShieldCheck
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -138,6 +139,9 @@ export function DeveloperDataTab({ targetUserId }) {
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [isInjecting, setIsInjecting] = useState(false);
   const [previewResult, setPreviewResult] = useState(null);
+  const [isValidating, setIsValidating] = useState(false);
+  const [validationResult, setValidationResult] = useState(null);
+  const [isCleaning, setIsCleaning] = useState(false);
 
   useEffect(() => {
     if (targetUserId) {
@@ -257,6 +261,7 @@ export function DeveloperDataTab({ targetUserId }) {
       if (result?.success) {
         toast.success(result.message || 'Developer data generated successfully!');
         setPreviewResult(null);
+        setValidationResult(null);
         // refresh seed
         setSeed(Math.floor(Math.random() * 100000).toString());
       } else {
@@ -266,6 +271,53 @@ export function DeveloperDataTab({ targetUserId }) {
       toast.error('Error adding data to user.');
     } finally {
       setIsInjecting(false);
+    }
+  };
+
+  const handleValidateUser = async () => {
+    if (!selectedUserId) {
+      toast.error('Please select a target user.');
+      return;
+    }
+    setIsValidating(true);
+    setValidationResult(null);
+    try {
+      const res = await adminService.validateDeveloperData(selectedUserId);
+      setValidationResult(res);
+      if (res?.valid) {
+        toast.success('Validation passed: Dataset integrity verified.');
+      } else {
+        toast.error(res?.message || 'Validation failed: Issues detected.');
+      }
+    } catch (err) {
+      toast.error('Error running validator.');
+    } finally {
+      setIsValidating(false);
+    }
+  };
+
+  const handleCleanupUser = async () => {
+    if (!selectedUserId) {
+      toast.error('Please select a target user.');
+      return;
+    }
+    if (!window.confirm('Delete all developer-generated records for this user? Real user data will be preserved.')) {
+      return;
+    }
+    setIsCleaning(true);
+    try {
+      const res = await adminService.cleanupDeveloperData(selectedUserId);
+      if (res?.success) {
+        toast.success(res.message);
+        setValidationResult(null);
+        setPreviewResult(null);
+      } else {
+        toast.error(res.message || 'Cleanup failed.');
+      }
+    } catch (err) {
+      toast.error('Error during cleanup.');
+    } finally {
+      setIsCleaning(false);
     }
   };
 
@@ -611,18 +663,18 @@ export function DeveloperDataTab({ targetUserId }) {
               </div>
             </div>
 
-            {/* Actions: [ Preview ] button */}
-            <div className="pt-2 flex items-center gap-3">
+            {/* Actions: [ Preview ] [ Validate Data ] [ Clear Dev Data ] */}
+            <div className="pt-2 flex flex-wrap items-center gap-2.5">
               <Button
                 type="button"
                 onClick={handlePreview}
                 disabled={isPreviewing || isInjecting || !selectedUserId}
-                className="h-9 font-mono text-xs font-semibold px-5"
+                className="h-9 font-mono text-xs font-semibold px-4"
               >
                 {isPreviewing ? (
                   <>
                     <Loader2 className="size-3.5 animate-spin mr-1.5" />
-                    Calculating...
+                    Simulating...
                   </>
                 ) : (
                   <>
@@ -632,10 +684,40 @@ export function DeveloperDataTab({ targetUserId }) {
                 )}
               </Button>
 
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleValidateUser}
+                disabled={isValidating || !selectedUserId}
+                className="h-9 font-mono text-xs font-semibold px-3.5 border-border/60 hover:bg-muted/30"
+              >
+                {isValidating ? (
+                  <Loader2 className="size-3.5 animate-spin mr-1.5" />
+                ) : (
+                  <ShieldCheck className="size-3.5 mr-1.5 text-primary" />
+                )}
+                Validate
+              </Button>
+
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={handleCleanupUser}
+                disabled={isCleaning || !selectedUserId}
+                className="h-9 font-mono text-xs font-semibold px-3 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10"
+              >
+                {isCleaning ? (
+                  <Loader2 className="size-3.5 animate-spin mr-1.5" />
+                ) : (
+                  <Trash2 className="size-3.5 mr-1.5" />
+                )}
+                Clear Dev Data
+              </Button>
+
               <button
                 type="button"
                 onClick={() => setSeed(Math.floor(Math.random() * 100000).toString())}
-                className="font-mono text-[10px] text-muted-foreground/60 hover:text-muted-foreground transition-colors flex items-center gap-1"
+                className="ml-auto font-mono text-[10px] text-muted-foreground/60 hover:text-muted-foreground transition-colors flex items-center gap-1"
                 title="Randomize seed"
               >
                 <RefreshCw className="size-3" />
@@ -643,6 +725,48 @@ export function DeveloperDataTab({ targetUserId }) {
               </button>
             </div>
           </div>
+
+          {/* ── Validation Results Display ── */}
+          {validationResult && (
+            <div className="rounded-xl border border-border/50 bg-card/90 backdrop-blur-sm overflow-hidden p-5 space-y-4 shadow-sm animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="flex items-center justify-between border-b border-border/30 pb-3">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className={cn("size-4", validationResult.valid ? "text-emerald-400" : "text-destructive")} />
+                  <span className="font-mono text-xs font-bold uppercase tracking-wider">
+                    Developer Dataset Validation
+                  </span>
+                </div>
+                <span
+                  className={cn(
+                    "font-mono text-[10px] font-bold uppercase px-2 py-0.5 rounded border",
+                    validationResult.valid
+                      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                      : "border-destructive/30 bg-destructive/10 text-destructive"
+                  )}
+                >
+                  {validationResult.summary}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 font-mono text-[11px]">
+                {Object.entries(validationResult.checks || {}).map(([key, check]) => (
+                  <div key={key} className="flex items-start gap-2 p-2.5 rounded-lg bg-muted/10 border border-border/20">
+                    {check.passed ? (
+                      <CheckCircle2 className="size-3.5 text-emerald-400 shrink-0 mt-0.5" />
+                    ) : (
+                      <AlertCircle className="size-3.5 text-destructive shrink-0 mt-0.5" />
+                    )}
+                    <div className="min-w-0">
+                      <p className="font-semibold text-foreground capitalize">
+                        {key.replace(/([A-Z])/g, " $1")}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground truncate">{check.details}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* ── Preview Result Display ── */}
           {previewResult && (

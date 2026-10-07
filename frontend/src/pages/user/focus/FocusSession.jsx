@@ -62,6 +62,7 @@ const FocusSession = () => {
     onAddTodo,
     onUpdateTodoStatus,
     onDeleteTodo,
+    onUpdateTodoTitle,
   } = useFocusTasks({ runtime });
 
   // Scratchpad notes
@@ -88,6 +89,7 @@ const FocusSession = () => {
       onAddTodo={onAddTodo}
       onUpdateTodoStatus={onUpdateTodoStatus}
       onDeleteTodo={onDeleteTodo}
+      onUpdateTodoTitle={onUpdateTodoTitle}
       sessionReview={sessionReview}
       onReviewUpdate={handleReviewUpdate}
       onDistractionToggle={handleDistractionToggle}

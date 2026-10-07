@@ -15,7 +15,24 @@ class StreakService extends RequestService {
     const query = new URLSearchParams({ year, month }).toString();
     return this.request(`/streak/monthly?${query}`, { method: "GET" });
   }
-  
+
+  async getAdaptiveTarget() {
+    return this.request("/streak/adaptive-target", { method: "GET" });
+  }
+
+  async applyAdaptiveTarget(targetMinutes = null) {
+    return this.request("/streak/adaptive-target/apply", {
+      method: "POST",
+      body: targetMinutes !== null ? { targetMinutes } : {},
+    });
+  }
+
+  async updateTargetSettings(data = {}) {
+    return this.request("/streak/target-settings", {
+      method: "PUT",
+      body: data,
+    });
+  }
 }
 
 export default new StreakService()

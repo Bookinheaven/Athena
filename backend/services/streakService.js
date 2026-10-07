@@ -2,6 +2,12 @@ import streakRepository from "../repositories/streakRepository.js";
 import dailyStatsRepository from "../repositories/dailyStatsRepository.js";
 import taskOccurrenceRepository from "../repositories/taskOccurrenceRepository.js";
 import taskOccurrenceService from "./taskOccurrenceService.js";
+import sessionRepository from "../repositories/sessionRepository.js";
+import {
+  calculateAdaptiveTarget,
+  formatTargetRecommendation,
+  getPrecedingDateWindow,
+} from "../utils/targetEngine.js";
 import {
   toStartOfDayUTC,
   isSameDay,
@@ -104,6 +110,7 @@ class StreakService {
   async getSummaryData(userId, asOfDate = new Date(), timezone = null) {
     const streakData = await this.processDailyStreak(userId, asOfDate, timezone);
     const streak = await streakRepository.findByUserId(userId);
+    const adaptiveTarget = await this.evaluateAdaptiveTarget(userId, asOfDate, timezone).catch(() => null);
 
     return {
       currentStreak: streak?.currentStreak ?? 0,
@@ -116,6 +123,7 @@ class StreakService {
       maxTargetMinutes: streak?.maxTargetMinutes ?? 90,
       lastTargetReason: streak?.lastTargetReason ?? "no_change",
       lastCountedDate: streak?.lastCountedDate ?? null,
+      adaptiveTarget,
       ...streakData,
     };
   }
@@ -319,6 +327,175 @@ class StreakService {
     const endPDate = `${parsedYear}-${monthStr}-${String(daysInMonth).padStart(2, "0")}`;
 
     return await dailyStatsRepository.findByUserAndDateRange(userId, startPDate, endPDate).catch(() => []);
+  }
+
+  /**
+   * Evaluates the adaptive focus target recommendation based on historical consistency.
+   *
+   * @param {string} userId
+   * @param {Date | string} [asOfDate=new Date()]
+   * @param {string} [timezone=null]
+   * @returns {Promise<object>}
+   */
+  async evaluateAdaptiveTarget(userId, asOfDate = new Date(), timezone = null) {
+    const tz = timezone || (await resolveUserTimezone(userId));
+    const targetProductDate = getProductDate(asOfDate, tz);
+
+    let streak = await streakRepository.findByUserId(userId).catch(() => null);
+    if (!streak) {
+      streak = (await streakRepository.createForUser(userId).catch(() => null)) || {
+        dailyTargetMinutes: 25,
+        minTargetMinutes: 20,
+        maxTargetMinutes: 90,
+      };
+    }
+
+    const { windowStart, windowEnd } = getPrecedingDateWindow(targetProductDate, 14);
+    const pastStats = await dailyStatsRepository
+      .findByUserAndDateRange(userId, windowStart, windowEnd)
+      .catch(() => []);
+
+    const decision = calculateAdaptiveTarget(pastStats, targetProductDate, {
+      currentTargetMinutes: streak.dailyTargetMinutes ?? 25,
+      minTargetMinutes: streak.minTargetMinutes ?? 20,
+      maxTargetMinutes: streak.maxTargetMinutes ?? 90,
+    });
+
+    const projection = formatTargetRecommendation(decision);
+
+    return {
+      ...decision,
+      ...projection,
+      lastTargetReason: streak.lastTargetReason || "no_change",
+    };
+  }
+
+  /**
+   * Applies or accepts the adaptive daily target recommendation.
+   *
+   * SAFETY GUARANTEE:
+   * Target changes are strictly rejected if an active focus session is running.
+   *
+   * @param {string} userId
+   * @param {number|null} [requestedTarget=null]
+   * @param {string} [timezone=null]
+   * @returns {Promise<object>}
+   */
+  async applyAdaptiveTarget(userId, requestedTarget = null, timezone = null) {
+    const tz = timezone || (await resolveUserTimezone(userId));
+
+    // Safety guard: Reject changes during active Focus sessions
+    const activeSession = await sessionRepository.findActiveSession(userId).catch(() => null);
+    if (activeSession) {
+      const err = new Error("Daily focus target cannot be modified during an active Focus session.");
+      err.statusCode = 409;
+      throw err;
+    }
+
+    let streak = await streakRepository.findByUserId(userId);
+    if (!streak) {
+      streak = await streakRepository.createForUser(userId);
+    }
+
+    let newTarget;
+    let reason;
+
+    if (requestedTarget === null || requestedTarget === undefined) {
+      const recommendation = await this.evaluateAdaptiveTarget(userId, new Date(), tz);
+      newTarget = recommendation.proposedTargetMinutes;
+      reason =
+        recommendation.direction === "increase"
+          ? "increase_consistency"
+          : recommendation.direction === "decrease"
+          ? "decrease_burnout"
+          : "no_change";
+    } else {
+      const targetNum = Math.round(Number(requestedTarget));
+      if (isNaN(targetNum) || targetNum <= 0) {
+        const err = new Error("Target minutes must be a positive integer.");
+        err.statusCode = 400;
+        throw err;
+      }
+      const min = streak.minTargetMinutes ?? 20;
+      const max = streak.maxTargetMinutes ?? 90;
+      newTarget = Math.max(min, Math.min(targetNum, max));
+      reason =
+        newTarget > streak.dailyTargetMinutes
+          ? "increase_consistency"
+          : newTarget < streak.dailyTargetMinutes
+          ? "decrease_burnout"
+          : "no_change";
+    }
+
+    const updatedStreak = await streakRepository.update(userId, {
+      dailyTargetMinutes: newTarget,
+      lastTargetReason: reason,
+    });
+
+    // Synchronize today's DailyStats if it exists
+    const todayProductDate = getProductDate(new Date(), tz);
+    await dailyStatsRepository.upsert(userId, todayProductDate, {
+      dailyTargetMinutes: newTarget,
+    });
+
+    const recommendation = await this.evaluateAdaptiveTarget(userId, new Date(), tz);
+
+    return {
+      streak: updatedStreak,
+      dailyTargetMinutes: newTarget,
+      lastTargetReason: reason,
+      recommendation,
+    };
+  }
+
+  /**
+   * User-controlled target configuration (bounds & current target).
+   *
+   * @param {string} userId
+   * @param {object} settings
+   * @returns {Promise<object>}
+   */
+  async updateTargetSettings(userId, settings = {}) {
+    const activeSession = await sessionRepository.findActiveSession(userId).catch(() => null);
+    if (activeSession) {
+      const err = new Error("Target settings cannot be modified during an active Focus session.");
+      err.statusCode = 409;
+      throw err;
+    }
+
+    let streak = await streakRepository.findByUserId(userId);
+    if (!streak) {
+      streak = await streakRepository.createForUser(userId);
+    }
+
+    const updatePayload = {};
+
+    let min = settings.minTargetMinutes !== undefined
+      ? Math.max(5, Math.round(Number(settings.minTargetMinutes)))
+      : (streak.minTargetMinutes ?? 20);
+
+    let max = settings.maxTargetMinutes !== undefined
+      ? Math.max(min, Math.round(Number(settings.maxTargetMinutes)))
+      : (streak.maxTargetMinutes ?? 90);
+
+    if (min > max) {
+      const err = new Error("Minimum target cannot be greater than maximum target.");
+      err.statusCode = 400;
+      throw err;
+    }
+
+    updatePayload.minTargetMinutes = min;
+    updatePayload.maxTargetMinutes = max;
+
+    if (settings.dailyTargetMinutes !== undefined) {
+      const requested = Math.round(Number(settings.dailyTargetMinutes));
+      updatePayload.dailyTargetMinutes = Math.max(min, Math.min(requested, max));
+    } else {
+      updatePayload.dailyTargetMinutes = Math.max(min, Math.min(streak.dailyTargetMinutes, max));
+    }
+
+    const updated = await streakRepository.update(userId, updatePayload);
+    return updated;
   }
 }
 

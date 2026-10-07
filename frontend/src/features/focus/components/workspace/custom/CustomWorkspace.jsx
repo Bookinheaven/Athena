@@ -60,6 +60,7 @@ export const CustomWorkspace = ({
   setNewTodo,
   onAddTodo,
   onUpdateTodoStatus,
+  onUpdateTodoTitle,
   onDeleteTodo,
   sessionReview,
   onDistractionToggle,
@@ -409,12 +410,25 @@ export const CustomWorkspace = ({
   const completedBreakSegments = segments.filter((s) => s.type === "break" && s.completedAt).length;
 
   const activeTaskTitle = useMemo(() => {
-    if (state.taskIds?.length > 0) {
-      const task = todos.find((t) => String(t.id) === String(state.taskIds[0]));
-      return task?.title ?? navContext?.title ?? sessionTitle;
+    if (sessionTitle && sessionTitle !== "Untitled Work") {
+      return sessionTitle;
     }
-    return sessionTitle;
-  }, [state.taskIds, todos, navContext?.title, sessionTitle]);
+    if (state.taskIds?.length > 0) {
+      const task = todos?.find((t) => String(t.id || t._id) === String(state.taskIds[0]));
+      if (task?.title) return task.title;
+    }
+    return navContext?.title || sessionTitle || "Focus Session";
+  }, [sessionTitle, state.taskIds, todos, navContext?.title]);
+
+  const handleUpdateTitle = (newTitle) => {
+    const trimmed = newTitle?.trim();
+    if (!trimmed) return;
+    commands.setTitle(trimmed);
+    const linkedTaskId = state.taskIds?.[0];
+    if (linkedTaskId && onUpdateTodoTitle) {
+      onUpdateTodoTitle(linkedTaskId, trimmed);
+    }
+  };
 
   // Render individual widget contents directly as clean content surfaces
   const renderWidgetContent = (widgetId) => {
@@ -424,7 +438,7 @@ export const CustomWorkspace = ({
           <div className="p-3 sm:p-5 h-full flex flex-col justify-center">
             <FocusTaskCard
               taskTitle={activeTaskTitle}
-              setTaskTitle={(t) => commands.setTitle(t)}
+              setTaskTitle={handleUpdateTitle}
               navContext={navContext}
               isScheduled={state.isScheduled}
               scheduleBlock={state.scheduleBlockId}
