@@ -6,7 +6,9 @@ import {
   useFocusTasks,
   useNotes,
   FocusWorkspace,
+  ActiveSessionPromptModal,
 } from "@/features/focus";
+import toast from "react-hot-toast";
 
 const FocusSession = () => {
   const location = useLocation();
@@ -35,7 +37,9 @@ const FocusSession = () => {
   );
 
   // If arriving with navigation context and runtime can accept new session (idle or completed)
-  const canStartNew = runtime.isIdle || runtime.isCompleted;
+  // Must NOT trigger while active session decision prompt is open!
+  const canStartNew =
+    (runtime.isIdle || runtime.isCompleted) && !runtime.pendingSessionPrompt;
 
   useEffect(() => {
     if (navContext && canStartNew && navContextHandledRef.current !== navContext) {
@@ -68,35 +72,57 @@ const FocusSession = () => {
   // Scratchpad notes
   const { notes, createNote, updateNote, deleteNote } = useNotes();
 
+  const handleResumePrompt = () => {
+    runtime.commands.resolveSessionPrompt("resume");
+    toast.success("Resumed in-progress session");
+  };
+
+  const handleStartNewPrompt = () => {
+    runtime.commands.resolveSessionPrompt("new");
+    toast.success("Started fresh session");
+  };
+
   return (
-    <FocusWorkspace
-      userId={userId}
-      runtime={runtime}
-      timerData={{ elapsed, timeLeft }}
-      settings={settings}
-      modifySettings={modifySettings}
-      resetSettings={resetSettings}
-      notesProps={{
-        notes,
-        tasks: allTasks,
-        createNote,
-        updateNote,
-        deleteNote,
-      }}
-      todos={todos}
-      newTodo={newTodo}
-      setNewTodo={setNewTodo}
-      onAddTodo={onAddTodo}
-      onUpdateTodoStatus={onUpdateTodoStatus}
-      onDeleteTodo={onDeleteTodo}
-      onUpdateTodoTitle={onUpdateTodoTitle}
-      sessionReview={sessionReview}
-      onReviewUpdate={handleReviewUpdate}
-      onDistractionToggle={handleDistractionToggle}
-      onFinalSaveAndStartNew={handleFinalSaveAndStartNew}
-      isSubmittingReview={isSubmittingReview}
-      navContext={navContext}
-    />
+    <>
+      <FocusWorkspace
+        userId={userId}
+        runtime={runtime}
+        timerData={{ elapsed, timeLeft }}
+        settings={settings}
+        modifySettings={modifySettings}
+        resetSettings={resetSettings}
+        notesProps={{
+          notes,
+          tasks: allTasks,
+          createNote,
+          updateNote,
+          deleteNote,
+        }}
+        todos={todos}
+        newTodo={newTodo}
+        setNewTodo={setNewTodo}
+        onAddTodo={onAddTodo}
+        onUpdateTodoStatus={onUpdateTodoStatus}
+        onDeleteTodo={onDeleteTodo}
+        onUpdateTodoTitle={onUpdateTodoTitle}
+        sessionReview={sessionReview}
+        onReviewUpdate={handleReviewUpdate}
+        onDistractionToggle={handleDistractionToggle}
+        onFinalSaveAndStartNew={handleFinalSaveAndStartNew}
+        isSubmittingReview={isSubmittingReview}
+        navContext={navContext}
+      />
+
+      {/* Cross-device / Reopened Session Choice Modal */}
+      {runtime.pendingSessionPrompt && (
+        <ActiveSessionPromptModal
+          session={runtime.pendingSessionPrompt.session}
+          incomingContext={runtime.pendingSessionPrompt.incomingContext}
+          onResume={handleResumePrompt}
+          onStartNew={handleStartNewPrompt}
+        />
+      )}
+    </>
   );
 };
 

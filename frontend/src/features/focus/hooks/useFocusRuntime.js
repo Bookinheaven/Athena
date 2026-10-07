@@ -1,4 +1,4 @@
-import { useReducer, useRef, useCallback, useEffect } from 'react';
+import { useState, useReducer, useRef, useCallback, useEffect } from 'react';
 import { PHASES, EVENTS, EFFECTS } from '../runtime/constants.js';
 import { transition, INITIAL_STATE } from '../runtime/focusReducer.js';
 import { WallClockTimer } from '../runtime/timerClock.js';
@@ -39,6 +39,9 @@ export function useFocusRuntime({ context = {}, settings = {}, onSoundEvent, use
     makeReducer(effectsAccumRef),
     INITIAL_STATE,
   );
+
+  // Active session conflict/recovery prompt state (cross-device or reopened tab)
+  const [pendingSessionPrompt, setPendingSessionPrompt] = useState(null);
 
   // Stable refs
   const timerRef = useRef(null);   // WallClockTimer instance
@@ -290,13 +293,35 @@ export function useFocusRuntime({ context = {}, settings = {}, onSoundEvent, use
               return;
             }
 
+            const isExplicitResume = Boolean(contextRef.current?.resume);
             const hasExplicitNewTask = Boolean(
               contextRef.current?.source &&
               (contextRef.current?.title || contextRef.current?.taskIds?.length)
             );
 
-            if (session?.status === 'active' && !hasExplicitNewTask) {
-              dispatch({ type: EVENTS.SESSION_LOADED, payload: { session } });
+            // Check if segments are all complete
+            const segments = session?.sessionSegments || [];
+            const allComplete = segments.length > 0 && segments.every((s) => s.completedAt);
+
+            if (session?.status === 'active' && !allComplete) {
+              if (isExplicitResume) {
+                dispatch({ type: EVENTS.SESSION_LOADED, payload: { session } });
+              } else {
+                // Prompt user to choose between continuing or starting fresh
+                setPendingSessionPrompt({
+                  session,
+                  incomingContext: contextRef.current || null,
+                  hasExplicitNewTask,
+                });
+                // Calmly transition from LOADING to IDLE so the workspace renders behind the prompt
+                dispatch({
+                  type: EVENTS.NO_SESSION,
+                  payload: {
+                    context: contextRef.current,
+                    existingSessionToAbandon: null, // Do not abandon until user explicitly confirms!
+                  },
+                });
+              }
             } else {
               dispatch({
                 type: EVENTS.NO_SESSION,
@@ -597,6 +622,7 @@ export function useFocusRuntime({ context = {}, settings = {}, onSoundEvent, use
   // and there is no existing backend session, we want to auto-start immediately
   // (matching the current behaviour where Today/Planner pre-created the session).
   useEffect(() => {
+    if (pendingSessionPrompt) return; // Do not auto-start while user decision is pending!
     if (runtimeState.phase !== PHASES.IDLE) return;
     const src = runtimeState.source;
     if (!src || src === 'direct') return;
@@ -616,7 +642,7 @@ export function useFocusRuntime({ context = {}, settings = {}, onSoundEvent, use
         startedAtIso: new Date().toISOString(),
       },
     });
-  }, [runtimeState.phase, runtimeState.source, dispatch]);
+  }, [pendingSessionPrompt, runtimeState.phase, runtimeState.source, dispatch]);
 
   // Immediate recalculation on visibility / focus resume
   useEffect(() => {
@@ -758,6 +784,28 @@ export function useFocusRuntime({ context = {}, settings = {}, onSoundEvent, use
         payload: { context: navCtx },
       });
     }, [dispatch]),
+
+    // Resolve active session prompt (resume existing or start fresh)
+    resolveSessionPrompt: useCallback((choice) => {
+      setPendingSessionPrompt((currentPrompt) => {
+        if (!currentPrompt) return null;
+        const { session, incomingContext } = currentPrompt;
+
+        if (choice === 'resume') {
+          dispatch({ type: EVENTS.SESSION_LOADED, payload: { session } });
+        } else {
+          // Abandon existing session on backend and initialize new session
+          dispatch({
+            type: EVENTS.NO_SESSION,
+            payload: {
+              context: incomingContext,
+              existingSessionToAbandon: session,
+            },
+          });
+        }
+        return null;
+      });
+    }, [dispatch]),
   };
 
   // Derived helpers
@@ -784,6 +832,9 @@ export function useFocusRuntime({ context = {}, settings = {}, onSoundEvent, use
     isIdle: runtimeState.phase === PHASES.IDLE,
     isCompleted: runtimeState.phase === PHASES.COMPLETED,
     isCompleting: runtimeState.phase === PHASES.COMPLETING,
+
+    // Active session conflict/recovery prompt
+    pendingSessionPrompt,
 
     // Timer ref (for display hook)
     timerRef,
