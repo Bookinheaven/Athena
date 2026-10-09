@@ -18,7 +18,11 @@ class TaskService extends RequestService {
   }
   
   deleteTask(taskId) {
-    return this.request(`/task/${taskId}`, { method: "DELETE" })
+    return this.request(`/task/${taskId}`, { method: "DELETE" });
+  }
+
+  getTaskFriction(taskId) {
+    return this.request(`/task/${taskId}/friction`, { method: "GET" });
   }
 }
 

@@ -139,6 +139,12 @@ export default class DeveloperDataService {
         notes.push("Recent days trigger Planning Overload (> 1.30x capacity).");
         notes.push("5-8 planned tasks daily with elevated reschedule outcomes.");
         break;
+      case "repeated_deferral":
+      case "task_friction":
+        notes.push("Targeted evaluation scenarios for Task Friction & Repeated Deferral.");
+        notes.push("Produces normal, repeatedly rescheduled, low-focus, and high-focus tasks.");
+        notes.push("Enables deterministic verification of advisory friction diagnostics.");
+        break;
       case "custom":
         notes.push("Custom parameters based on selected activity level.");
         break;
@@ -476,6 +482,10 @@ export default class DeveloperDataService {
       .where(eq(sessions.userId, targetUser.id));
 
     const hasActiveSession = existingSessions.some((s) => s.status === "active");
+
+    if (profile === "repeated_deferral" || profile === "task_friction") {
+      return await this.generateTaskFrictionScenarios(targetUser.id, { timezone: tz });
+    }
 
     // Run deterministic timeline simulation
     const sim = this.simulateTimeline({
@@ -1258,6 +1268,369 @@ export default class DeveloperDataService {
       message: `Generated test dataset '${datasetId}' with ${generatedUsers.length} test user account(s).`,
       datasetId,
       userCount: generatedUsers.length,
+    };
+  }
+
+  /**
+   * Generates deterministic task friction / repeated deferral scenarios:
+   * 1. Normal task (1 pending occurrence on today, 0 reschedules, 0 focus)
+   * 2. Repeated-reschedule task with 0 focus (3 reschedules + 0 focus)
+   * 3. Repeated-reschedule task with low focus (3 reschedules + 7m focus)
+   * 4. Repeated-reschedule task with high focus (3 reschedules + 25m focus)
+   * 5. Completed task with previous reschedules (3 reschedules + 1 completed occurrence, completed status)
+   * 6. Newly created task with insufficient history (0 occurrences, 0 focus)
+   *
+   * All scenarios naturally produce underlying PostgreSQL rows (tasks, task_occurrences, sessions, session_tasks).
+   * Zero synthetic diagnostic flags are inserted.
+   */
+  static async generateTaskFrictionScenarios(userId, options = {}) {
+    const targetUser = await userRepository.findById(userId);
+    if (!targetUser) {
+      return { success: false, message: "Target user not found." };
+    }
+
+    const db = getDrizzleDb();
+    const tz = options.timezone || getUserTimezone(targetUser);
+    const now = new Date();
+    const todayProductDate = getProductDate(now, tz);
+    const [tY, tM, tD] = todayProductDate.split("-").map(Number);
+    const todayUtc = new Date(Date.UTC(tY, tM - 1, tD));
+
+    const dateMinus = (days) => {
+      const d = new Date(todayUtc.getTime() - days * 86400000);
+      return d.toISOString().slice(0, 10);
+    };
+
+    const dMinus1 = dateMinus(1);
+    const dMinus2 = dateMinus(2);
+    const dMinus3 = dateMinus(3);
+    const dMinus4 = dateMinus(4);
+
+    const createdTasks = [];
+
+    // Helper to insert session + sessionTask
+    const createSessionForTask = async (task, pDate, durationMinutes) => {
+      const durationSeconds = durationMinutes * 60;
+      const startOfDay = productDateToStart(pDate, tz);
+      const sessionStart = new Date(startOfDay.getTime() + 14 * 3600 * 1000);
+      const sessionEnd = new Date(sessionStart.getTime() + durationSeconds * 1000);
+      const clientSessionId = `dev-friction-${targetUser.id.substring(0, 8)}-${pDate.replace(/-/g, "")}-${task.id.substring(0, 6)}`;
+
+      const [sess] = await db
+        .insert(sessions)
+        .values({
+          clientSessionId,
+          userId: targetUser.id,
+          title: `Focus Session: ${task.title.slice(0, 50)}`,
+          sessionType: "task",
+          status: "completed",
+          completionType: "completed",
+          sessionTaskOutcome: "partially_completed",
+          startedAt: sessionStart,
+          endedAt: sessionEnd,
+          plannedDurationSeconds: durationSeconds,
+          durationSeconds: durationSeconds,
+          totalFocusMinutes: durationMinutes,
+          totalBreakMinutes: 0,
+          snapshotScheduleDate: pDate,
+        })
+        .returning();
+
+      if (sess) {
+        await db.insert(sessionTasks).values({
+          sessionId: sess.id,
+          taskId: task.id,
+          sortOrder: 0,
+          snapshotTitle: task.title,
+          snapshotPriority: task.priority || "medium",
+        });
+      }
+      return sess;
+    };
+
+    // 1. Normal task
+    const [task1] = await db
+      .insert(tasks)
+      .values({
+        userId: targetUser.id,
+        title: "[dev-data] Normal Task: Review architecture draft",
+        description: "[dev-data] Task with normal scheduling and no repeated deferrals.",
+        status: "todo",
+        priority: "medium",
+        orderIndex: 0,
+        plannedProductDate: todayProductDate,
+      })
+      .returning();
+    if (task1) {
+      await db.insert(taskOccurrences).values({
+        userId: targetUser.id,
+        taskId: task1.id,
+        productDate: todayProductDate,
+        outcome: "pending",
+        snapshotTitle: task1.title,
+        snapshotPriority: task1.priority,
+        notes: "[dev-data] Scheduled for today",
+      });
+      createdTasks.push({ task: task1, scenario: "normal" });
+    }
+
+    // 2. Repeated-reschedule task (zero focus)
+    const [task2] = await db
+      .insert(tasks)
+      .values({
+        userId: targetUser.id,
+        title: "[dev-data] Repeatedly Rescheduled: Finalize quarterly tax report",
+        description: "[dev-data] Task rescheduled 3 times with 0 minutes of focus time.",
+        status: "todo",
+        priority: "high",
+        orderIndex: 1,
+        plannedProductDate: todayProductDate,
+      })
+      .returning();
+    if (task2) {
+      await db.insert(taskOccurrences).values([
+        {
+          userId: targetUser.id,
+          taskId: task2.id,
+          productDate: dMinus3,
+          outcome: "rescheduled",
+          rescheduledToDate: dMinus2,
+          snapshotTitle: task2.title,
+          snapshotPriority: task2.priority,
+          notes: "[dev-data] Rescheduled",
+        },
+        {
+          userId: targetUser.id,
+          taskId: task2.id,
+          productDate: dMinus2,
+          outcome: "rescheduled",
+          rescheduledToDate: dMinus1,
+          snapshotTitle: task2.title,
+          snapshotPriority: task2.priority,
+          notes: "[dev-data] Rescheduled",
+        },
+        {
+          userId: targetUser.id,
+          taskId: task2.id,
+          productDate: dMinus1,
+          outcome: "rescheduled",
+          rescheduledToDate: todayProductDate,
+          snapshotTitle: task2.title,
+          snapshotPriority: task2.priority,
+          notes: "[dev-data] Rescheduled",
+        },
+        {
+          userId: targetUser.id,
+          taskId: task2.id,
+          productDate: todayProductDate,
+          outcome: "pending",
+          snapshotTitle: task2.title,
+          snapshotPriority: task2.priority,
+          notes: "[dev-data] Currently pending",
+        },
+      ]);
+      createdTasks.push({ task: task2, scenario: "repeated_deferral_zero_focus" });
+    }
+
+    // 3. Repeated-reschedule + low-focus task (<10m focus: 7 minutes)
+    const [task3] = await db
+      .insert(tasks)
+      .values({
+        userId: targetUser.id,
+        title: "[dev-data] Repeated Deferral (Low Focus): Refactor auth middleware pipeline",
+        description: "[dev-data] Task rescheduled 3 times with 7 minutes of focus recorded.",
+        status: "todo",
+        priority: "high",
+        orderIndex: 2,
+        plannedProductDate: todayProductDate,
+      })
+      .returning();
+    if (task3) {
+      await db.insert(taskOccurrences).values([
+        {
+          userId: targetUser.id,
+          taskId: task3.id,
+          productDate: dMinus3,
+          outcome: "rescheduled",
+          rescheduledToDate: dMinus2,
+          snapshotTitle: task3.title,
+          snapshotPriority: task3.priority,
+          notes: "[dev-data] Rescheduled",
+        },
+        {
+          userId: targetUser.id,
+          taskId: task3.id,
+          productDate: dMinus2,
+          outcome: "rescheduled",
+          rescheduledToDate: dMinus1,
+          snapshotTitle: task3.title,
+          snapshotPriority: task3.priority,
+          notes: "[dev-data] Rescheduled",
+        },
+        {
+          userId: targetUser.id,
+          taskId: task3.id,
+          productDate: dMinus1,
+          outcome: "rescheduled",
+          rescheduledToDate: todayProductDate,
+          snapshotTitle: task3.title,
+          snapshotPriority: task3.priority,
+          notes: "[dev-data] Rescheduled",
+        },
+        {
+          userId: targetUser.id,
+          taskId: task3.id,
+          productDate: todayProductDate,
+          outcome: "pending",
+          snapshotTitle: task3.title,
+          snapshotPriority: task3.priority,
+          notes: "[dev-data] Currently pending",
+        },
+      ]);
+      await createSessionForTask(task3, dMinus2, 7);
+      createdTasks.push({ task: task3, scenario: "repeated_deferral_low_focus" });
+    }
+
+    // 4. Repeated-reschedule + high-focus task (>=10m focus: 25 minutes)
+    const [task4] = await db
+      .insert(tasks)
+      .values({
+        userId: targetUser.id,
+        title: "[dev-data] Repeated Deferral (High Focus): Design database sharding cluster",
+        description: "[dev-data] Task rescheduled 3 times with 25 minutes of focus recorded.",
+        status: "todo",
+        priority: "medium",
+        orderIndex: 3,
+        plannedProductDate: todayProductDate,
+      })
+      .returning();
+    if (task4) {
+      await db.insert(taskOccurrences).values([
+        {
+          userId: targetUser.id,
+          taskId: task4.id,
+          productDate: dMinus3,
+          outcome: "rescheduled",
+          rescheduledToDate: dMinus2,
+          snapshotTitle: task4.title,
+          snapshotPriority: task4.priority,
+          notes: "[dev-data] Rescheduled",
+        },
+        {
+          userId: targetUser.id,
+          taskId: task4.id,
+          productDate: dMinus2,
+          outcome: "rescheduled",
+          rescheduledToDate: dMinus1,
+          snapshotTitle: task4.title,
+          snapshotPriority: task4.priority,
+          notes: "[dev-data] Rescheduled",
+        },
+        {
+          userId: targetUser.id,
+          taskId: task4.id,
+          productDate: dMinus1,
+          outcome: "rescheduled",
+          rescheduledToDate: todayProductDate,
+          snapshotTitle: task4.title,
+          snapshotPriority: task4.priority,
+          notes: "[dev-data] Rescheduled",
+        },
+        {
+          userId: targetUser.id,
+          taskId: task4.id,
+          productDate: todayProductDate,
+          outcome: "pending",
+          snapshotTitle: task4.title,
+          snapshotPriority: task4.priority,
+          notes: "[dev-data] Currently pending",
+        },
+      ]);
+      await createSessionForTask(task4, dMinus1, 25);
+      createdTasks.push({ task: task4, scenario: "repeated_deferral_high_focus" });
+    }
+
+    // 5. Completed task with previous reschedules
+    const [task5] = await db
+      .insert(tasks)
+      .values({
+        userId: targetUser.id,
+        title: "[dev-data] Completed Task: Migrate user profile schema",
+        description: "[dev-data] Task previously rescheduled 3 times, now completed.",
+        status: "completed",
+        priority: "low",
+        orderIndex: 4,
+        plannedProductDate: dMinus1,
+      })
+      .returning();
+    if (task5) {
+      await db.insert(taskOccurrences).values([
+        {
+          userId: targetUser.id,
+          taskId: task5.id,
+          productDate: dMinus4,
+          outcome: "rescheduled",
+          rescheduledToDate: dMinus3,
+          snapshotTitle: task5.title,
+          snapshotPriority: task5.priority,
+          notes: "[dev-data] Rescheduled",
+        },
+        {
+          userId: targetUser.id,
+          taskId: task5.id,
+          productDate: dMinus3,
+          outcome: "rescheduled",
+          rescheduledToDate: dMinus2,
+          snapshotTitle: task5.title,
+          snapshotPriority: task5.priority,
+          notes: "[dev-data] Rescheduled",
+        },
+        {
+          userId: targetUser.id,
+          taskId: task5.id,
+          productDate: dMinus2,
+          outcome: "rescheduled",
+          rescheduledToDate: dMinus1,
+          snapshotTitle: task5.title,
+          snapshotPriority: task5.priority,
+          notes: "[dev-data] Rescheduled",
+        },
+        {
+          userId: targetUser.id,
+          taskId: task5.id,
+          productDate: dMinus1,
+          outcome: "completed",
+          completedAt: new Date(todayUtc.getTime() - 86400000 + 15 * 3600 * 1000),
+          snapshotTitle: task5.title,
+          snapshotPriority: task5.priority,
+          notes: "[dev-data] Completed",
+        },
+      ]);
+      await createSessionForTask(task5, dMinus1, 5);
+      createdTasks.push({ task: task5, scenario: "completed_with_reschedules" });
+    }
+
+    // 6. Newly created task with insufficient history (0 occurrences)
+    const [task6] = await db
+      .insert(tasks)
+      .values({
+        userId: targetUser.id,
+        title: "[dev-data] New Task: Draft project roadmap outline",
+        description: "[dev-data] Newly created unscheduled task with zero occurrence history.",
+        status: "todo",
+        priority: "medium",
+        orderIndex: 5,
+        plannedProductDate: null,
+      })
+      .returning();
+    if (task6) {
+      createdTasks.push({ task: task6, scenario: "insufficient_history" });
+    }
+
+    return {
+      success: true,
+      message: `Generated 6 deterministic task friction scenarios for ${targetUser.fullName || targetUser.username}.`,
+      tasks: createdTasks,
     };
   }
 }

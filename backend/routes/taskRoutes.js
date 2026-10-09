@@ -11,6 +11,7 @@ router.post("/", taskController.createTask);
 
 router.patch("/reorder", taskController.reorderTasks);
 
+router.get("/:id/friction", taskController.getTaskFriction);
 router.patch("/:id", taskController.updateTask);
 router.delete("/:id", taskController.deleteTask);
 

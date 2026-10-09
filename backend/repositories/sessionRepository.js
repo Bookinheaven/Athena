@@ -804,6 +804,28 @@ class SessionRepository {
       .where(eq(sessionTasks.taskId, cleanTaskId));
     return Number(rows[0]?.count) > 0;
   }
+
+  async getFocusSecondsForTask(userId, taskId) {
+    const cleanUserId = normalizeUserId(userId);
+    const cleanTaskId = normalizeTaskId(taskId);
+    if (!cleanUserId || !cleanTaskId) return 0;
+
+    const pool = getPgPool();
+    const query = `
+      SELECT COALESCE(SUM(s.duration_seconds), 0)::int AS total_focus_seconds
+      FROM (
+        SELECT DISTINCT s.id, s.duration_seconds
+        FROM sessions s
+        LEFT JOIN session_tasks st ON st.session_id = s.id
+        LEFT JOIN schedule_blocks sb ON sb.id = s.schedule_block_id
+        WHERE s.user_id = $1
+          AND s.duration_seconds > 0
+          AND (st.task_id = $2 OR sb.task_id = $2)
+      ) s
+    `;
+    const res = await pool.query(query, [cleanUserId, cleanTaskId]);
+    return Number(res.rows[0]?.total_focus_seconds || 0);
+  }
 }
 
 export const sessionRepository = new SessionRepository();

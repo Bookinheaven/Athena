@@ -16,10 +16,13 @@ import {
   CalendarDays,
   Inbox,
   X,
+  RefreshCw,
+  HelpCircle,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card.jsx";
 import { Button } from "@/components/ui/button.jsx";
 import { Badge } from "@/components/ui/badge.jsx";
+import TaskFrictionBadge from "./TaskFrictionBadge.jsx";
 import {
   isTaskPlannedForToday,
   getTaskScheduleInfo,
@@ -28,6 +31,7 @@ import {
   formatDisplayDate,
 } from "@/utils/dateUtils.js";
 import scheduleService from "../../../../services/scheduleService.js";
+import taskService from "../../../../services/taskService.js";
 import { Input } from "@/components/ui/input.jsx";
 import { PLACEHOLDERS } from "@/constants/placeholders.js";
 
@@ -52,6 +56,10 @@ export default function TasksView({
   const [selectedBatchIds, setSelectedBatchIds] = useState(new Set());
   const [isSelectionMode, setIsSelectionMode] = useState(false);
 
+  const [frictionSignal, setFrictionSignal] = useState(null);
+  const [dismissedFrictionTaskIds, setDismissedFrictionTaskIds] = useState(new Set());
+  const [showFrictionWhy, setShowFrictionWhy] = useState(false);
+
   useEffect(() => {
     let isMounted = true;
     if (!selectedTaskId) {
@@ -72,6 +80,40 @@ export default function TasksView({
       isMounted = false;
     };
   }, [selectedTaskId]);
+
+  useEffect(() => {
+    setShowFrictionWhy(false);
+    let isMounted = true;
+    if (!selectedTaskId) {
+      setFrictionSignal(null);
+      return;
+    }
+
+    const taskObj = tasks.find((t) => (t._id || t.id) === selectedTaskId);
+    if (!taskObj || taskObj.status === "completed" || taskObj.status === "cancelled") {
+      setFrictionSignal(null);
+      return;
+    }
+
+    taskService
+      .getTaskFriction(selectedTaskId)
+      .then((res) => {
+        if (!isMounted) return;
+        const data = res?.friction || res?.data || res;
+        if (data && data.trigger) {
+          setFrictionSignal(data);
+        } else {
+          setFrictionSignal(null);
+        }
+      })
+      .catch(() => {
+        if (isMounted) setFrictionSignal(null);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedTaskId, tasks]);
 
   const todayStr = useMemo(() => new Date().toDateString(), []);
 
@@ -426,7 +468,7 @@ export default function TasksView({
                       </Badge>
                     )}
 
-                    {scheduleInfo.isFuture && (
+                    {scheduleInfo.isFuture && !scheduleInfo.isTomorrow && (
                       <Badge
                         variant="outline"
                         className="text-[11px] font-medium px-2 py-0.5 rounded-md text-muted-foreground bg-secondary/40 border-border"
@@ -545,6 +587,22 @@ export default function TasksView({
                     </p>
                   )}
                 </div>
+
+                {/* Adaptive Task Friction Advisory */}
+                <TaskFrictionBadge
+                  frictionSignal={frictionSignal}
+                  task={selectedTask}
+                  isDismissed={dismissedFrictionTaskIds.has(selectedTask._id || selectedTask.id)}
+                  onDismiss={() =>
+                    setDismissedFrictionTaskIds(
+                      (prev) => new Set([...prev, selectedTask._id || selectedTask.id])
+                    )
+                  }
+                  onBreakDown={() => onEditTask && onEditTask(selectedTask)}
+                  onMoveToBacklog={() =>
+                    onRemoveFromToday && onRemoveFromToday(selectedTask._id || selectedTask.id)
+                  }
+                />
 
                 {/* Key metadata */}
                 <div className="space-y-2.5 pt-2 border-t border-border/50 text-xs">

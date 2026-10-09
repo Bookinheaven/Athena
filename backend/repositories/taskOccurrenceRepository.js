@@ -132,6 +132,24 @@ class TaskOccurrenceRepository {
     return rows.map(toDomainOccurrence);
   }
 
+  async findByUserAndTaskId(userId, taskId) {
+    const cleanUserId = normalizeUserId(userId);
+    const cleanTaskId = normalizeTaskId(taskId);
+    if (!cleanUserId || !cleanTaskId) return [];
+    const db = getDrizzleDb();
+    const rows = await db
+      .select()
+      .from(taskOccurrences)
+      .where(
+        and(
+          eq(taskOccurrences.userId, cleanUserId),
+          eq(taskOccurrences.taskId, cleanTaskId)
+        )
+      )
+      .orderBy(asc(taskOccurrences.productDate));
+    return rows.map(toDomainOccurrence);
+  }
+
   async upsert(userId, taskId, productDate, data = {}) {
     const cleanUserId = normalizeUserId(userId);
     const cleanTaskId = normalizeTaskId(taskId);
