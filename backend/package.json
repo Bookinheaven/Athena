@@ -11,7 +11,9 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node db/migrate.js",
     "db:push": "drizzle-kit push",
-    "db:check": "drizzle-kit check"
+    "db:check": "drizzle-kit check",
+    "set-admin": "node scripts/setAdmin.js",
+    "set-user": "node scripts/setUser.js"
   },
   "keywords": [],
   "author": "",

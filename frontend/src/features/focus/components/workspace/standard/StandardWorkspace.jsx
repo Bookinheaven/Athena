@@ -17,6 +17,7 @@ export const StandardWorkspace = ({
   showQuotes,
   setShowQuotes,
   onDistractionToggle,
+  onUpdateTodoTitle,
 }) => {
   const {
     phase,
@@ -40,18 +41,31 @@ export const StandardWorkspace = ({
   const completedBreakSegments = segments.filter((s) => s.type === "break" && s.completedAt).length;
 
   const activeTaskTitle = useMemo(() => {
-    if (state.taskIds?.length > 0) {
-      const task = todos.find((t) => String(t.id) === String(state.taskIds[0]));
-      return task?.title ?? navContext?.title ?? sessionTitle;
+    if (sessionTitle && sessionTitle !== "Untitled Work") {
+      return sessionTitle;
     }
-    return sessionTitle;
-  }, [state.taskIds, todos, navContext?.title, sessionTitle]);
+    if (state.taskIds?.length > 0) {
+      const task = todos?.find((t) => String(t.id || t._id) === String(state.taskIds[0]));
+      if (task?.title) return task.title;
+    }
+    return navContext?.title || sessionTitle || "Focus Session";
+  }, [sessionTitle, state.taskIds, todos, navContext?.title]);
+
+  const handleUpdateTitle = (newTitle) => {
+    const trimmed = newTitle?.trim();
+    if (!trimmed) return;
+    commands.setTitle(trimmed);
+    const linkedTaskId = state.taskIds?.[0];
+    if (linkedTaskId && onUpdateTodoTitle) {
+      onUpdateTodoTitle(linkedTaskId, trimmed);
+    }
+  };
 
   return (
     <div className="w-full flex flex-col items-center max-w-3xl mx-auto px-4 py-4 animate-in fade-in duration-300">
       <FocusTaskCard
         taskTitle={activeTaskTitle}
-        setTaskTitle={(t) => commands.setTitle(t)}
+        setTaskTitle={handleUpdateTitle}
         navContext={navContext}
         isScheduled={state.isScheduled}
         scheduleBlock={state.scheduleBlockId}

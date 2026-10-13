@@ -1,8 +1,8 @@
 # Backend Architecture
 
-Athena’s backend is an Express-based Node.js service adhering to a layered architectural pattern:
+Athena’s backend is an Express 5 Node.js service adhering to a layered architectural pattern:
 
-$$\text{Route} \longrightarrow \text{Middleware} \longrightarrow \text{Controller} \longrightarrow \text{Service} \longrightarrow \text{Model / Persistence}$$
+$$\text{Route} \longrightarrow \text{Middleware} \longrightarrow \text{Controller} \longrightarrow \text{Service} \longrightarrow \text{Repository} \longrightarrow \text{PostgreSQL / Drizzle ORM}$$
 
 ---
 
@@ -11,19 +11,22 @@ $$\text{Route} \longrightarrow \text{Middleware} \longrightarrow \text{Controlle
 ```mermaid
 sequenceDiagram
     autonumber
-    actor Client as Browser / Client
+    actor Client as Browser / Desktop Client
     participant MW as Express Middleware Chain
     participant Ctrl as Domain Controller
     participant Svc as Business Service
-    participant DB as MongoDB (Mongoose)
+    participant Repo as Data Repository
+    participant DB as PostgreSQL (Drizzle ORM)
 
     Client->>MW: HTTP Request + Cookie (jwt)
     Note over MW: rateLimiter, cors, cookieParser, authMiddleware
     MW->>Ctrl: req.user attached
     Ctrl->>Ctrl: Validate payload & params
     Ctrl->>Svc: Call business method(userId, data)
-    Svc->>DB: Query / Update with { userId } guard
-    DB-->>Svc: Document / Query result
+    Svc->>Repo: Query / Mutate with { userId } guard
+    Repo->>DB: Drizzle SQL Execution
+    DB-->>Repo: Query result records
+    Repo-->>Svc: Hydrated domain entities
     Svc-->>Ctrl: Business entity
     Ctrl-->>Client: 200/201 JSON { success: true, ... }
 ```
@@ -39,9 +42,9 @@ sequenceDiagram
 - **Invariant:** Routes contain **zero business logic**; they delegate directly to controllers.
 
 ### 2. Middleware (`backend/middlewares/`)
-- **`authMiddleware.js`:** Extracts and verifies JWT from cookies or `Authorization: Bearer` headers. Validates user existence and attaches `req.user` (`_id`, `email`, `role`).
+- **`authMiddleware.js`:** Extracts and verifies JWT from cookies or `Authorization: Bearer` headers. Validates user existence and attaches `req.user` (`id`, `email`, `role`).
 - **`roleMiddleware.js`:** Restricts administrative endpoints to `role: "admin"`.
-- **`validationMiddleware.js`:** Sanitizes input strings and guards against prototype injection.
+- **`validationMiddleware.js`:** Sanitizes input strings and guards against injection.
 
 ### 3. Controllers (`backend/controllers/`)
 - Extracts parameters from `req.params`, `req.query`, and `req.body`.
@@ -51,19 +54,24 @@ sequenceDiagram
   { "success": true, "session": { ... } }
   { "success": false, "message": "Error description" }
   ```
-- **Invariant:** Controllers do not interact with Mongoose models directly; they must invoke Services.
+- **Invariant:** Controllers do not interact with database tables or repositories directly; they must invoke Services.
 
 ### 4. Services (`backend/services/`)
-- Encapsulates all domain business logic, invariants, and multi-document workflows.
+- Encapsulates all domain business logic, invariants, multi-entity transactions, and intelligence engines.
 - Examples:
   - `sessionService.js`: Session initialization, segment transitions, pause accounting, active session recovery.
-  - `streakService.js`: Daily streak calculation, freeze deductions, target adaptations.
-  - `taskService.js`: Task ordering, status mutations, date updates.
-- **Invariant:** Every database query in a service must include `{ userId }` or `{ user: userId }` to guarantee multi-tenant tenant isolation.
+  - `targetService.js`: Dynamic 7-day adaptive daily focus target calculation.
+  - `streakService.js`: Daily streak progression, freeze deductions, target adaptations.
+  - `taskService.js`: Task ordering, occurrence scheduling, status mutations.
+- **Invariant:** Every repository query executed within a service must enforce `userId` tenancy boundaries.
 
-### 5. Models (`backend/models/`)
-- Mongoose schema definitions enforcing types, defaults, validations, and compound indexes.
-- Encapsulates schema-level hooks (e.g. `pre("save")` password hashing in `userModel.js`).
+### 5. Repositories (`backend/repositories/`)
+- Clean data access layer abstracting Drizzle ORM operations against PostgreSQL.
+- Performs schema entity hydration (`hydrateSession`, etc.) ensuring consistent object shapes for callers.
+- Enforces SQL indexes, joins, and multi-tenant filtering.
+
+### 6. Schema Definitions (`backend/db/schema/`)
+- Drizzle ORM PostgreSQL table schemas (`users`, `tasks`, `taskOccurrences`, `scheduleBlocks`, `sessions`, `sessionSegments`, `sessionPauseEvents`, `sessionFeedback`, `streaks`, `dailyStats`, `goals`, `notes`).
 
 ---
 

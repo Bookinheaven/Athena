@@ -6,19 +6,9 @@ import {
   formatTimeRange,
 } from "../utils/dateUtils.js";
 
-/**
- * Session history list with INLINE expansion.
- *
- * Collapsed row:
- *   Title                                              45m
- *   2:55 PM · Completed · 1 focus segment
- *
- * Clicking a row expands a detail panel directly below it.
- * Only one session can be expanded at a time.
- * No modal, no drawer, no overlay.
- */
 
 const STATUS_COLOR = {
+  active: "text-emerald-500 font-semibold",
   completed: "text-muted-foreground",
   partial: "text-amber-500/70",
   abandoned: "text-rose-500/70",
@@ -26,6 +16,7 @@ const STATUS_COLOR = {
 };
 
 const STATUS_LABEL = {
+  active: "In Progress",
   completed: "Completed",
   partial: "Partial",
   abandoned: "Abandoned",
@@ -33,22 +24,21 @@ const STATUS_LABEL = {
 };
 
 const OUTCOME_COLOR = {
+  active: "text-emerald-500",
   completed: "text-emerald-500",
   partial: "text-amber-500",
   abandoned: "text-rose-500",
   skipped: "text-muted-foreground",
 };
 
-/**
- * Expanded detail panel — renders below the clicked session row.
- * Uses only data from the already-loaded session object.
- */
 function SessionExpandedDetail({ session }) {
   const snapshot = session.scheduleSnapshot;
   const actualDuration = formatDuration(session.duration || 0);
-  const plannedDuration = snapshot?.plannedDurationMinutes
-    ? `${snapshot.plannedDurationMinutes}m`
-    : null;
+  const plannedDuration = session.plannedDuration
+    ? `${Math.round(session.plannedDuration / 60)}m`
+    : snapshot?.plannedDurationMinutes
+      ? `${snapshot.plannedDurationMinutes}m`
+      : null;
   const outcome = session.completionType || session.status || "completed";
   const outcomeLabel = STATUS_LABEL[outcome] ?? outcome;
   const outcomeColor = OUTCOME_COLOR[outcome] ?? "text-muted-foreground";
@@ -200,7 +190,7 @@ export function SessionHistoryList({
             session.completionType || session.status || "completed";
           const duration = formatDuration(session.duration || 0);
           const startedAt = formatTimeOnly(
-            session.startTime || session.createdAt
+            session.startedAt || session.startTime || session.createdAt
           );
           const focusSegs =
             session.sessionStats?.focusSegmentsCompleted ?? 0;
@@ -211,9 +201,8 @@ export function SessionHistoryList({
             STATUS_COLOR[completionType] ?? "text-muted-foreground";
 
           const timePart = startedAt;
-          const segsPart = `${focusSegs} focus ${
-            focusSegs === 1 ? "segment" : "segments"
-          }`;
+          const segsPart = `${focusSegs} focus ${focusSegs === 1 ? "segment" : "segments"
+            }`;
           const pausesPart =
             pauses > 0
               ? `${pauses} ${pauses === 1 ? "pause" : "pauses"}`

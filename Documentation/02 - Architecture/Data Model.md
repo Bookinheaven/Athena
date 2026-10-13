@@ -1,6 +1,6 @@
 # Data Model
 
-Athena uses MongoDB via Mongoose. Every document stored in the database is scoped to an individual user account.
+Athena utilizes a relational database architecture on **PostgreSQL (15+)** managed through **Drizzle ORM** (`backend/db/schema/`). Every entity is strictly scoped to an individual user via foreign key relationships (`userId`), enforcing multi-tenant isolation.
 
 ---
 
@@ -8,172 +8,188 @@ Athena uses MongoDB via Mongoose. Every document stored in the database is scope
 
 ```mermaid
 erDiagram
-    User ||--o{ Task : owns
-    User ||--o{ Goal : creates
-    User ||--o{ Session : executes
-    User ||--o{ ScheduleBlock : schedules
-    User ||--o| Streak : maintains
-    User ||--o{ DailyStats : records
-    User ||--o{ Note : writes
+    users ||--o{ tasks : owns
+    users ||--o{ task_occurrences : tracks
+    users ||--o{ goals : creates
+    users ||--o{ schedule_blocks : schedules
+    users ||--o{ sessions : executes
+    users ||--o| streaks : maintains
+    users ||--o{ daily_stats : records
+    users ||--o{ notes : writes
 
-    Goal ||--o{ Task : groups
-    Goal ||--o{ Note : references
-    Task ||--o{ ScheduleBlock : allocated_to
-    Task ||--o{ Session : focused_on
-    Task ||--o{ Note : linked_to
-    ScheduleBlock ||--o| Session : produces
+    goals ||--o{ tasks : groups
+    goals ||--o{ notes : references
+    tasks ||--o{ task_occurrences : creates
+    tasks ||--o{ schedule_blocks : allocates
+    tasks ||--o{ session_tasks : focuses
+    tasks ||--o{ notes : links
+
+    schedule_blocks ||--o| sessions : produces
+    sessions ||--o{ session_segments : contains
+    sessions ||--o{ session_pause_events : logs
+    sessions ||--o{ session_tasks : includes
+    sessions ||--o| session_feedback : evaluates
 ```
 
 ---
 
-## 1. User (`backend/models/userModel.js`)
+## 1. User (`backend/db/schema/users.js`)
 
-Primary account identity and profile record.
+Primary account identity, preferences, and session defaults.
 
-| Field | Type | Attributes | Description |
+| Column | Type | Constraints / Attributes | Description |
 | :--- | :--- | :--- | :--- |
-| `username` | String | required, unique, trim, min 3, max 20 | User handle. |
-| `usernameLower` | String | required, unique, trim, lowercase | Case-insensitive handle lookup. |
-| `email` | String | required, unique, trim, lowercase | User login email. |
-| `password` | String | required, min 8 | Bcrypt-hashed password (cost 12). |
-| `fullName` | String | required, trim, min 2, max 50 | Display name. |
-| `type` | String | default: "user", enum: ["user", "admin"] | Role-based authorization tier. |
-| `isEmailVerified`| Boolean | default: false | Registration verification flag. |
-| `emailVerificationOTP` | String | - | 6-digit verification code. |
-| `emailVerificationExpires` | Date | - | Verification code expiration. |
-| `passwordResetOTP` | String | - | Reset code. |
-| `passwordResetExpires` | Date | - | Reset code expiration. |
-| `settings.theme` | String | default: "dark" | Active visual theme token. |
-| `settings.session` | Object | subdocument | User-level default focus & break durations. |
+| `id` | UUID | Primary Key, `defaultRandom()` | User identifier. |
+| `username` | VARCHAR(20) | Not Null, Unique | User handle. |
+| `username_lower` | VARCHAR(20) | Not Null, Unique | Case-insensitive lookup. |
+| `email` | VARCHAR(255) | Not Null, Unique | Login email. |
+| `password_hash` | VARCHAR(255) | Not Null | Bcrypt hash. |
+| `account_type` | VARCHAR(20) | Default: `"user"` | Role: `"user"`, `"admin"`. |
+| `full_name` | VARCHAR(50) | Not Null | Display name. |
+| `is_email_verified` | BOOLEAN | Default: `false` | Verification state. |
+| `is_active` | BOOLEAN | Default: `true` | Account active state. |
+| `theme` | VARCHAR(20) | Default: `"dark"` | Active workspace theme ID. |
+| `timezone` | VARCHAR(50) | Default: `"UTC"` | User local timezone (IANA). |
+| `break_duration_seconds` | INTEGER | Default: `300` | Default short break length. |
+| `auto_start_breaks` | BOOLEAN | Default: `true` | Auto transition to break. |
+| `breaks_number` | INTEGER | Default: `4` | Segments before long break. |
+| `sound_enabled` | BOOLEAN | Default: `false` | Audio notifications. |
+| `created_at` | TIMESTAMPTZ | Default: `now()` | Registration timestamp. |
+| `updated_at` | TIMESTAMPTZ | Default: `now()` | Last profile update. |
 
 ---
 
-## 2. Task (`backend/models/taskModel.js`)
+## 2. Tasks & Occurrences (`backend/db/schema/tasks.js` & `taskOccurrences.js`)
 
-Core unit of planned and actionable work.
+Canonical work definitions and date-specific planned occurrences.
 
-| Field | Type | Attributes | Description |
+### `tasks`
+| Column | Type | Constraints / Attributes | Description |
 | :--- | :--- | :--- | :--- |
-| `user` | ObjectId | ref: "User", required, indexed | Owning user. |
-| `goal` | ObjectId | ref: "Goal", default: null, indexed | Parent goal container. |
-| `title` | String | required, trim, max 200 | Task description. |
-| `description` | String | default: "" | Rich task notes/specifications. |
-| `status` | String | enum: `["todo", "in-progress", "completed", "cancelled"]`, default: "todo" | Current lifecycle status. |
-| `priority` | String | enum: `["low", "medium", "high"]`, default: "medium" | Triage importance. |
-| `order` | Number | default: 0 | Manual sort order in lists. |
-| `dueDate` | Date | optional | Hard external deadline. |
-| `plannedDate`| Date | optional | Calendar date of intended execution. |
-| `tags` | [String]| default: [] | Categorization tags. |
+| `id` | UUID | Primary Key, `defaultRandom()` | Task identifier. |
+| `user_id` | UUID | Not Null, FK → `users(id)` ON CASCADE | Owning user. |
+| `goal_id` | UUID | FK → `goals(id)` ON SET NULL | Strategic goal container. |
+| `title` | VARCHAR(200) | Not Null | Task description. |
+| `description` | TEXT | Default: `""` | Detailed specifications. |
+| `status` | ENUM | `"todo"`, `"in-progress"`, `"completed"`, `"cancelled"` | Lifecycle status. |
+| `priority` | ENUM | `"low"`, `"medium"`, `"high"` | Triage priority. |
+| `estimated_duration` | INTEGER | Optional (minutes) | Planned duration. |
+| `actual_duration` | INTEGER | Default: `0` (minutes) | Accumulated focus time. |
+| `order` | INTEGER | Default: `0` | Manual sort position. |
+
+### `task_occurrences`
+| Column | Type | Constraints / Attributes | Description |
+| :--- | :--- | :--- | :--- |
+| `id` | UUID | Primary Key, `defaultRandom()` | Occurrence identifier. |
+| `user_id` | UUID | Not Null, FK → `users(id)` | Owning user. |
+| `task_id` | UUID | Not Null, FK → `tasks(id)` | Canonical parent task. |
+| `product_date` | DATE | Not Null | Calendar execution date (`YYYY-MM-DD`). |
+| `status` | ENUM | `"todo"`, `"in-progress"`, `"completed"`, `"cancelled"` | Status on this date. |
+| `snapshot_task_title` | VARCHAR(200) | Not Null | Immutable snapshot of task title. |
+| `snapshot_priority` | ENUM | `"low"`, `"medium"`, `"high"` | Immutable snapshot of priority. |
 
 ---
 
-## 3. Session (`backend/models/sessionModel.js`)
+## 3. Focus Sessions & Telemetry (`backend/db/schema/sessions.js`)
 
-The authoritative record of deep work execution.
+Authoritative deep work execution telemetry.
 
-| Field | Type | Attributes | Description |
+### `sessions`
+| Column | Type | Constraints / Attributes | Description |
 | :--- | :--- | :--- | :--- |
-| `sessionId` | String | required, indexed | Client-generated UUID string. |
-| `userId` | ObjectId | ref: "User", required | Owning user. |
-| `scheduleBlockId`| ObjectId | ref: "ScheduleBlock", default: null | Linked calendar block. |
-| `taskIds` | [ObjectId] | ref: "Task", default: [] | Tasks addressed during this session. |
-| `title` | String | required, trim | Session headline. |
-| `sessionType` | String | enum: `["task", "quick"]`, default: "quick" | Focus trigger type. |
-| `status` | String | enum: `["active", "completed"]`, default: "active" | Session state. |
-| `completionType` | String | enum: `["completed", "skipped", "abandoned"]`, default: null | Termination classification. |
-| `plannedDuration` | Number | default: 0 | Target focus duration in seconds. |
-| `duration` | Number | default: 0 | Total elapsed focus time in seconds. |
-| `startedAt` | Date | - | Initial session start timestamp. |
-| `endedAt` | Date | - | Termination timestamp. |
-| `sessionSegments` | [Segment] | subdocument array | Sequence of focus and break intervals. |
-| `pauseEvents` | [Pause] | subdocument array | Audit log of pauses with reasons & durations. |
-| `sessionStats` | Object | subdocument | Interruptions, pauses, completed segment counts. |
-| `sessionFeedback`| Object | subdocument | Mood (1-5), focus (1-5), distractions, notes. |
-| `todos` | [Todo] | subdocument array | Session-scoped execution checklist. |
+| `id` | UUID | Primary Key, `defaultRandom()` | Session identifier. |
+| `client_session_id` | VARCHAR(64) | Not Null, Indexed | Client UUID for drift-free sync. |
+| `user_id` | UUID | Not Null, FK → `users(id)` | Owning user. |
+| `schedule_block_id` | UUID | FK → `schedule_blocks(id)` | Linked calendar block. |
+| `title` | VARCHAR(200) | Not Null | Session headline. |
+| `session_type` | ENUM | `"task"`, `"quick"` | Trigger mode. |
+| `status` | ENUM | `"active"`, `"completed"` | Execution state. |
+| `completion_type` | ENUM | `"completed"`, `"skipped"`, `"abandoned"` | Termination outcome. |
+| `started_at` | TIMESTAMPTZ | Not Null | Start timestamp. |
+| `ended_at` | TIMESTAMPTZ | Optional | End timestamp. |
+| `total_duration_seconds`| INTEGER | Default: `0` | Total elapsed duration. |
+| `focus_duration_seconds`| INTEGER | Default: `0` | Pure focus duration (excl. breaks/pauses). |
+| `break_duration_seconds`| INTEGER | Default: `0` | Break duration. |
+| `pause_count` | INTEGER | Default: `0` | Total pause interruptions. |
+| `snapshot_schedule_date`| DATE | Optional | Scheduled date binding. |
+
+### Child Telemetry Tables:
+* **`session_segments`:** Records sequential work/break intervals (`segment_index`, `type`, `duration_seconds`, `started_at`, `completed_at`).
+* **`session_pause_events`:** Audit log of interruptions (`started_at`, `resumed_at`, `duration_seconds`, `reason`).
+* **`session_tasks`:** Tasks attached to the active session with contextual notes.
+* **`session_feedback`:** Post-session reflections (`mood_rating` 1-5, `focus_rating` 1-5, `distractions_notes`).
 
 ---
 
-## 4. ScheduleBlock (`backend/models/scheduleBlockModel.js`)
+## 4. Schedule Blocks (`backend/db/schema/scheduleBlocks.js`)
 
-Allocated calendar time intervals on [[Timeline]].
+Time-blocked intervals on the Planner timeline.
 
-| Field | Type | Attributes | Description |
+| Column | Type | Constraints / Attributes | Description |
 | :--- | :--- | :--- | :--- |
-| `userId` | ObjectId | ref: "User", required, indexed | Owning user. |
-| `taskId` | ObjectId | ref: "Task", required, indexed | Allocated task. |
-| `date` | Date | required, indexed | Calendar day. |
-| `startTime` | Date | required | Clock interval start timestamp. |
-| `endTime` | Date | required | Clock interval end timestamp. |
-| `durationMinutes` | Number | required, min: 1 | Length of allocated block. |
-| `status` | String | enum: `["scheduled", "completed", "skipped"]`, default: "scheduled" | Execution status. |
-| `sessionId` | ObjectId | ref: "Session", default: null, indexed | Linked focus execution record. |
+| `id` | UUID | Primary Key, `defaultRandom()` | Block identifier. |
+| `user_id` | UUID | Not Null, FK → `users(id)` | Owning user. |
+| `task_id` | UUID | FK → `tasks(id)` | Linked task. |
+| `date` | DATE | Not Null | Calendar execution date. |
+| `start_time` | VARCHAR(10) | Not Null | Interval start (`"14:00"`). |
+| `end_time` | VARCHAR(10) | Not Null | Interval end (`"14:45"`). |
+| `duration_minutes` | INTEGER | Not Null, Min: `1` | Length in minutes. |
+| `completed` | BOOLEAN | Default: `false` | Execution flag. |
+| `session_id` | UUID | FK → `sessions(id)` | Linked focus session. |
 
 ---
 
-## 5. Streak (`backend/models/streakModel.js`)
+## 5. Streaks & Daily Stats (`backend/db/schema/streaks.js` & `dailyStats.js`)
 
-Consistency counters and freeze bank.
+Consistency tracking, freeze balances, and rolling performance.
 
-| Field | Type | Attributes | Description |
+### `streaks`
+| Column | Type | Constraints / Attributes | Description |
 | :--- | :--- | :--- | :--- |
-| `userId` | ObjectId | ref: "User", unique, required | Owning user. |
-| `currentStreak` | Number | default: 0 | Consecutive days achieved. |
-| `longestStreak` | Number | default: 0 | All-time highest streak count. |
-| `lastActiveDate` | Date | - | Last day user completed work. |
-| `freezeBalance` | Number | default: 3 | Unused streak freeze tokens. |
-| `totalFreezesUsed` | Number | default: 0 | Lifetime freeze consumption. |
-| `maxFreezeBalance` | Number | default: 3 | Ceiling on freeze accumulation. |
-| `dailyTargetMinutes`| Number| default: 25 | Daily threshold required for green day. |
-| `lastProcessedDate`| Date | - | UTC day boundary last processed. |
-| `lastCountedDate` | Date | - | UTC day boundary last incremented. |
+| `id` | UUID | Primary Key, `defaultRandom()` | Streak record. |
+| `user_id` | UUID | Not Null, Unique, FK → `users(id)` | Owning user. |
+| `current_streak` | INTEGER | Default: `0` | Current active streak count. |
+| `longest_streak` | INTEGER | Default: `0` | All-time highest streak count. |
+| `last_active_date` | DATE | Optional | Last qualifying work day. |
+| `freezes_remaining` | INTEGER | Default: `2` | Available freeze credits. |
+| `freezes_used` | INTEGER | Default: `0` | Total consumed freezes. |
+
+### `daily_stats`
+| Column | Type | Constraints / Attributes | Description |
+| :--- | :--- | :--- | :--- |
+| `id` | UUID | Primary Key, `defaultRandom()` | Daily aggregation record. |
+| `user_id` | UUID | Not Null, FK → `users(id)` | Owning user. |
+| `date` | DATE | Not Null | Product calendar date. |
+| `total_focus_minutes`| INTEGER | Default: `0` | Total focus time in minutes. |
+| `total_break_minutes`| INTEGER | Default: `0` | Total break time in minutes. |
+| `sessions_completed`| INTEGER | Default: `0` | Number of completed sessions. |
+| `target_minutes` | INTEGER | Default: `25` | Target in effect for this day. |
+| `met_target` | BOOLEAN | Default: `false` | Target achievement status. |
+| `status` | VARCHAR(20) | Default: `"active"` | Day status. |
 
 ---
 
-## 6. DailyStats (`backend/models/dailyStatsModel.js`)
+## 6. Goals & Notes (`backend/db/schema/goals.js` & `notes.js`)
 
-Daily aggregated productivity and streak evaluation record.
+Milestone containers and rich-text documentation.
 
-| Field | Type | Attributes | Description |
+### `goals`
+| Column | Type | Constraints / Attributes | Description |
 | :--- | :--- | :--- | :--- |
-| `userId` | ObjectId | ref: "User", required, indexed | Owning user. |
-| `date` | Date | required | UTC start-of-day boundary. |
-| `focusMinutes` | Number | default: 0 | Sum of focus seconds / 60. |
-| `sessions` | Number | default: 0 | Number of completed sessions. |
-| `tasksCompleted`| Number | default: 0 | *Unpopulated (Known limitation)*. |
-| `dailyTargetMinutes`| Number| required | Target in effect for this day. |
-| `streakRate` | Number | required | `focusMinutes / dailyTargetMinutes`. |
-| `state` | String | enum: `["green", "yellow", "red"]` | Visual health bucket. |
-| `resultType` | String | enum: `["success", "partial", "failed", "freeze_saved"]` | Outcome classification. |
-| `streakCount` | Number | required | Streak count active at end of day. |
-| `usedFreeze` | Number | default: 0 | Flag indicating if freeze saved the streak. |
+| `id` | UUID | Primary Key, `defaultRandom()` | Goal identifier. |
+| `user_id` | UUID | Not Null, FK → `users(id)` | Owning user. |
+| `title` | VARCHAR(100) | Not Null | Milestone headline. |
+| `description` | TEXT | Default: `""` | Milestone objectives. |
+| `color` | VARCHAR(20) | Default: `"#6366f1"` | Hex color badge. |
+| `target_date` | DATE | Optional | Target completion date. |
+| `status` | VARCHAR(20) | Default: `"active"` | `"active"`, `"completed"`, `"archived"`. |
 
----
-
-## 7. Goal (`backend/models/goalModel.js`)
-
-Strategic milestones and categories.
-
-| Field | Type | Attributes | Description |
+### `notes`
+| Column | Type | Constraints / Attributes | Description |
 | :--- | :--- | :--- | :--- |
-| `user` | ObjectId | ref: "User", required, indexed | Owning user. |
-| `title` | String | required, trim, max 100 | Goal title. |
-| `description` | String | default: "" | Detailed objectives. |
-| `color` | String | default: "#6366f1" | Hex display color. |
-| `targetDate` | Date | optional | Target completion milestone. |
-| `status` | String | enum: `["active", "completed", "archived"]`, default: "active" | Status lifecycle. |
-
----
-
-## 8. Note (`backend/models/notesModel.js`)
-
-Scratchpad, reflection, and task-linked knowledge capture.
-
-| Field | Type | Attributes | Description |
-| :--- | :--- | :--- | :--- |
-| `user` | ObjectId | ref: "User", required, indexed | Owning user. |
-| `title` | String | default: "", max 200 | Note headline. |
-| `content` | String | required | TipTap HTML/rich-text content. |
-| `goal` | ObjectId | ref: "Goal", default: null | Linked goal container. |
-| `task` | ObjectId | ref: "Task", default: null | Linked task context. |
-| `pinned` | Boolean | default: false | Top-of-list pin flag. |
-| `tags` | [String] | default: [] | Categorization tags. |
+| `id` | UUID | Primary Key, `defaultRandom()` | Note identifier. |
+| `user_id` | UUID | Not Null, FK → `users(id)` | Owning user. |
+| `title` | VARCHAR(200) | Not Null, Default: `""` | Note headline. |
+| `content` | JSONB / TEXT | Not Null | Tiptap rich-text document. |
+| `task_id` | UUID | FK → `tasks(id)` | Contextual task binding. |
+| `goal_id` | UUID | FK → `goals(id)` | Strategic goal binding. |

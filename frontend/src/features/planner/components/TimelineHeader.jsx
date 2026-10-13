@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, AlertCircle, CheckCircle2, Info } from "lucide-react";
 import { Button } from "@/components/ui/button.jsx";
 import { Badge } from "@/components/ui/badge.jsx";
 import { formatPlannerDateHeader } from "@/utils/dateUtils.js";
@@ -8,6 +8,7 @@ export default function TimelineHeader({
   selectedDate,
   dateNav,
   blocks = [],
+  capacityAlert = null,
   isSaving = false,
 }) {
   const headerInfo = useMemo(() => {
@@ -95,13 +96,54 @@ export default function TimelineHeader({
         </div>
       </div>
 
-      {/* Stats and Saving State */}
-      <div className="flex items-center gap-3">
+      {/* Stats and Capacity Indicator */}
+      <div className="flex flex-wrap items-center gap-2.5">
         {isSaving && (
           <span className="text-[11px] text-muted-foreground animate-pulse font-medium">
             Saving changes...
           </span>
         )}
+
+        {/* Capacity Indicator Pill */}
+        {capacityAlert && (
+          <div
+            data-testid="planner-capacity-indicator"
+            className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-xl border transition-colors ${
+              capacityAlert.status === "overloaded"
+                ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/25"
+                : capacityAlert.status === "realistic"
+                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/25"
+                : "bg-secondary/40 text-muted-foreground border-border/40"
+            }`}
+            title={
+              capacityAlert.status === "overloaded"
+                ? capacityAlert.explanation
+                : capacityAlert.status === "realistic"
+                ? capacityAlert.explanation
+                : "Athena needs at least 5 active focus days in the last 14 days to establish your typical capacity baseline."
+            }
+          >
+            {capacityAlert.status === "overloaded" && (
+              <>
+                <AlertCircle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                <span>Heavier than usual</span>
+              </>
+            )}
+            {capacityAlert.status === "realistic" && (
+              <>
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <span>Plan looks realistic</span>
+              </>
+            )}
+            {capacityAlert.status === "insufficient_data" && (
+              <>
+                <Info className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                <span>Baseline in progress</span>
+              </>
+            )}
+          </div>
+        )}
+
         <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground bg-secondary/40 border border-border/40 px-3 py-1.5 rounded-xl">
           <Clock className="w-3.5 h-3.5 text-primary" />
           <span>

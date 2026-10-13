@@ -7,6 +7,8 @@ const router = express.Router();
 
 // User
 router.get('/users', adminAuth, AdminController.getUsers);
+router.get('/users/:id', adminAuth, AdminController.getUserDetails);
+router.get('/users/:id/data', adminAuth, AdminController.getUserFullData);
 router.post('/add', adminAuth , AdminController.addUsers);
 router.post('/delete', adminAuth , AdminController.removeUsers);
 router.post('/update', adminAuth , AdminController.updateUser);
@@ -14,5 +16,13 @@ router.post('/update', adminAuth , AdminController.updateUser);
 // Sessions
 router.get('/userSessions', adminAuth, AdminController.getSessions);
 
+// Developer Data
+router.get('/developer-data/datasets', adminAuth, AdminController.getDeveloperDatasets);
+router.post('/developer-data/preview', adminAuth, AdminController.previewDeveloperData);
+router.post('/developer-data/generate', adminAuth, AdminController.generateDeveloperData);
+router.post('/developer-data/add-to-user', adminAuth, AdminController.addDataToUser);
+router.post('/developer-data/validate', adminAuth, AdminController.validateDeveloperData);
+router.post('/developer-data/cleanup-user', adminAuth, AdminController.cleanupDeveloperData);
+router.delete('/developer-data/datasets/:id', adminAuth, AdminController.deleteDeveloperDataset);
 
 export default router;

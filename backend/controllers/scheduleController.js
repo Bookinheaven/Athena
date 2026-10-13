@@ -63,6 +63,19 @@ class ScheduleController {
       res.status(statusCode).json({ message: error.message });
     }
   }
+
+  async getCapacityAlert(req, res) {
+    try {
+      const alert = await ScheduleService.getCapacityAlert(
+        req.user.id,
+        req.query.date
+      );
+      res.json(alert);
+    } catch (error) {
+      const statusCode = error.statusCode || 500;
+      res.status(statusCode).json({ message: error.message });
+    }
+  }
 }
 
 export default new ScheduleController();

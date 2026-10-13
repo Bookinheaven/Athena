@@ -82,6 +82,21 @@ export const AuthProvider = ({ children }) => {
     return res;
   };
 
+  const refreshUser = async () => {
+    try {
+      const userData = await authService.getCurrentUser();
+      const normalized = normalizeUser(userData);
+      setUser(normalized);
+      if (normalized?.id) {
+        useUIStore.getState().initSidebarForUser(normalized.id);
+      }
+      return normalized;
+    } catch (err) {
+      console.error("Failed to refresh user:", err);
+      return null;
+    }
+  };
+
   const logout = async () => {
     try {
       await authService.logout();
@@ -96,6 +111,7 @@ export const AuthProvider = ({ children }) => {
     user,
     setUser,
     loading,
+    refreshUser,
     login,
     switchSession,
     register,

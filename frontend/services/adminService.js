@@ -7,6 +7,18 @@ class AdminService extends RequestService {
     });
   }
 
+  async getUserDetails(id) {
+    return this.request(`/admin/users/${id}`, {
+      method: "GET"
+    });
+  }
+
+  async getUserData(id) {
+    return this.request(`/admin/users/${id}/data`, {
+      method: "GET"
+    });
+  }
+
   async addUsers(data) {
     let response = await this.request("/admin/add", {
       method: "POST",
@@ -29,11 +41,57 @@ class AdminService extends RequestService {
     return response;
   }
 
-  async getSessions() {
-    let response = await this.request("/admin/userSessions", {
+  async getSessions(userId = null) {
+    const url = userId ? `/admin/userSessions?userId=${encodeURIComponent(userId)}` : "/admin/userSessions";
+    let response = await this.request(url, {
       method: "GET"
     });
     return response;
+  }
+
+  async getDeveloperDatasets() {
+    return this.request("/admin/developer-data/datasets", { method: "GET" });
+  }
+
+  async previewDeveloperData(payload) {
+    return this.request("/admin/developer-data/preview", {
+      method: "POST",
+      body: payload
+    });
+  }
+
+  async generateDeveloperData(payload) {
+    return this.request("/admin/developer-data/generate", {
+      method: "POST",
+      body: payload
+    });
+  }
+
+  async addDataToUser(payload) {
+    return this.request("/admin/developer-data/add-to-user", {
+      method: "POST",
+      body: payload
+    });
+  }
+
+  async validateDeveloperData(userId) {
+    return this.request("/admin/developer-data/validate", {
+      method: "POST",
+      body: { userId }
+    });
+  }
+
+  async cleanupDeveloperData(userId) {
+    return this.request("/admin/developer-data/cleanup-user", {
+      method: "POST",
+      body: { userId }
+    });
+  }
+
+  async deleteDeveloperDataset(datasetId) {
+    return this.request(`/admin/developer-data/datasets/${datasetId}`, {
+      method: "DELETE"
+    });
   }
 }
 

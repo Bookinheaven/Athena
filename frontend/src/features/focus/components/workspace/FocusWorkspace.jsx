@@ -24,6 +24,7 @@ export const FocusWorkspace = ({
   onAddTodo,
   onUpdateTodoStatus,
   onDeleteTodo,
+  onUpdateTodoTitle,
   sessionReview,
   onReviewUpdate,
   onDistractionToggle,
@@ -326,6 +327,7 @@ export const FocusWorkspace = ({
             setSelectedDuration={setSelectedDuration}
             toggleZenMode={toggleZenMode}
             onDistractionToggle={onDistractionToggle}
+            onUpdateTodoTitle={onUpdateTodoTitle}
           />
         ) : workspaceMode === "custom" ? (
           <CustomWorkspace
@@ -340,6 +342,7 @@ export const FocusWorkspace = ({
             onAddTodo={onAddTodo}
             onUpdateTodoStatus={onUpdateTodoStatus}
             onDeleteTodo={onDeleteTodo}
+            onUpdateTodoTitle={onUpdateTodoTitle}
             sessionReview={sessionReview}
             onDistractionToggle={onDistractionToggle}
             navContext={effectiveNavContext}
@@ -363,6 +366,7 @@ export const FocusWorkspace = ({
             showQuotes={showQuotes}
             setShowQuotes={setShowQuotes}
             onDistractionToggle={onDistractionToggle}
+            onUpdateTodoTitle={onUpdateTodoTitle}
           />
         )}
       </main>

@@ -2,143 +2,288 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Check, Sparkles, Palette, Monitor, Zap } from "lucide-react";
 import { useTheme } from "@contexts/ThemeContext";
 
-const ThemeCard = ({ item, isSelected, onSelect }) => (
-  <motion.button
-    type="button"
-    whileHover={{ y: -2, scale: 1.015 }}
-    whileTap={{ scale: 0.97 }}
-    transition={{ duration: 0.14, ease: "easeOut" }}
-    onClick={() => onSelect(item.id)}
-    aria-label={`Select theme ${item.name}`}
-    className={`group relative text-left p-0 rounded-2xl border transition-all duration-200 cursor-pointer overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-      isSelected
-        ? "border-primary shadow-lg shadow-primary/20 ring-1 ring-primary/60"
-        : "border-white/8 hover:border-white/20 hover:shadow-md"
-    }`}
-    style={{ background: item.color }}
-  >
-    {/* Full workspace preview */}
-    <div className="relative h-28 w-full overflow-hidden">
-      {/* Sidebar strip */}
-      <div
-        className="absolute inset-y-0 left-0 w-9 flex flex-col items-center pt-2.5 pb-2 gap-1.5"
-        style={{ background: `${item.color}e0`, borderRight: `1px solid ${item.accent}22` }}
-      >
-        <div
-          className="w-4 h-4 rounded-md mb-1"
-          style={{ background: item.accent }}
-        />
-        {[0.7, 0.5, 0.45, 0.35].map((op, i) => (
-          <div
-            key={i}
-            className="w-3 h-1.5 rounded-full"
-            style={{ background: `${item.accent}`, opacity: op }}
-          />
-        ))}
-        <div className="mt-auto w-3 h-3 rounded-full" style={{ background: `${item.accent}60` }} />
-      </div>
+const ThemeCard = ({ item, isSelected, onSelect }) => {
+  const isLight = item.id === "light";
+  const isSystem = item.id === "system";
+  const checkIconColor = item.id === "vercel" ? "#000000" : "#ffffff";
 
-      {/* Main content */}
-      <div className="absolute inset-0 left-9 p-2.5 flex flex-col gap-2">
-        {/* Topbar */}
-        <div className="flex items-center justify-between">
-          <div className="h-1.5 w-16 rounded-full" style={{ background: `${item.accent}40` }} />
-          <div className="h-4 w-4 rounded-full border" style={{ background: item.accent, borderColor: `${item.accent}40` }} />
-        </div>
-
-        {/* Card row */}
-        <div className="grid grid-cols-2 gap-1.5 mt-0.5">
-          <div
-            className="h-9 rounded-lg p-1.5 flex flex-col justify-between"
-            style={{ background: `${item.accent}18`, border: `1px solid ${item.accent}28` }}
-          >
-            <div className="h-1 w-8 rounded-full" style={{ background: `${item.accent}70` }} />
-            <div className="h-3 w-5 rounded-sm font-bold text-[6px] flex items-center" style={{ background: item.accent, color: item.color }}>
-              <span className="mx-auto">25</span>
-            </div>
-          </div>
-          <div
-            className="h-9 rounded-lg p-1.5 flex flex-col justify-between"
-            style={{ background: `rgba(255,255,255,0.05)`, border: `1px solid rgba(255,255,255,0.08)` }}
-          >
-            <div className="h-1 w-10 rounded-full bg-white/25" />
-            <div className="h-1 w-6 rounded-full bg-white/15" />
-          </div>
-        </div>
-
-        {/* Progress bar */}
-        <div className="h-1 w-full rounded-full bg-white/10 overflow-hidden">
-          <div className="h-full rounded-full w-3/5" style={{ background: item.accent }} />
-        </div>
-      </div>
-
-      {/* Selection overlay */}
-      {isSelected && (
-        <div
-          className="absolute inset-0"
-          style={{ background: `${item.accent}12` }}
-        />
-      )}
-    </div>
-
-    {/* Info row */}
-    <div
-      className="px-3 py-2.5 flex items-center justify-between gap-2 border-t"
+  return (
+    <motion.button
+      type="button"
+      whileHover={{ y: -3, scale: 1.015 }}
+      whileTap={{ scale: 0.98 }}
+      transition={{ duration: 0.16, ease: "easeOut" }}
+      onClick={() => onSelect(item.id)}
+      aria-label={`Select theme ${item.name}`}
+      className={`group relative text-left p-0 rounded-2xl border transition-all duration-200 cursor-pointer overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+        isSelected
+          ? "border-primary shadow-xl shadow-primary/20 ring-2 ring-primary/60"
+          : isLight
+          ? "border-zinc-200 hover:border-zinc-300 hover:shadow-md"
+          : "border-white/10 hover:border-white/25 hover:shadow-lg"
+      }`}
       style={{
-        background: `${item.color}f0`,
-        borderColor: `${item.accent}20`,
-        backdropFilter: "blur(8px)",
+        background: isSystem
+          ? "linear-gradient(145deg, #18181b 0%, #101012 100%)"
+          : item.color,
       }}
     >
-      <div className="flex items-center gap-2 min-w-0">
-        {/* Dual-swatch */}
-        <div
-          className="w-5 h-5 rounded-md shrink-0 relative overflow-hidden border border-white/10"
-          style={{ background: item.color }}
-        >
-          <div
-            className="absolute top-0 right-0 w-2.5 h-5"
-            style={{ background: item.accent }}
-          />
-        </div>
-
-        <div className="min-w-0">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span
-              className="text-[11px] font-bold leading-none truncate"
-              style={{ color: `${item.accent}ee` }}
-            >
-              {item.name}
-            </span>
-            {item.isPremium && (
-              <span
-                className="text-[8px] font-mono font-black px-1 py-0.5 rounded shrink-0 uppercase tracking-wide"
-                style={{ background: `${item.accent}25`, color: item.accent, border: `1px solid ${item.accent}40` }}
-              >
-                PRO
-              </span>
-            )}
+      {/* Workspace miniature preview */}
+      <div className="relative h-28 w-full overflow-hidden select-none">
+        {isSystem ? (
+          /* Dual Adaptive Preview for System Default */
+          <div className="absolute inset-0 flex">
+            {/* Left dark side */}
+            <div className="w-1/2 h-full bg-[#0c0d12] relative overflow-hidden">
+              <div className="absolute inset-y-0 left-0 w-7 bg-[#14151b] border-r border-white/5 flex flex-col items-center pt-2.5 gap-1.5">
+                <div className="w-3.5 h-3.5 rounded-md bg-indigo-500 shadow-sm" />
+                <div className="w-2.5 h-1 rounded-full bg-indigo-400/40" />
+                <div className="w-2.5 h-1 rounded-full bg-indigo-400/25" />
+              </div>
+              <div className="absolute inset-0 left-7 p-2 flex flex-col justify-between">
+                <div className="flex items-center gap-1.5">
+                  <div className="h-1 w-6 rounded-full bg-white/30" />
+                </div>
+                <div className="h-8 rounded-lg bg-indigo-950/40 border border-indigo-500/20 p-1.5 flex flex-col justify-between">
+                  <div className="h-1 w-5 rounded-full bg-indigo-400/60" />
+                  <div className="h-2.5 w-4 rounded-sm bg-indigo-500 text-[6px] font-bold text-white flex items-center justify-center">
+                    25
+                  </div>
+                </div>
+                <div className="h-1 w-full rounded-full bg-white/10 overflow-hidden">
+                  <div className="h-full w-2/3 bg-indigo-500 rounded-full" />
+                </div>
+              </div>
+            </div>
+            {/* Right light side */}
+            <div className="w-1/2 h-full bg-[#f8fafc] border-l border-white/20 relative overflow-hidden">
+              <div className="absolute inset-0 p-2 flex flex-col justify-between">
+                <div className="flex items-center justify-end">
+                  <div className="h-1 w-6 rounded-full bg-zinc-300" />
+                </div>
+                <div className="h-8 rounded-lg bg-white border border-zinc-200/80 shadow-xs p-1.5 flex flex-col justify-between">
+                  <div className="h-1 w-5 rounded-full bg-zinc-300" />
+                  <div className="h-2.5 w-4 rounded-sm bg-indigo-600 text-[6px] font-bold text-white flex items-center justify-center">
+                    25
+                  </div>
+                </div>
+                <div className="h-1 w-full rounded-full bg-zinc-200 overflow-hidden">
+                  <div className="h-full w-2/3 bg-indigo-600 rounded-full" />
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
+        ) : (
+          <>
+            {/* Sidebar strip */}
+            <div
+              className="absolute inset-y-0 left-0 w-8 flex flex-col items-center pt-2.5 pb-2 gap-1.5 transition-colors"
+              style={{
+                background: isLight ? "#f4f4f5" : `${item.color}ea`,
+                borderRight: isLight ? "1px solid rgba(0,0,0,0.08)" : `1px solid ${item.accent}24`,
+              }}
+            >
+              <div
+                className="w-3.5 h-3.5 rounded-md mb-0.5 shadow-xs"
+                style={{ background: item.accent }}
+              />
+              {[0.7, 0.45, 0.3].map((op, i) => (
+                <div
+                  key={i}
+                  className="w-2.5 h-1 rounded-full"
+                  style={{
+                    background: isLight ? "#71717a" : item.accent,
+                    opacity: isLight ? op * 0.7 : op,
+                  }}
+                />
+              ))}
+              <div
+                className="mt-auto w-2.5 h-2.5 rounded-full"
+                style={{
+                  background: isLight ? "#a1a1aa" : `${item.accent}60`,
+                }}
+              />
+            </div>
 
-      {/* Check indicator */}
-      <div
-        className={`w-4.5 h-4.5 rounded-full border flex items-center justify-center shrink-0 transition-all duration-200 ${
-          isSelected ? "scale-110" : "scale-100 opacity-40 group-hover:opacity-70"
-        }`}
-        style={{
-          background: isSelected ? item.accent : "transparent",
-          borderColor: item.accent,
-        }}
-      >
+            {/* Main workspace area */}
+            <div className="absolute inset-0 left-8 p-2.5 flex flex-col justify-between">
+              {/* Header element */}
+              <div className="flex items-center justify-between">
+                <div
+                  className="h-1.5 w-14 rounded-full"
+                  style={{
+                    background: isLight ? "rgba(0,0,0,0.14)" : `${item.accent}50`,
+                  }}
+                />
+                <div
+                  className="h-3.5 w-3.5 rounded-full border shadow-xs"
+                  style={{
+                    background: item.accent,
+                    borderColor: isLight ? "rgba(0,0,0,0.1)" : `${item.accent}40`,
+                  }}
+                />
+              </div>
+
+              {/* Cards row */}
+              <div className="grid grid-cols-2 gap-1.5">
+                {/* Active Focus Card */}
+                <div
+                  className="h-8.5 rounded-lg p-1.5 flex flex-col justify-between shadow-xs"
+                  style={{
+                    background: isLight
+                      ? "rgba(99,102,241,0.08)"
+                      : `${item.accent}18`,
+                    border: isLight
+                      ? "1px solid rgba(99,102,241,0.22)"
+                      : `1px solid ${item.accent}30`,
+                  }}
+                >
+                  <div
+                    className="h-1 w-7 rounded-full"
+                    style={{
+                      background: isLight ? "#6366f1" : `${item.accent}90`,
+                    }}
+                  />
+                  <div
+                    className="h-2.5 w-4 rounded-sm font-bold text-[6px] flex items-center justify-center shadow-xs"
+                    style={{
+                      background: item.accent,
+                      color: isLight ? "#ffffff" : (item.id === "vercel" ? "#000000" : "#ffffff"),
+                    }}
+                  >
+                    <span>25</span>
+                  </div>
+                </div>
+
+                {/* Secondary Task Card */}
+                <div
+                  className="h-8.5 rounded-lg p-1.5 flex flex-col justify-between shadow-xs"
+                  style={{
+                    background: isLight ? "#ffffff" : "rgba(255,255,255,0.04)",
+                    border: isLight ? "1px solid #e4e4e7" : "1px solid rgba(255,255,255,0.08)",
+                  }}
+                >
+                  <div
+                    className="h-1 w-8 rounded-full"
+                    style={{
+                      background: isLight ? "#a1a1aa" : "rgba(255,255,255,0.3)",
+                    }}
+                  />
+                  <div
+                    className="h-1 w-5 rounded-full"
+                    style={{
+                      background: isLight ? "#cbd5e1" : "rgba(255,255,255,0.15)",
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Progress bar */}
+              <div
+                className="h-1 w-full rounded-full overflow-hidden"
+                style={{
+                  background: isLight ? "#e4e4e7" : "rgba(255,255,255,0.1)",
+                }}
+              >
+                <div
+                  className="h-full rounded-full w-3/5 transition-all duration-300"
+                  style={{ background: item.accent }}
+                />
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Selection overlay shimmer */}
         {isSelected && (
-          <Check size={9} strokeWidth={3.5} style={{ color: item.color }} />
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              background: `radial-gradient(circle at 50% 30%, ${item.accent}20 0%, transparent 70%)`,
+            }}
+          />
         )}
       </div>
-    </div>
-  </motion.button>
-);
+
+      {/* Info footer bar */}
+      <div
+        className="px-3 py-2 flex items-center justify-between gap-2 border-t transition-colors"
+        style={{
+          background: isLight ? "#ffffff" : (isSystem ? "#141417" : `${item.color}fa`),
+          borderColor: isLight ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.08)",
+        }}
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          {/* Dual-swatch / Indicator badge */}
+          <div
+            className={`w-4.5 h-4.5 rounded-md shrink-0 relative overflow-hidden shadow-inner ${
+              isLight ? "border border-zinc-300" : "border border-white/15"
+            }`}
+            style={{
+              background: isSystem
+                ? "linear-gradient(135deg, #09090b 50%, #ffffff 50%)"
+                : item.color,
+            }}
+          >
+            {!isSystem && (
+              <div
+                className="absolute top-0 right-0 w-2.5 h-full"
+                style={{ background: item.accent }}
+              />
+            )}
+          </div>
+
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span
+                className={`text-[11.5px] font-semibold leading-tight truncate ${
+                  isLight ? "text-zinc-900" : "text-zinc-100"
+                }`}
+              >
+                {item.name}
+              </span>
+              {item.isPremium && (
+                <span
+                  className="text-[8px] font-mono font-bold px-1 py-0.2 rounded shrink-0 uppercase tracking-wide"
+                  style={{
+                    background: `${item.accent}22`,
+                    color: item.accent,
+                    border: `1px solid ${item.accent}45`,
+                  }}
+                >
+                  PRO
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Check Indicator */}
+        <div
+          className={`w-4.5 h-4.5 rounded-full border flex items-center justify-center shrink-0 transition-all duration-200 ${
+            isSelected
+              ? "scale-105 shadow-sm"
+              : isLight
+              ? "border-zinc-300 bg-transparent group-hover:border-zinc-400"
+              : "border-white/20 bg-transparent group-hover:border-white/40"
+          }`}
+          style={{
+            background: isSelected ? item.accent : "transparent",
+            borderColor: isSelected ? item.accent : undefined,
+          }}
+        >
+          {isSelected && (
+            <Check
+              size={9.5}
+              strokeWidth={3.5}
+              style={{ color: checkIconColor }}
+            />
+          )}
+        </div>
+      </div>
+    </motion.button>
+  );
+};
 
 export default function ThemeSelectorModal() {
   const { theme, setTheme, showThemeModal, setShowThemeModal, availableThemes } = useTheme();
@@ -159,7 +304,7 @@ export default function ThemeSelectorModal() {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.18 }}
             onClick={() => setShowThemeModal(false)}
-            className="absolute inset-0 bg-black/70 backdrop-blur-xl"
+            className="absolute inset-0 bg-black/75 backdrop-blur-xl"
           />
 
           {/* Modal */}
@@ -168,7 +313,7 @@ export default function ThemeSelectorModal() {
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.96, opacity: 0, y: 16 }}
             transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-            className="relative bg-background border border-border/60 rounded-3xl shadow-2xl max-w-3xl w-full overflow-hidden flex flex-col select-none"
+            className="relative bg-background border border-border/70 rounded-3xl shadow-2xl max-w-4xl w-full overflow-hidden flex flex-col select-none"
             style={{ maxHeight: "88vh" }}
           >
             {/* Gradient accent bar at top */}
@@ -231,7 +376,7 @@ export default function ThemeSelectorModal() {
 
             {/* Scrollable content */}
             <div className="flex-1 overflow-y-auto custom-scrollbar px-6 pb-6 space-y-5">
-              {/* Free themes */}
+              {/* Free / Standard themes - 4 items neatly balanced in 4 columns */}
               <div>
                 <div className="flex items-center gap-2 mb-3">
                   <Monitor size={12} className="text-muted-foreground" />
@@ -240,7 +385,7 @@ export default function ThemeSelectorModal() {
                   </span>
                   <div className="flex-1 h-px bg-border/40" />
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   {freeThemes.map((item) => (
                     <ThemeCard
                       key={item.id}
@@ -264,7 +409,7 @@ export default function ThemeSelectorModal() {
                     Unlocked
                   </span>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-3">
                   {proThemes.map((item) => (
                     <ThemeCard
                       key={item.id}

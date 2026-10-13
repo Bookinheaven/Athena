@@ -108,7 +108,7 @@ export default function Planner() {
             </div>
             <Button
               size="sm"
-              onClick={() => navigate("/focus-page")}
+              onClick={() => navigate("/focus-page", { state: { resume: true } })}
               className="gap-1.5 rounded-xl font-semibold text-xs shadow-xs"
             >
               Resume Session <ArrowRight className="w-3.5 h-3.5" />

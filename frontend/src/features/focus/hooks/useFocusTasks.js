@@ -177,6 +177,32 @@ export function useFocusTasks({ runtime }) {
     [todos, updateTodos]
   );
 
+  const handleUpdateTodoTitle = useCallback(
+    async (id, newTitle) => {
+      if (!id || !newTitle?.trim()) return;
+      const trimmed = newTitle.trim();
+      updateTodos(
+        todos.map((t) => {
+          const match =
+            String(t.id) === String(id) || String(t._id) === String(id);
+          return match ? { ...t, title: trimmed } : t;
+        })
+      );
+      setAllTasks((prev) =>
+        prev.map((t) => {
+          const match = String(t._id || t.id) === String(id);
+          return match ? { ...t, title: trimmed } : t;
+        })
+      );
+      try {
+        await taskService.updateTask(id, { title: trimmed });
+      } catch (err) {
+        console.error("[useFocusTasks] Failed to update task title:", err);
+      }
+    },
+    [todos, updateTodos]
+  );
+
   return {
     allTasks,
     todos,
@@ -184,6 +210,7 @@ export function useFocusTasks({ runtime }) {
     setNewTodo,
     onAddTodo: handleAddTodo,
     onUpdateTodoStatus: handleUpdateTodoStatus,
+    onUpdateTodoTitle: handleUpdateTodoTitle,
     onDeleteTodo: handleDeleteTodo,
     updateTodos,
   };

@@ -33,7 +33,7 @@ export const AVAILABLE_THEMES = [
     name: "Obsidian Dark",
     description: "Sleek high-contrast monochrome with violet",
     color: "#09090b",
-    accent: "#7c3aed",
+    accent: "#8b5cf6",
     isPremium: false,
   },
   {

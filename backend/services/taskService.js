@@ -11,8 +11,15 @@ import {
   productDateToStart,
   resolveUserTimezone,
 } from "../utils/dateUtils.js";
+import { computeTaskFriction } from "../utils/taskFrictionEngine.js";
 
 class TaskService {
+  constructor(deps = {}) {
+    this.taskRepo = deps.taskRepository || taskRepository;
+    this.taskOccurrenceRepo = deps.taskOccurrenceRepository || taskOccurrenceRepository;
+    this.sessionRepo = deps.sessionRepository || sessionRepository;
+  }
+
   async createTask(userId, data, asOfDateOrTimezone = new Date(), timezone = null) {
     let asOfDate = asOfDateOrTimezone;
     let tz = timezone;
@@ -244,6 +251,40 @@ class TaskService {
   async reorderTasks(userId, updates) {
     await taskRepository.reorder(userId, updates);
   }
+
+  async getTaskFriction(userId, taskId) {
+    const cleanTaskId = normalizeTaskId(taskId);
+    if (!cleanTaskId) {
+      const error = new Error("Invalid taskId format");
+      error.status = 400;
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const task = await (this.taskRepo || taskRepository).findById(userId, cleanTaskId);
+    if (!task) {
+      const error = new Error("Task not found or access denied");
+      error.status = 404;
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const occurrences = await (this.taskOccurrenceRepo || taskOccurrenceRepository).findByUserAndTaskId(
+      userId,
+      cleanTaskId
+    );
+    const focusSeconds = await (this.sessionRepo || sessionRepository).getFocusSecondsForTask(
+      userId,
+      cleanTaskId
+    );
+
+    return computeTaskFriction({
+      task,
+      occurrences,
+      focusSeconds,
+    });
+  }
 }
 
+export { TaskService };
 export default new TaskService();

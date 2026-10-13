@@ -17,6 +17,9 @@ const router = express.Router();
 
 router.get("/summary", auth, StreakController.getSummary);
 router.get("/monthly", auth, StreakController.getMonthly);
+router.get("/adaptive-target", auth, StreakController.getAdaptiveTarget);
+router.post("/adaptive-target/apply", auth, StreakController.applyAdaptiveTarget);
+router.put("/target-settings", auth, StreakController.updateTargetSettings);
 router.get("/:type", auth, StreakController.getSpecific);
 
 export default router;

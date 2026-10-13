@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { usePlannerStore } from "../../../stores/plannerStore.js";
 import { useTimelineData, START_HOUR } from "../hooks/useTimelineData.js";
 import TimelineHeader from "./TimelineHeader.jsx";
@@ -6,7 +6,7 @@ import TimelineGrid from "./TimelineGrid.jsx";
 import UnscheduledTasks from "./UnscheduledTasks.jsx";
 import { Skeleton } from "@/components/ui/skeleton.jsx";
 import { Button } from "@/components/ui/button.jsx";
-import { ListPlus, Calendar } from "lucide-react";
+import { ListPlus, Calendar, AlertCircle, X } from "lucide-react";
 import toast from "react-hot-toast";
 
 export default function TimelineView({
@@ -16,9 +16,16 @@ export default function TimelineView({
 }) {
   const { selectedDate, setSelectedDate } = usePlannerStore();
   const [mobileView, setMobileView] = useState("timeline"); // 'timeline' | 'tasks'
+  const [isAlertDismissed, setIsAlertDismissed] = useState(false);
+
+  // Reset alert dismiss state when switching dates
+  useEffect(() => {
+    setIsAlertDismissed(false);
+  }, [selectedDate]);
 
   const {
     blocks,
+    capacityAlert,
     isLoading,
     isSaving,
     createBlock,
@@ -100,8 +107,61 @@ export default function TimelineView({
         selectedDate={selectedDate}
         dateNav={dateNav}
         blocks={blocks}
+        capacityAlert={capacityAlert}
         isSaving={isSaving}
       />
+
+      {/* Advisory Capacity Overload Banner */}
+      {capacityAlert?.isOverloaded && !isAlertDismissed && (
+        <div
+          data-testid="planner-overload-banner"
+          className="flex items-start justify-between gap-4 p-4 bg-amber-500/10 border border-amber-500/25 rounded-2xl text-card-foreground shadow-2xs backdrop-blur-xs transition-all"
+        >
+          <div className="flex items-start gap-3.5">
+            <div className="p-2 bg-amber-500/20 rounded-xl shrink-0 mt-0.5">
+              <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <h4 className="text-sm font-semibold text-foreground">
+                  {capacityAlert.summary}
+                </h4>
+                <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 bg-amber-500/20 text-amber-700 dark:text-amber-300 rounded-md">
+                  Advisory
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                {capacityAlert.explanation}
+              </p>
+              <div className="flex flex-wrap items-center gap-3 pt-1 text-[11px] text-muted-foreground">
+                <span>
+                  Planned: <strong className="text-foreground font-semibold">{capacityAlert.formattedScheduled}</strong>
+                </span>
+                <span className="text-border">•</span>
+                <span>
+                  Recent 14-day median: <strong className="text-foreground font-semibold">{capacityAlert.formattedCapacity}</strong>
+                </span>
+                {capacityAlert.overloadRatio != null && (
+                  <>
+                    <span className="text-border">•</span>
+                    <span>
+                      Load: <strong className="text-foreground font-semibold">{Math.round(capacityAlert.overloadRatio * 100)}%</strong> of typical
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={() => setIsAlertDismissed(true)}
+            className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-amber-500/20 rounded-lg transition-colors shrink-0"
+            title="Dismiss advisory"
+            aria-label="Dismiss advisory"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* Mobile Toggle Controls */}
       <div className="flex sm:hidden items-center justify-center p-1 bg-secondary/40 border border-border/40 rounded-xl">

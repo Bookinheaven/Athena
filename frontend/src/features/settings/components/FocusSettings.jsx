@@ -1,9 +1,10 @@
-import React, { useState } from "react";
-import { Target, RotateCcw, Check, Volume2, Timer, AlertTriangle, ShieldCheck } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Target, RotateCcw, Check, Volume2, Timer, AlertTriangle, ShieldCheck, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { useAuth } from "@contexts/AuthContext";
 import { useFocusSettings } from "@/features/focus/hooks/useFocusSettings";
+import streakService from "@services/streakService";
 
 export const FocusSettings = () => {
   const { user } = useAuth();
@@ -14,6 +15,60 @@ export const FocusSettings = () => {
   const [saveNotice, setSaveNotice] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+
+  // Streak & Adaptive Target Settings
+  const [targetMinutes, setTargetMinutes] = useState(25);
+  const [minTargetMinutes, setMinTargetMinutes] = useState(20);
+  const [maxTargetMinutes, setMaxTargetMinutes] = useState(90);
+  const [adaptiveEnabled, setAdaptiveEnabled] = useState(true);
+
+  useEffect(() => {
+    streakService
+      .fetchStreak()
+      .then((data) => {
+        if (data) {
+          if (data.dailyTargetMinutes) setTargetMinutes(data.dailyTargetMinutes);
+          if (data.minTargetMinutes) setMinTargetMinutes(data.minTargetMinutes);
+          if (data.maxTargetMinutes) setMaxTargetMinutes(data.maxTargetMinutes);
+        }
+      })
+      .catch(() => {});
+
+    try {
+      const stored = localStorage.getItem(`athena_adaptive_target_enabled_${userId}`);
+      if (stored !== null) {
+        setAdaptiveEnabled(stored === "true");
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [userId]);
+
+  const handleTargetChange = async (minutes) => {
+    const clamped = Math.max(minTargetMinutes, Math.min(minutes, maxTargetMinutes));
+    setTargetMinutes(clamped);
+    try {
+      await streakService.updateTargetSettings({
+        dailyTargetMinutes: clamped,
+        minTargetMinutes,
+        maxTargetMinutes,
+      });
+      triggerSaveFeedback();
+    } catch (err) {
+      console.error("Failed to update daily target:", err);
+    }
+  };
+
+  const handleAdaptiveToggle = () => {
+    const next = !adaptiveEnabled;
+    setAdaptiveEnabled(next);
+    try {
+      localStorage.setItem(`athena_adaptive_target_enabled_${userId}`, String(next));
+    } catch {
+      /* ignore */
+    }
+    triggerSaveFeedback();
+  };
 
   const handleToggle = (key) => {
     const updated = !settings[key];
@@ -86,6 +141,73 @@ export const FocusSettings = () => {
               <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
               Reset Defaults
             </Button>
+          </div>
+        </div>
+
+        {/* Daily Focus Commitment & Adaptive Target */}
+        <div className="rounded-2xl border border-border/60 bg-card p-6 shadow-xs space-y-5">
+          <div className="flex items-center gap-2.5">
+            <div className="h-8 w-8 rounded-lg bg-secondary flex items-center justify-center text-foreground">
+              <Target className="h-4 w-4" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-foreground">Daily Focus Commitment</h3>
+              <p className="text-xs text-muted-foreground">
+                Your daily focus target and adaptive adjustment preferences.
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-4 pt-1">
+            {/* Daily Target Presets */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-medium text-foreground">Daily Focus Target</label>
+                <span className="text-xs font-mono font-medium text-primary tabular-nums">
+                  {targetMinutes} min / day
+                </span>
+              </div>
+              <div className="grid grid-cols-5 gap-2.5 max-w-md">
+                {[20, 25, 30, 45, 60].map((mins) => {
+                  const isSelected = targetMinutes === mins;
+                  return (
+                    <button
+                      key={mins}
+                      type="button"
+                      onClick={() => handleTargetChange(mins)}
+                      className={`h-9 rounded-lg text-xs font-mono font-medium border transition-colors cursor-pointer ${
+                        isSelected
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-secondary/40 text-foreground border-border/60 hover:bg-secondary"
+                      }`}
+                    >
+                      {mins}m
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Target Limits / Bounds */}
+            <div className="flex items-center gap-4 text-xs text-muted-foreground pt-1">
+              <span>Boundaries:</span>
+              <span className="font-mono bg-secondary/50 px-2 py-0.5 rounded border border-border/40">
+                Min: {minTargetMinutes}m
+              </span>
+              <span className="font-mono bg-secondary/50 px-2 py-0.5 rounded border border-border/40">
+                Max: {maxTargetMinutes}m
+              </span>
+            </div>
+
+            {/* Adaptive Toggle */}
+            <div className="pt-2 border-t border-border/40">
+              <ToggleRow
+                label="Adaptive Focus Target Recommendations"
+                description="Allow Athena to suggest ±5m gradual target adjustments based on your 7-day consistency and recovery."
+                checked={adaptiveEnabled}
+                onChange={handleAdaptiveToggle}
+              />
+            </div>
           </div>
         </div>
 

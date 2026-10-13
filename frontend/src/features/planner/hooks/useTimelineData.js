@@ -11,9 +11,21 @@ export const TOTAL_MINUTES = (END_HOUR - START_HOUR) * 60; // 960 minutes
 export const useTimelineData = (selectedDate, setSelectedDate) => {
   const navigate = useNavigate();
   const [blocks, setBlocks] = useState([]);
+  const [capacityAlert, setCapacityAlert] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState(null);
+
+  // Fetch adaptive capacity alert for selected date
+  const loadCapacityAlert = useCallback(async (dateStr) => {
+    if (!dateStr) return;
+    try {
+      const alert = await scheduleService.getCapacityAlert({ date: dateStr });
+      setCapacityAlert(alert || null);
+    } catch (err) {
+      console.error("Failed to load capacity alert:", err);
+    }
+  }, []);
 
   // Fetch blocks for the selected calendar date
   const loadScheduleBlocks = useCallback(async (dateStr) => {
@@ -23,6 +35,7 @@ export const useTimelineData = (selectedDate, setSelectedDate) => {
     try {
       const data = await scheduleService.getScheduleBlocks({ date: dateStr });
       setBlocks(Array.isArray(data) ? data : []);
+      loadCapacityAlert(dateStr);
     } catch (err) {
       console.error("Failed to load schedule blocks:", err);
       setError(err.message || "Failed to load timeline schedule");
@@ -30,7 +43,7 @@ export const useTimelineData = (selectedDate, setSelectedDate) => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [loadCapacityAlert]);
 
   useEffect(() => {
     loadScheduleBlocks(selectedDate);
@@ -81,6 +94,7 @@ export const useTimelineData = (selectedDate, setSelectedDate) => {
 
         if (created) {
           setBlocks((prev) => [...prev, created]);
+          loadCapacityAlert(selectedDate);
           toast.success("Task scheduled on timeline");
           return created;
         }
@@ -91,7 +105,7 @@ export const useTimelineData = (selectedDate, setSelectedDate) => {
         setIsSaving(false);
       }
     },
-    [selectedDate]
+    [selectedDate, loadCapacityAlert]
   );
 
   // Update an existing ScheduleBlock (optimistic with rollback)
@@ -119,6 +133,7 @@ export const useTimelineData = (selectedDate, setSelectedDate) => {
           setBlocks((prev) =>
             prev.map((b) => (b._id === blockId ? updated : b))
           );
+          loadCapacityAlert(selectedDate);
         }
       } catch (err) {
         console.error("Failed to update schedule block:", err);
@@ -129,7 +144,7 @@ export const useTimelineData = (selectedDate, setSelectedDate) => {
         setIsSaving(false);
       }
     },
-    [blocks]
+    [blocks, selectedDate, loadCapacityAlert]
   );
 
   // Delete a ScheduleBlock (optimistic with rollback)
@@ -139,6 +154,7 @@ export const useTimelineData = (selectedDate, setSelectedDate) => {
       setBlocks((prev) => prev.filter((b) => b._id !== blockId));
       try {
         await scheduleService.deleteScheduleBlock(blockId);
+        loadCapacityAlert(selectedDate);
         toast.success("Schedule block removed");
       } catch (err) {
         console.error("Failed to delete schedule block:", err);
@@ -147,7 +163,7 @@ export const useTimelineData = (selectedDate, setSelectedDate) => {
         setBlocks(originalBlocks);
       }
     },
-    [blocks]
+    [blocks, selectedDate, loadCapacityAlert]
   );
 
   // Start Focus session from a ScheduleBlock.
@@ -184,10 +200,12 @@ export const useTimelineData = (selectedDate, setSelectedDate) => {
 
   return {
     blocks,
+    capacityAlert,
     isLoading,
     isSaving,
     error,
     refetch: () => loadScheduleBlocks(selectedDate),
+    refreshCapacityAlert: () => loadCapacityAlert(selectedDate),
     createBlock: handleCreateBlock,
     updateBlock: handleUpdateBlock,
     deleteBlock: handleDeleteBlock,

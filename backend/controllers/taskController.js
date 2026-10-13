@@ -73,6 +73,16 @@ class TaskController {
       res.status(statusCode).json({ success: false, message: error.message });
     }
   }
+
+  async getTaskFriction(req, res) {
+    try {
+      const result = await TaskService.getTaskFriction(req.user.id, req.params.id);
+      res.json({ success: true, friction: result, data: result });
+    } catch (error) {
+      const statusCode = error.statusCode || 500;
+      res.status(statusCode).json({ success: false, message: error.message });
+    }
+  }
 }
 
 export default new TaskController();

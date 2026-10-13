@@ -4,9 +4,12 @@ export const normalizeUser = (user) => {
   if (!user) return null;
   const id = user.id || user._id;
   const normalizedId = id ? String(id) : undefined;
+  const effectiveRole = user.accountType || user.type || "user";
   return {
     ...user,
     id: normalizedId,
+    type: effectiveRole,
+    accountType: effectiveRole,
   };
 };
 
