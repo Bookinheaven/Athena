@@ -35,6 +35,8 @@ const Dashboard = () => {
   const [showSessionDetails, setShowSessionDetails] = useState(false);
   const [selectedSession, setSelectedSession] = useState(null);
   const [devDataTargetUserId, setDevDataTargetUserId] = useState(null);
+  const [sessionUserFilter, setSessionUserFilter] = useState(null);
+  const [userDetailInitialTab, setUserDetailInitialTab] = useState('overview');
   
   // Data state
   const [userSessions, setUserSessions] = useState([]);
@@ -326,7 +328,14 @@ const Dashboard = () => {
               setSearchQuery={setSearchQuery}
               filteredUsers={filteredUsers}
               setSelectedUser={setSelectedUser}
-              setShowUserDetails={setShowUserDetails}
+              setShowUserDetails={(show) => {
+                setUserDetailInitialTab('overview');
+                setShowUserDetails(show);
+              }}
+              onViewUserSessions={(u) => {
+                setSessionUserFilter(u.id || u._id);
+                setActiveTab('user-sessions');
+              }}
               handleEditUser={handleEditUser}
               handleDeleteUser={handleDeleteUser}
             />
@@ -335,6 +344,9 @@ const Dashboard = () => {
           {activeTab === 'user-sessions' && (
             <SessionsTab
               userSessions={userSessions}
+              users={users}
+              selectedUserId={sessionUserFilter}
+              onSelectUserId={setSessionUserFilter}
               setSelectedSession={setSelectedSession}
               setShowSessionDetails={setShowSessionDetails}
             />
@@ -354,8 +366,18 @@ const Dashboard = () => {
       <UserDetailModal
         user={selectedUser}
         open={showUserDetails}
+        initialTab={userDetailInitialTab}
         onClose={() => setShowUserDetails(false)}
         onEdit={handleEditUser}
+        onInspectSession={(session) => {
+          setSelectedSession(session);
+          setShowSessionDetails(true);
+        }}
+        onViewInSessionsTab={(uid) => {
+          setSessionUserFilter(uid);
+          setActiveTab('user-sessions');
+          setShowUserDetails(false);
+        }}
         onNavigateToDevData={(uid) => {
           setDevDataTargetUserId(uid);
           setActiveTab('developer-data');

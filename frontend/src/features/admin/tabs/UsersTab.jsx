@@ -1,4 +1,4 @@
-import { Search, Mail, CheckCircle, XCircle, Eye, Edit, Trash2, AlertCircle, ShieldCheck, User } from 'lucide-react';
+import { Search, Mail, CheckCircle, XCircle, Eye, Edit, Trash2, AlertCircle, ShieldCheck, User, Timer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -45,6 +45,7 @@ export function UsersTab({
   filteredUsers,
   setSelectedUser,
   setShowUserDetails,
+  onViewUserSessions,
   handleEditUser,
   handleDeleteUser,
 }) {
@@ -133,7 +134,16 @@ export function UsersTab({
                             <Eye className="size-3.5" />
                           </Button>
                         </TooltipTrigger>
-                        <TooltipContent className="font-mono text-xs">inspect</TooltipContent>
+                        <TooltipContent className="font-mono text-xs">inspect user</TooltipContent>
+                      </Tooltip>
+                      <Tooltip delayDuration={0}>
+                        <TooltipTrigger asChild>
+                          <Button variant="ghost" size="icon" className="size-7 rounded-md text-muted-foreground hover:text-sky-400 hover:bg-sky-500/10"
+                            onClick={() => onViewUserSessions && onViewUserSessions(u)}>
+                            <Timer className="size-3.5" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent className="font-mono text-xs">view sessions</TooltipContent>
                       </Tooltip>
                       <Tooltip delayDuration={0}>
                         <TooltipTrigger asChild>

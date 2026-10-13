@@ -13,6 +13,12 @@ class AdminService extends RequestService {
     });
   }
 
+  async getUserData(id) {
+    return this.request(`/admin/users/${id}/data`, {
+      method: "GET"
+    });
+  }
+
   async addUsers(data) {
     let response = await this.request("/admin/add", {
       method: "POST",
@@ -35,8 +41,9 @@ class AdminService extends RequestService {
     return response;
   }
 
-  async getSessions() {
-    let response = await this.request("/admin/userSessions", {
+  async getSessions(userId = null) {
+    const url = userId ? `/admin/userSessions?userId=${encodeURIComponent(userId)}` : "/admin/userSessions";
+    let response = await this.request(url, {
       method: "GET"
     });
     return response;

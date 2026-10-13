@@ -8,6 +8,7 @@ const router = express.Router();
 // User
 router.get('/users', adminAuth, AdminController.getUsers);
 router.get('/users/:id', adminAuth, AdminController.getUserDetails);
+router.get('/users/:id/data', adminAuth, AdminController.getUserFullData);
 router.post('/add', adminAuth , AdminController.addUsers);
 router.post('/delete', adminAuth , AdminController.removeUsers);
 router.post('/update', adminAuth , AdminController.updateUser);
