@@ -11,12 +11,19 @@ import { formatDisplayDate } from "../utils/dateUtils.js";
  * NOT a KPI dashboard. NOT four giant number cards.
  */
 export function SelectedDaySummary({ productDate, stats, occurrenceCount, sessionCount }) {
+  const routinesPlanned = stats?.routinesPlanned ?? 0;
+  const routinesCompleted = stats?.routinesCompleted ?? 0;
+  const routinesSkipped = stats?.routinesSkipped ?? 0;
+  const effectiveRoutinesPlanned = Math.max(0, routinesPlanned - routinesSkipped);
+
   const tasksPlanned = stats?.tasksPlanned ?? occurrenceCount ?? 0;
   const tasksCompleted = stats?.tasksCompleted ?? 0;
   const tasksPartiallyCompleted = stats?.tasksPartiallyCompleted ?? 0;
   const tasksRescheduled = stats?.tasksRescheduled ?? 0;
   const tasksCancelled = stats?.tasksCancelled ?? 0;
-  const effectivePlanned = tasksPlanned - tasksRescheduled - tasksCancelled;
+  const effectiveTasksPlanned = Math.max(0, tasksPlanned - tasksRescheduled - tasksCancelled);
+
+  const effectivePlanned = stats?.effectivePlanned ?? (effectiveTasksPlanned + effectiveRoutinesPlanned);
   const hasEffectivePlan = effectivePlanned > 0;
   const totalFocusMinutes = stats?.totalFocusMinutes ?? 0;
 
@@ -26,20 +33,20 @@ export function SelectedDaySummary({ productDate, stats, occurrenceCount, sessio
       : `${totalFocusMinutes}m`;
 
   const stateLabel =
-    stats?.state === "successful"
+    stats?.state === "successful" || stats?.state === "green"
       ? "All done"
-      : stats?.state === "partial"
+      : stats?.state === "partial" || stats?.state === "yellow"
       ? "Partial"
-      : stats?.state === "failed"
+      : stats?.state === "failed" || stats?.state === "red"
       ? "Missed"
       : null;
 
   const stateLabelColor =
-    stats?.state === "successful"
+    stats?.state === "successful" || stats?.state === "green"
       ? "text-emerald-500"
-      : stats?.state === "partial"
+      : stats?.state === "partial" || stats?.state === "yellow"
       ? "text-amber-500"
-      : stats?.state === "failed"
+      : stats?.state === "failed" || stats?.state === "red"
       ? "text-rose-500"
       : "text-muted-foreground";
 
@@ -47,9 +54,16 @@ export function SelectedDaySummary({ productDate, stats, occurrenceCount, sessio
   const fragments = [];
 
   if (hasEffectivePlan) {
-    fragments.push(`${tasksCompleted}/${effectivePlanned} tasks done`);
-    if (tasksPartiallyCompleted > 0) {
-      fragments.push(`${tasksPartiallyCompleted} partial`);
+    if (effectiveTasksPlanned > 0 && effectiveRoutinesPlanned > 0) {
+      fragments.push(`${tasksCompleted}/${effectiveTasksPlanned} tasks done`);
+      fragments.push(`${routinesCompleted}/${effectiveRoutinesPlanned} routines done`);
+    } else if (effectiveRoutinesPlanned > 0) {
+      fragments.push(`${routinesCompleted}/${effectiveRoutinesPlanned} routines done`);
+    } else {
+      fragments.push(`${tasksCompleted}/${effectiveTasksPlanned} tasks done`);
+      if (tasksPartiallyCompleted > 0) {
+        fragments.push(`${tasksPartiallyCompleted} partial`);
+      }
     }
   } else {
     fragments.push("No planned work");

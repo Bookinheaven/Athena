@@ -1,29 +1,39 @@
 import React from "react";
 
-/**
- * Individual calendar cell — redesigned with color-filled state backgrounds,
- * a compact progress bar, and a today glow ring.
- *
- * State colors are strictly based on DailyStats task outcome (NOT focus minutes).
- */
 export function DayCell({ dayObj, stats, isSelected, isToday, onClick }) {
   const { day, isCurrentMonth, productDate } = dayObj;
 
-  const state = stats?.state || "neutral";
+  const rawState = stats?.state || "neutral";
+  const state =
+    rawState === "green"
+      ? "successful"
+      : rawState === "yellow"
+        ? "partial"
+        : rawState === "red"
+          ? "failed"
+          : rawState;
+
   const tasksPlanned = stats?.tasksPlanned || 0;
   const tasksCompleted = stats?.tasksCompleted || 0;
   const tasksPartiallyCompleted = stats?.tasksPartiallyCompleted || 0;
   const effectivePlanned =
-    tasksPlanned - (stats?.tasksRescheduled || 0) - (stats?.tasksCancelled || 0);
+    stats?.effectivePlanned ??
+    (tasksPlanned - (stats?.tasksRescheduled || 0) - (stats?.tasksCancelled || 0));
+
+  const completedDisplay =
+    stats?.commitmentsCompleted ??
+    (tasksCompleted + (stats?.routinesCompleted || 0));
 
   const completionPct =
     effectivePlanned > 0
       ? Math.min(
-          100,
-          Math.round(
-            ((tasksCompleted + tasksPartiallyCompleted * 0.5) / effectivePlanned) * 100
-          )
+        100,
+        Math.round(
+          stats?.completionRate !== undefined
+            ? Number(stats.completionRate) * 100
+            : ((tasksCompleted + tasksPartiallyCompleted * 0.5) / effectivePlanned) * 100
         )
+      )
       : 0;
 
   const stateStyles = {
@@ -79,8 +89,8 @@ export function DayCell({ dayObj, stats, isSelected, isToday, onClick }) {
         isSelected
           ? `${s.selectedBg} border-primary/60 ring-1 ring-primary/40 shadow-md`
           : hasStats
-          ? `${s.bg} border-border/30 hover:border-border/60 hover:shadow-sm`
-          : "bg-transparent border-border/20 hover:bg-muted/20 hover:border-border/40",
+            ? `${s.bg} border-border/30 hover:border-border/60 hover:shadow-sm`
+            : "bg-transparent border-border/20 hover:bg-muted/20 hover:border-border/40",
         isToday && !isSelected
           ? "ring-2 ring-primary/50 border-primary/40"
           : "",
@@ -95,10 +105,10 @@ export function DayCell({ dayObj, stats, isSelected, isToday, onClick }) {
           isToday
             ? "bg-primary text-primary-foreground"
             : isSelected
-            ? `${s.text} font-black`
-            : isCurrentMonth
-            ? "text-foreground/90"
-            : "text-muted-foreground/40",
+              ? `${s.text} font-black`
+              : isCurrentMonth
+                ? "text-foreground/90"
+                : "text-muted-foreground/40",
         ].join(" ")}
       >
         {day}
@@ -117,7 +127,7 @@ export function DayCell({ dayObj, stats, isSelected, isToday, onClick }) {
             </div>
             {/* Count text */}
             <span className={`text-[9px] font-semibold leading-none ${s.text}`}>
-              {`${tasksCompleted}/${effectivePlanned}`}
+              {`${completedDisplay}/${effectivePlanned}`}
             </span>
           </>
         ) : stats?.totalFocusMinutes > 0 ? (

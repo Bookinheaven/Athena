@@ -107,6 +107,14 @@ const UserDashboard = () => {
                   remainingMinutes={progress.remainingMinutes}
                   completedTasksCount={tasks.completed.length}
                   totalTasksCount={tasks.today.length}
+                  completedRoutinesCount={
+                    routines.occurrences.filter((o) => o.status === "completed").length
+                  }
+                  totalRoutinesCount={
+                    routines.occurrences.filter(
+                      (o) => o.status !== "archived" && o.routineStatus !== "archived"
+                    ).length
+                  }
                 />
 
                 <TodayInsight insight={insight} />

@@ -1,4 +1,4 @@
-import { eq, and, asc, desc, inArray, sql } from "drizzle-orm";
+import { eq, and, asc, desc, inArray, sql, gte, lte } from "drizzle-orm";
 import { getDrizzleDb, getPgPool } from "../db/index.js";
 import { routineOccurrences } from "../db/schema/routineOccurrences.js";
 import { routineStepOccurrences } from "../db/schema/routineStepOccurrences.js";
@@ -479,6 +479,109 @@ class RoutineOccurrenceRepository {
     } finally {
       client.release();
     }
+  }
+
+  async evaluateMissedOccurrences(userId, beforeProductDate) {
+    const cleanUserId = normalizeUserId(userId);
+    if (!cleanUserId || !beforeProductDate) return 0;
+    const cleanDate = typeof beforeProductDate === "string" ? beforeProductDate.slice(0, 10) : beforeProductDate.toISOString().slice(0, 10);
+    const db = getDrizzleDb();
+
+    // Idempotently transition unfinalized past occurrences (pending or in_progress) to missed
+    const result = await db
+      .update(routineOccurrences)
+      .set({
+        status: "missed",
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(routineOccurrences.userId, cleanUserId),
+          sql`${routineOccurrences.productDate} < ${cleanDate}::date`,
+          inArray(routineOccurrences.status, ["pending", "in_progress"])
+        )
+      )
+      .returning();
+
+    return result.length;
+  }
+
+  async findPastOccurrences(userId, beforeProductDate) {
+    const cleanUserId = normalizeUserId(userId);
+    if (!cleanUserId || !beforeProductDate) return [];
+    const cleanDate = typeof beforeProductDate === "string" ? beforeProductDate.slice(0, 10) : beforeProductDate.toISOString().slice(0, 10);
+    const db = getDrizzleDb();
+
+    const rows = await db
+      .select({
+        id: routineOccurrences.id,
+        userId: routineOccurrences.userId,
+        routineId: routineOccurrences.routineId,
+        productDate: routineOccurrences.productDate,
+        status: routineOccurrences.status,
+        completedAt: routineOccurrences.completedAt,
+        totalSteps: routineOccurrences.totalSteps,
+        completedSteps: routineOccurrences.completedSteps,
+        snapshotTitle: routineOccurrences.snapshotTitle,
+        snapshotGoalId: routineOccurrences.snapshotGoalId,
+        createdAt: routineOccurrences.createdAt,
+        updatedAt: routineOccurrences.updatedAt,
+        targetTime: routines.targetTime,
+        estimatedMinutes: routines.estimatedMinutes,
+        routineStatus: routines.status,
+      })
+      .from(routineOccurrences)
+      .leftJoin(routines, eq(routineOccurrences.routineId, routines.id))
+      .where(
+        and(
+          eq(routineOccurrences.userId, cleanUserId),
+          sql`${routineOccurrences.productDate} < ${cleanDate}::date`
+        )
+      )
+      .orderBy(asc(routineOccurrences.productDate));
+
+    return rows.map((r) => toDomainOccurrence(r, []));
+  }
+
+  async findByUserAndDateRange(userId, startDate, endDate) {
+    const cleanUserId = normalizeUserId(userId);
+    if (!cleanUserId) return [];
+    const db = getDrizzleDb();
+    const conditions = [eq(routineOccurrences.userId, cleanUserId)];
+
+    if (startDate) {
+      const s = typeof startDate === "string" ? startDate.slice(0, 10) : startDate.toISOString().slice(0, 10);
+      conditions.push(gte(routineOccurrences.productDate, s));
+    }
+    if (endDate) {
+      const e = typeof endDate === "string" ? endDate.slice(0, 10) : endDate.toISOString().slice(0, 10);
+      conditions.push(lte(routineOccurrences.productDate, e));
+    }
+
+    const rows = await db
+      .select({
+        id: routineOccurrences.id,
+        userId: routineOccurrences.userId,
+        routineId: routineOccurrences.routineId,
+        productDate: routineOccurrences.productDate,
+        status: routineOccurrences.status,
+        completedAt: routineOccurrences.completedAt,
+        totalSteps: routineOccurrences.totalSteps,
+        completedSteps: routineOccurrences.completedSteps,
+        snapshotTitle: routineOccurrences.snapshotTitle,
+        snapshotGoalId: routineOccurrences.snapshotGoalId,
+        createdAt: routineOccurrences.createdAt,
+        updatedAt: routineOccurrences.updatedAt,
+        targetTime: routines.targetTime,
+        estimatedMinutes: routines.estimatedMinutes,
+        routineStatus: routines.status,
+      })
+      .from(routineOccurrences)
+      .leftJoin(routines, eq(routineOccurrences.routineId, routines.id))
+      .where(and(...conditions))
+      .orderBy(asc(routineOccurrences.productDate));
+
+    return rows.map((r) => toDomainOccurrence(r, []));
   }
 }
 

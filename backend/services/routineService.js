@@ -371,6 +371,12 @@ class RoutineService {
     // Delete routine definition (routine_occurrences.routineId is set null by DB FK)
     return routineRepository.delete(userId, routineId);
   }
+
+  async evaluateMissedOccurrences(userId, asOfDate = new Date(), timezone = null) {
+    const tz = timezone || (await resolveUserTimezone(userId));
+    const todayProductDate = getProductDate(asOfDate, tz);
+    return routineOccurrenceRepository.evaluateMissedOccurrences(userId, todayProductDate);
+  }
 }
 
 export const routineService = new RoutineService();

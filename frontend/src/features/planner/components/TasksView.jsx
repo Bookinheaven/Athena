@@ -18,10 +18,21 @@ import {
   X,
   RefreshCw,
   HelpCircle,
+  SlidersHorizontal,
+  ArrowUpDown,
+  Check as CheckIcon,
+  RotateCcw,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card.jsx";
 import { Button } from "@/components/ui/button.jsx";
 import { Badge } from "@/components/ui/badge.jsx";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu.jsx";
 import TaskFrictionBadge from "./TaskFrictionBadge.jsx";
 import {
   isTaskPlannedForToday,
@@ -51,6 +62,8 @@ export default function TasksView({
 }) {
   const [filter, setFilter] = useState("all");
   const [goalFilter, setGoalFilter] = useState("all");
+  const [priorityFilter, setPriorityFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("default");
   const [search, setSearch] = useState("");
   const [taskBlocks, setTaskBlocks] = useState([]);
   const [selectedBatchIds, setSelectedBatchIds] = useState(new Set());
@@ -133,6 +146,11 @@ export default function TasksView({
         if (!isTaskPlannedForToday(t)) return false;
       }
 
+      // Priority filter
+      if (priorityFilter !== "all" && t.priority !== priorityFilter) {
+        return false;
+      }
+
       // Goal filter
       if (goalFilter !== "all") {
         if (goalFilter === "none" && t.goal) return false;
@@ -149,7 +167,34 @@ export default function TasksView({
 
       return true;
     });
-  }, [tasks, filter, goalFilter, search, todayStr]);
+  }, [tasks, filter, goalFilter, priorityFilter, search, todayStr]);
+
+  const sortedTasks = useMemo(() => {
+    const list = [...filteredTasks];
+    if (sortBy === "default") return list;
+
+    const priorityWeight = { high: 3, medium: 2, low: 1 };
+    list.sort((a, b) => {
+      if (sortBy === "priority") {
+        return (priorityWeight[b.priority] || 0) - (priorityWeight[a.priority] || 0);
+      }
+      if (sortBy === "dueDate") {
+        if (!a.plannedDate && !b.plannedDate) return 0;
+        if (!a.plannedDate) return 1;
+        if (!b.plannedDate) return -1;
+        return new Date(a.plannedDate) - new Date(b.plannedDate);
+      }
+      if (sortBy === "duration") {
+        return (a.durationEstimate || 0) - (b.durationEstimate || 0);
+      }
+      if (sortBy === "title") {
+        return (a.title || "").localeCompare(b.title || "");
+      }
+      return (a.order || 0) - (b.order || 0);
+    });
+
+    return list;
+  }, [filteredTasks, sortBy]);
 
   const selectedTask = useMemo(() => {
     if (!selectedTaskId) return null;
@@ -193,15 +238,15 @@ export default function TasksView({
   };
 
   const areAllFilteredSelected = useMemo(() => {
-    if (filteredTasks.length === 0) return false;
-    return filteredTasks.every((t) => selectedBatchIds.has(t._id));
-  }, [filteredTasks, selectedBatchIds]);
+    if (sortedTasks.length === 0) return false;
+    return sortedTasks.every((t) => selectedBatchIds.has(t._id));
+  }, [sortedTasks, selectedBatchIds]);
 
   const handleToggleSelectAll = () => {
     if (areAllFilteredSelected) {
       setSelectedBatchIds(new Set());
     } else {
-      setSelectedBatchIds(new Set(filteredTasks.map((t) => t._id)));
+      setSelectedBatchIds(new Set(sortedTasks.map((t) => t._id)));
     }
   };
 
@@ -259,9 +304,9 @@ export default function TasksView({
   return (
     <div className="space-y-6">
       {/* Top Filter and Search Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
         {/* Filter Pills */}
-        <div className="flex items-center gap-1.5 p-1 bg-secondary/50 rounded-xl w-fit border border-border/40">
+        <div className="flex items-center gap-1.5 p-1 bg-secondary/50 rounded-xl w-fit border border-border/40 overflow-x-auto max-w-full">
           {[
             { id: "all", label: "All Tasks" },
             { id: "active", label: "Active" },
@@ -271,7 +316,7 @@ export default function TasksView({
             <button
               key={tab.id}
               onClick={() => setFilter(tab.id)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors whitespace-nowrap ${
                 filter === tab.id
                   ? "bg-card text-foreground shadow-2xs font-semibold"
                   : "text-muted-foreground hover:text-foreground"
@@ -282,31 +327,185 @@ export default function TasksView({
           ))}
         </div>
 
-        {/* Search, Goal dropdown, Select toggle, & New Task */}
-        <div className="flex items-center gap-2.5">
-          <div className="relative w-full sm:w-56">
-            <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+        {/* Right side controls: Search, Filter Popover, Sort Menu, Select, New Task */}
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+          <div className="relative w-full sm:w-44">
+            <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <Input
               placeholder={PLACEHOLDERS.tasks.search}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 h-9 text-xs rounded-xl"
+              className="pl-8.5 h-9 text-xs rounded-xl"
             />
           </div>
 
-          <select
-            value={goalFilter}
-            onChange={(e) => setGoalFilter(e.target.value)}
-            className="h-9 px-2.5 rounded-xl border border-input bg-card text-foreground text-xs outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-          >
-            <option value="all">All Goals</option>
-            <option value="none">No Goal</option>
-            {goals.map((g) => (
-              <option key={g._id} value={g._id}>
-                {g.title}
-              </option>
-            ))}
-          </select>
+          {/* Filter Popover Dropdown (Goal & Priority) */}
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              className={`flex items-center gap-1.5 h-9 px-3 rounded-xl border text-xs font-medium transition-colors cursor-pointer select-none ${
+                goalFilter !== "all" || priorityFilter !== "all"
+                  ? "bg-primary/10 border-primary/30 text-primary font-semibold"
+                  : "bg-card border-border text-foreground hover:bg-secondary/60"
+              }`}
+              title="Filter tasks by goal and priority"
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5" />
+              <span>Filter</span>
+              {(goalFilter !== "all" || priorityFilter !== "all") && (
+                <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+              )}
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              className="w-56 p-1.5 bg-popover/95 backdrop-blur-xl border border-border/80 shadow-xl rounded-2xl"
+            >
+              <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Priority
+              </div>
+              {[
+                { id: "all", label: "All Priorities" },
+                { id: "high", label: "High Priority" },
+                { id: "medium", label: "Medium Priority" },
+                { id: "low", label: "Low Priority" },
+              ].map((p) => (
+                <DropdownMenuItem
+                  key={p.id}
+                  onClick={() => setPriorityFilter(p.id)}
+                  className={`flex items-center justify-between px-2.5 py-1.5 text-xs rounded-xl cursor-pointer ${
+                    priorityFilter === p.id
+                      ? "bg-accent font-semibold text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <span>{p.label}</span>
+                  {priorityFilter === p.id && (
+                    <CheckIcon className="w-3.5 h-3.5 text-primary" />
+                  )}
+                </DropdownMenuItem>
+              ))}
+
+              <DropdownMenuSeparator className="my-1 border-border/40" />
+
+              <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Goal
+              </div>
+              <div className="max-h-44 overflow-y-auto custom-scrollbar space-y-0.5">
+                <DropdownMenuItem
+                  onClick={() => setGoalFilter("all")}
+                  className={`flex items-center justify-between px-2.5 py-1.5 text-xs rounded-xl cursor-pointer ${
+                    goalFilter === "all"
+                      ? "bg-accent font-semibold text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <span>All Goals</span>
+                  {goalFilter === "all" && (
+                    <CheckIcon className="w-3.5 h-3.5 text-primary" />
+                  )}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setGoalFilter("none")}
+                  className={`flex items-center justify-between px-2.5 py-1.5 text-xs rounded-xl cursor-pointer ${
+                    goalFilter === "none"
+                      ? "bg-accent font-semibold text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <span>No Goal</span>
+                  {goalFilter === "none" && (
+                    <CheckIcon className="w-3.5 h-3.5 text-primary" />
+                  )}
+                </DropdownMenuItem>
+                {goals.map((g) => (
+                  <DropdownMenuItem
+                    key={g._id}
+                    onClick={() => setGoalFilter(g._id)}
+                    className={`flex items-center justify-between px-2.5 py-1.5 text-xs rounded-xl cursor-pointer truncate ${
+                      goalFilter === g._id
+                        ? "bg-accent font-semibold text-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <span className="truncate">{g.title}</span>
+                    {goalFilter === g._id && (
+                      <CheckIcon className="w-3.5 h-3.5 text-primary shrink-0" />
+                    )}
+                  </DropdownMenuItem>
+                ))}
+              </div>
+
+              {(goalFilter !== "all" || priorityFilter !== "all") && (
+                <>
+                  <DropdownMenuSeparator className="my-1 border-border/40" />
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setGoalFilter("all");
+                      setPriorityFilter("all");
+                    }}
+                    className="flex items-center justify-center gap-1.5 px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground cursor-pointer rounded-xl"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    <span>Reset Filters</span>
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Sort Dropdown Menu */}
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              className={`flex items-center gap-1.5 h-9 px-3 rounded-xl border text-xs font-medium transition-colors cursor-pointer select-none ${
+                sortBy !== "default"
+                  ? "bg-primary/10 border-primary/30 text-primary font-semibold"
+                  : "bg-card border-border text-foreground hover:bg-secondary/60"
+              }`}
+              title="Sort tasks"
+            >
+              <ArrowUpDown className="w-3.5 h-3.5" />
+              <span>
+                {sortBy === "default"
+                  ? "Sort"
+                  : sortBy === "priority"
+                  ? "Priority"
+                  : sortBy === "dueDate"
+                  ? "Date"
+                  : sortBy === "duration"
+                  ? "Duration"
+                  : "Title"}
+              </span>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              className="w-48 p-1.5 bg-popover/95 backdrop-blur-xl border border-border/80 shadow-xl rounded-2xl"
+            >
+              <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Sort By
+              </div>
+              {[
+                { id: "default", label: "Default Order" },
+                { id: "priority", label: "Priority (High → Low)" },
+                { id: "dueDate", label: "Planned Date" },
+                { id: "duration", label: "Duration" },
+                { id: "title", label: "Title (A → Z)" },
+              ].map((item) => (
+                <DropdownMenuItem
+                  key={item.id}
+                  onClick={() => setSortBy(item.id)}
+                  className={`flex items-center justify-between px-2.5 py-1.5 text-xs rounded-xl cursor-pointer ${
+                    sortBy === item.id
+                      ? "bg-accent font-semibold text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <span>{item.label}</span>
+                  {sortBy === item.id && (
+                    <CheckIcon className="w-3.5 h-3.5 text-primary" />
+                  )}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           <Button
             size="sm"
@@ -318,7 +517,7 @@ export default function TasksView({
                 setIsSelectionMode(true);
               }
             }}
-            className="gap-1.5 rounded-xl font-medium shadow-xs h-9 shrink-0"
+            className="gap-1.5 rounded-xl font-medium shadow-xs h-9 shrink-0 text-xs"
           >
             {isSelectionMode || selectedBatchIds.size > 0 ? (
               <>
@@ -336,7 +535,7 @@ export default function TasksView({
           <Button
             size="sm"
             onClick={onOpenCreateTask}
-            className="gap-1.5 rounded-xl font-semibold shadow-xs h-9 shrink-0"
+            className="gap-1.5 rounded-xl font-semibold shadow-xs h-9 shrink-0 text-xs"
           >
             <Plus className="w-4 h-4" />
             New Task
@@ -348,8 +547,8 @@ export default function TasksView({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Left Column: Task List */}
         <div className="lg:col-span-7 xl:col-span-8 space-y-2.5">
-          {filteredTasks.length > 0 ? (
-            filteredTasks.map((task) => {
+          {sortedTasks.length > 0 ? (
+            sortedTasks.map((task) => {
               const isCompleted = task.status === "completed";
               const isSelected = task._id === selectedTaskId;
               const isBatchSelected = selectedBatchIds.has(task._id);
@@ -516,17 +715,42 @@ export default function TasksView({
             <Card className="border-border bg-card shadow-xs rounded-2xl">
               <CardContent className="p-8 text-center space-y-3">
                 <p className="text-sm font-medium text-muted-foreground">
-                  {search || filter !== "all" || goalFilter !== "all"
+                  {search ||
+                  filter !== "all" ||
+                  goalFilter !== "all" ||
+                  priorityFilter !== "all" ||
+                  sortBy !== "default"
                     ? "No tasks match your filters."
                     : "No tasks created yet."}
                 </p>
-                <Button
-                  size="sm"
-                  onClick={onOpenCreateTask}
-                  className="rounded-xl font-semibold gap-1.5"
-                >
-                  <Plus className="w-4 h-4" /> Create Task
-                </Button>
+                {search ||
+                filter !== "all" ||
+                goalFilter !== "all" ||
+                priorityFilter !== "all" ||
+                sortBy !== "default" ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setFilter("all");
+                      setGoalFilter("all");
+                      setPriorityFilter("all");
+                      setSortBy("default");
+                      setSearch("");
+                    }}
+                    className="rounded-xl font-medium gap-1.5 text-xs"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" /> Reset Filters
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    onClick={onOpenCreateTask}
+                    className="rounded-xl font-semibold gap-1.5 text-xs"
+                  >
+                    <Plus className="w-4 h-4" /> Create Task
+                  </Button>
+                )}
               </CardContent>
             </Card>
           )}

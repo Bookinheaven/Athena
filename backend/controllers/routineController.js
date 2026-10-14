@@ -1,4 +1,5 @@
 import routineService from "../services/routineService.js";
+import streakService from "../services/streakService.js";
 
 class RoutineController {
   async getRoutines(req, res) {
@@ -120,6 +121,14 @@ class RoutineController {
         req.params.stepOccurrenceId,
         isCompleted
       );
+
+      // Recalculate daily stats and streak with new routine commitment outcome
+      await streakService
+        .processDailyStreak(req.user.id, new Date(), req.timezone)
+        .catch((err) => {
+          console.error("Streak processing error after routine step completion:", err);
+        });
+
       res.json(occurrence);
     } catch (error) {
       const statusCode = error.statusCode || 500;
@@ -133,6 +142,14 @@ class RoutineController {
         req.user.id,
         req.params.occurrenceId
       );
+
+      // Recalculate daily stats and streak with new routine commitment outcome
+      await streakService
+        .processDailyStreak(req.user.id, new Date(), req.timezone)
+        .catch((err) => {
+          console.error("Streak processing error after routine skip:", err);
+        });
+
       res.json(occurrence);
     } catch (error) {
       const statusCode = error.statusCode || 500;
