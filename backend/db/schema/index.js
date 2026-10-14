@@ -13,3 +13,8 @@ export * from "./notes.js";
 
 export * from "./dailyStats.js";
 export * from "./streaks.js";
+
+export * from "./routines.js";
+export * from "./routineSteps.js";
+export * from "./routineOccurrences.js";
+export * from "./routineStepOccurrences.js";

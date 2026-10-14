@@ -9,6 +9,7 @@ import {
   TasksView,
   GoalsView,
   NotesView,
+  RoutinesView,
   TaskModal,
   GoalModal,
   NoteModal,
@@ -55,6 +56,7 @@ export default function Planner() {
     activeTasks,
     goals,
     notes,
+    routinesCount,
     modals,
     actions,
   } = usePlannerData();
@@ -128,6 +130,7 @@ export default function Planner() {
             onTabChange={setActiveTab}
             todayCount={todayTasks.length}
             tasksCount={activeTasks.length}
+            routinesCount={routinesCount}
             goalsCount={goals.length}
             notesCount={notes.length}
             onOpenCreateTask={() =>
@@ -200,6 +203,10 @@ export default function Planner() {
                   actions.openCreateTask(goalId, false)
                 }
               />
+            )}
+
+            {activeTab === "routines" && (
+              <RoutinesView goals={goals} />
             )}
 
             {activeTab === "notes" && (

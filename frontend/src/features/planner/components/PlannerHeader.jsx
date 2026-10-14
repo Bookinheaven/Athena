@@ -1,4 +1,4 @@
-import { Plus, Calendar, Clock, CheckSquare, Target, FileText } from "lucide-react";
+import { Plus, Calendar, Clock, CheckSquare, Target, FileText, Repeat } from "lucide-react";
 import { Button } from "@/components/ui/button.jsx";
 
 export default function PlannerHeader({
@@ -7,10 +7,12 @@ export default function PlannerHeader({
   todayCount = 0,
   timelineCount = undefined,
   tasksCount = 0,
+  routinesCount = undefined,
   goalsCount = 0,
   notesCount = 0,
   onOpenCreateTask,
   onOpenCreateGoal,
+  onOpenCreateRoutine,
 }) {
   const tabs = [
     {
@@ -30,6 +32,12 @@ export default function PlannerHeader({
       label: "Tasks",
       icon: CheckSquare,
       count: tasksCount,
+    },
+    {
+      id: "routines",
+      label: "Routines",
+      icon: Repeat,
+      count: routinesCount,
     },
     {
       id: "goals",

@@ -7,7 +7,7 @@ import { getTodayProductDate } from "@/utils/dateUtils.js";
  * Centralized client-side state for the Planner interface.
  */
 export const usePlannerStore = create((set) => ({
-  activeTab: "today", // 'today' | 'tasks' | 'goals' | 'notes'
+  activeTab: "today", // 'today' | 'timeline' | 'tasks' | 'routines' | 'goals' | 'notes'
   selectedDate: getTodayProductDate(),
   viewMode: "day", // 'day' | 'week' | 'month'
   selectedTaskId: null,

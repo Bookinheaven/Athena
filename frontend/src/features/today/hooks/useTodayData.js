@@ -5,7 +5,9 @@ import sessionService from "../../../../services/sessionService.js";
 import StreakService from "../../../../services/streakService.js";
 import taskService from "../../../../services/taskService.js";
 import goalService from "../../../../services/goalService.js";
+import routineService from "../../../../services/routineService.js";
 import { isTaskPlannedForToday, getTodayProductDate } from "@/utils/dateUtils.js";
+import toast from "react-hot-toast";
 
 export const formatMinutes = (minutes = 0) => {
   if (isNaN(minutes) || minutes <= 0) return "0m";
@@ -29,16 +31,28 @@ export const useTodayData = () => {
     insights: null,
   });
 
-  const loadData = useCallback(async () => {
-    setIsLoading(true);
-    setIsError(false);
+  const [routineOccurrences, setRoutineOccurrences] = useState([]);
+  const [isRoutinesLoading, setIsRoutinesLoading] = useState(true);
+  const [isRoutinesError, setIsRoutinesError] = useState(false);
+
+  const loadData = useCallback(async ({ isInitial = false } = {}) => {
+    if (isInitial) {
+      setIsLoading(true);
+      setIsError(false);
+      setIsRoutinesLoading(true);
+      setIsRoutinesError(false);
+    }
     try {
-      const [tasksData, goalsData, streakData, todaysInsights] =
+      const [tasksData, goalsData, streakData, todaysInsights, routinesData] =
         await Promise.all([
           taskService.getTasks().catch(() => []),
           goalService.getGoals().catch(() => []),
           StreakService.fetchStreak().catch(() => null),
           sessionService.getTodaysInsights().catch(() => null),
+          routineService.getTodayOccurrences().catch((err) => {
+            console.error("Failed to load today routine occurrences:", err);
+            return null;
+          }),
         ]);
 
       setData({
@@ -47,26 +61,46 @@ export const useTodayData = () => {
         streak: streakData || null,
         insights: todaysInsights?.insights || null,
       });
+
+      if (routinesData === null) {
+        if (isInitial) setIsRoutinesError(true);
+      } else {
+        // Exclude occurrences for archived routines from Today dashboard
+        const activeOccurrences = Array.isArray(routinesData)
+          ? routinesData.filter((occ) => occ.routineStatus !== "archived" && occ.status !== "archived")
+          : [];
+        setRoutineOccurrences(activeOccurrences);
+        setIsRoutinesError(false);
+      }
     } catch (err) {
       console.error("Failed to load Today data", err);
-      setIsError(true);
+      if (isInitial) setIsError(true);
     } finally {
-      setIsLoading(false);
+      if (isInitial) {
+        setIsLoading(false);
+        setIsRoutinesLoading(false);
+      }
     }
   }, []);
 
-  useEffect(() => {
-    loadData();
+  const refetch = useCallback(() => {
+    return loadData({ isInitial: true });
   }, [loadData]);
 
-  // Synchronize whenever task/outcome changes occur across Today, Planner, or Focus
   useEffect(() => {
-    const handleTasksChanged = () => {
-      loadData();
+    loadData({ isInitial: true });
+  }, [loadData]);
+
+  // Synchronize whenever task/outcome/routine changes occur across Today, Planner, or Focus
+  useEffect(() => {
+    const handleChanged = () => {
+      loadData({ isInitial: false });
     };
-    window.addEventListener("athena:tasks-changed", handleTasksChanged);
+    window.addEventListener("athena:tasks-changed", handleChanged);
+    window.addEventListener("athena:routines-changed", handleChanged);
     return () => {
-      window.removeEventListener("athena:tasks-changed", handleTasksChanged);
+      window.removeEventListener("athena:tasks-changed", handleChanged);
+      window.removeEventListener("athena:routines-changed", handleChanged);
     };
   }, [loadData]);
 
@@ -179,10 +213,14 @@ export const useTodayData = () => {
         });
 
         if (created) {
-          setData((prev) => ({
-            ...prev,
-            tasks: [...prev.tasks, created],
-          }));
+          setData((prev) => {
+            const cleanId = created._id || created.id;
+            if (prev.tasks.some((t) => (t._id || t.id) === cleanId)) return prev;
+            return {
+              ...prev,
+              tasks: [...prev.tasks, created],
+            };
+          });
           window.dispatchEvent(new CustomEvent("athena:tasks-changed"));
           return true;
         }
@@ -208,10 +246,110 @@ export const useTodayData = () => {
     [loadData]
   );
 
+  const handleCompleteRoutineStep = useCallback(
+    async (occurrenceId, stepId, isCompleted = true) => {
+      const prevOccurrences = [...routineOccurrences];
+
+      // Optimistic update
+      setRoutineOccurrences((prev) =>
+        prev.map((occ) => {
+          if ((occ.id || occ._id) !== occurrenceId) return occ;
+          const updatedSteps = (occ.steps || []).map((s) => {
+            if ((s.id || s._id) !== stepId) return s;
+            return {
+              ...s,
+              status: isCompleted ? "completed" : "pending",
+              completedAt: isCompleted ? new Date().toISOString() : null,
+            };
+          });
+
+          const completedCount = updatedSteps.filter((s) => s.status === "completed").length;
+          const totalCount = updatedSteps.length;
+          let newStatus = "pending";
+          if (completedCount === totalCount && totalCount > 0) {
+            newStatus = "completed";
+          } else if (completedCount > 0) {
+            newStatus = "in_progress";
+          }
+
+          return {
+            ...occ,
+            steps: updatedSteps,
+            completedSteps: completedCount,
+            status: newStatus,
+            completedAt: newStatus === "completed" ? new Date().toISOString() : null,
+          };
+        })
+      );
+
+      try {
+        const canonical = await routineService.completeStep(occurrenceId, stepId, isCompleted);
+        if (canonical) {
+          setRoutineOccurrences((prev) =>
+            prev.map((occ) => ((occ.id || occ._id) === occurrenceId ? canonical : occ))
+          );
+        }
+        return true;
+      } catch (err) {
+        console.error("Failed to complete routine step:", err);
+        toast.error(err.message || "Failed to update routine step");
+        // Revert on failure
+        setRoutineOccurrences(prevOccurrences);
+        return false;
+      }
+    },
+    [routineOccurrences]
+  );
+
+  const handleSkipRoutineOccurrence = useCallback(
+    async (occurrenceId) => {
+      const prevOccurrences = [...routineOccurrences];
+
+      // Optimistic update
+      setRoutineOccurrences((prev) =>
+        prev.map((occ) =>
+          (occ.id || occ._id) === occurrenceId ? { ...occ, status: "skipped" } : occ
+        )
+      );
+
+      try {
+        const canonical = await routineService.skipOccurrence(occurrenceId);
+        if (canonical) {
+          setRoutineOccurrences((prev) =>
+            prev.map((occ) => ((occ.id || occ._id) === occurrenceId ? canonical : occ))
+          );
+        }
+        toast.success("Routine skipped for today");
+        return true;
+      } catch (err) {
+        console.error("Failed to skip routine occurrence:", err);
+        toast.error(err.message || "Failed to skip routine");
+        // Revert on failure
+        setRoutineOccurrences(prevOccurrences);
+        return false;
+      }
+    },
+    [routineOccurrences]
+  );
+
+  const handleRefetchRoutines = useCallback(async () => {
+    setIsRoutinesLoading(true);
+    setIsRoutinesError(false);
+    try {
+      const data = await routineService.getTodayOccurrences();
+      setRoutineOccurrences(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Failed to refetch routines:", err);
+      setIsRoutinesError(true);
+    } finally {
+      setIsRoutinesLoading(false);
+    }
+  }, []);
+
   return {
     isLoading,
     isError,
-    refetch: loadData,
+    refetch,
     header: {
       greeting,
       currentDate,
@@ -223,6 +361,11 @@ export const useTodayData = () => {
       completed: completedTasks,
       nextTask,
       goals: data.goals,
+    },
+    routines: {
+      occurrences: routineOccurrences,
+      isLoading: isRoutinesLoading,
+      isError: isRoutinesError,
     },
     progress: {
       focusMinutes,
@@ -242,6 +385,9 @@ export const useTodayData = () => {
       handleToggleTaskStatus,
       handleQuickAddTask,
       handleApplyTarget,
+      handleCompleteRoutineStep,
+      handleSkipRoutineOccurrence,
+      handleRefetchRoutines,
     },
   };
 };

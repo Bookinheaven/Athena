@@ -18,6 +18,7 @@ import goalRoutes from "./routes/goalRoutes.js";
 import taskRoutes from "./routes/taskRoutes.js";
 import scheduleRoutes from "./routes/scheduleRoutes.js";
 import taskOccurrenceRoutes from "./routes/taskOccurrenceRoutes.js";
+import routineRoutes from "./routes/routineRoutes.js";
 
 const isTest = env.NODE_ENV === "test";
 
@@ -88,6 +89,8 @@ app.use("/api/planner", apiLimiter, plannerRoutes);
 app.use("/api/schedule-block", apiLimiter, scheduleRoutes);
 app.use("/api/schedule-blocks", apiLimiter, scheduleRoutes);
 app.use("/api/task-occurrences", apiLimiter, taskOccurrenceRoutes);
+app.use("/api/routines", apiLimiter, routineRoutes);
+app.use("/api/routine", apiLimiter, routineRoutes);
 
 // Error handling middleware with PostgreSQL error code translation
 app.use((err, req, res, next) => {

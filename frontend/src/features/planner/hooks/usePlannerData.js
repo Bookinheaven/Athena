@@ -5,6 +5,7 @@ import taskService from "../../../../services/taskService.js";
 import goalService from "../../../../services/goalService.js";
 import notesService from "../../../../services/notesService.js";
 import sessionService from "../../../../services/sessionService.js";
+import routineService from "../../../../services/routineService.js";
 import { usePlannerStore } from "../../../stores/plannerStore.js";
 import { isTaskPlannedForToday, getTodayProductDate, formatScheduleConfirmation } from "@/utils/dateUtils.js";
 import toast from "react-hot-toast";
@@ -20,6 +21,7 @@ export const usePlannerData = () => {
   const [tasks, setTasks] = useState([]);
   const [goals, setGoals] = useState([]);
   const [notes, setNotes] = useState([]);
+  const [routines, setRoutines] = useState([]);
   const [activeSession, setActiveSession] = useState(null);
 
   // Modals state
@@ -42,10 +44,13 @@ export const usePlannerData = () => {
     setIsLoading(true);
     setIsError(false);
     try {
-      const [plannerRes, sessionRes] = await Promise.all([
+      const [plannerRes, sessionRes, routinesRes] = await Promise.all([
         plannerService.getPlanner().catch(() => null),
         sessionService.getActiveSession().catch(() => null),
+        routineService.getRoutines().catch(() => []),
       ]);
+
+      setRoutines(Array.isArray(routinesRes) ? routinesRes : []);
 
       if (plannerRes && (plannerRes.tasks || plannerRes.goals || plannerRes.notes)) {
         setTasks(Array.isArray(plannerRes.tasks) ? plannerRes.tasks : []);
@@ -399,6 +404,8 @@ export const usePlannerData = () => {
     activeTasks,
     goals,
     notes,
+    routines,
+    routinesCount: routines.filter((r) => r.status === "active").length,
     modals: {
       taskModalOpen,
       setTaskModalOpen,
