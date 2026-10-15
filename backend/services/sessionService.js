@@ -2,6 +2,7 @@ import sessionRepository from "../repositories/sessionRepository.js";
 import scheduleBlockRepository from "../repositories/scheduleBlockRepository.js";
 import taskRepository from "../repositories/taskRepository.js";
 import taskOccurrenceRepository from "../repositories/taskOccurrenceRepository.js";
+import routineOccurrenceRepository from "../repositories/routineOccurrenceRepository.js";
 import TaskOccurrenceService from "./taskOccurrenceService.js";
 import TaskService from "./taskService.js";
 import streakService from "./streakService.js";
@@ -87,19 +88,33 @@ class SessionService {
         throw new Error("Cannot start Focus session: ScheduleBlock already has an associated session");
       }
 
-      // Verify the referenced Task also belongs to this user
-      const task = await taskRepository.findById(userId, resolvedScheduleBlock.taskId);
+      if (resolvedScheduleBlock.taskId) {
+        // Verify the referenced Task also belongs to this user
+        const task = await taskRepository.findById(userId, resolvedScheduleBlock.taskId);
 
-      if (!task) {
-        throw new Error("Associated task not found or access denied");
-      }
+        if (!task) {
+          throw new Error("Associated task not found or access denied");
+        }
 
-      effectivePlannedDuration = resolvedScheduleBlock.durationMinutes * 60;
+        effectivePlannedDuration = resolvedScheduleBlock.durationMinutes * 60;
 
-      const taskIdStr = String(resolvedScheduleBlock.taskId);
-      const existingTaskIdStrs = (effectiveTaskIds || []).map((id) => String(id));
-      if (!existingTaskIdStrs.includes(taskIdStr)) {
-        effectiveTaskIds = [resolvedScheduleBlock.taskId, ...effectiveTaskIds];
+        const taskIdStr = String(resolvedScheduleBlock.taskId);
+        const existingTaskIdStrs = (effectiveTaskIds || []).map((id) => String(id));
+        if (!existingTaskIdStrs.includes(taskIdStr)) {
+          effectiveTaskIds = [resolvedScheduleBlock.taskId, ...effectiveTaskIds];
+        }
+      } else if (resolvedScheduleBlock.routineOccurrenceId) {
+        // Verify the referenced Routine Occurrence also belongs to this user
+        const occ = await routineOccurrenceRepository.findById(
+          userId,
+          resolvedScheduleBlock.routineOccurrenceId
+        );
+
+        if (!occ) {
+          throw new Error("Associated routine occurrence not found or access denied");
+        }
+
+        effectivePlannedDuration = resolvedScheduleBlock.durationMinutes * 60;
       }
     }
 

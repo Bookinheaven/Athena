@@ -15,6 +15,7 @@ export default function TimelineGrid({
   onEmptySlotClick,
 }) {
   const gridRef = useRef(null);
+  const scrollContainerRef = useRef(null);
   const [dragPreview, setDragPreview] = useState(null);
   const [nowMinute, setNowMinute] = useState(null);
 
@@ -23,6 +24,17 @@ export default function TimelineGrid({
     const today = new Date().toISOString().split("T")[0];
     return selectedDate === today;
   }, [selectedDate]);
+
+  // Initial scroll to current time or morning on mount
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      const now = new Date();
+      // Scroll to 1 hour before current time, or default 7 AM if earlier
+      const targetHour = Math.max(0, Math.min(20, (now.getHours() - 1) || 7));
+      const targetScroll = (targetHour / (END_HOUR - START_HOUR)) * scrollContainerRef.current.scrollHeight;
+      scrollContainerRef.current.scrollTop = targetScroll;
+    }
+  }, []);
 
   useEffect(() => {
     const updateCurrentTime = () => {
@@ -35,35 +47,42 @@ export default function TimelineGrid({
     return () => clearInterval(interval);
   }, []);
 
-  // Compute column layout for overlapping blocks
+  // Compute column layout for overlapping blocks using visual minutes on the day grid
   const positionedBlocks = useMemo(() => {
     if (!blocks.length) return [];
 
-    // Sort blocks by start time
-    const sorted = [...blocks].sort((a, b) => {
-      const aStart = new Date(a.startTime).getTime();
-      const bStart = new Date(b.startTime).getTime();
-      return aStart - bStart;
+    // Parse each block's visual start and end minutes within the daily grid
+    const parsedBlocks = blocks.map((block) => {
+      const start = new Date(block.startTime);
+      const end = new Date(block.endTime);
+      const startMins = start.getHours() * 60 + start.getMinutes();
+      const dur = block.durationMinutes || Math.max(15, Math.round((end - start) / (1000 * 60)));
+      const endMins = startMins + dur;
+      return {
+        block,
+        startMins,
+        endMins,
+      };
     });
 
-    // Group into overlap clusters
+    // Sort blocks by visual start minutes
+    const sorted = [...parsedBlocks].sort((a, b) => a.startMins - b.startMins);
+
+    // Group into overlap clusters based on visual minute intervals
     const clusters = [];
     let currentCluster = [];
-    let clusterEnd = -Infinity;
+    let clusterEndMins = -Infinity;
 
-    for (const block of sorted) {
-      const start = new Date(block.startTime).getTime();
-      const end = new Date(block.endTime).getTime();
-
-      if (start < clusterEnd) {
-        currentCluster.push(block);
-        clusterEnd = Math.max(clusterEnd, end);
+    for (const item of sorted) {
+      if (item.startMins < clusterEndMins) {
+        currentCluster.push(item);
+        clusterEndMins = Math.max(clusterEndMins, item.endMins);
       } else {
         if (currentCluster.length) {
           clusters.push(currentCluster);
         }
-        currentCluster = [block];
-        clusterEnd = end;
+        currentCluster = [item];
+        clusterEndMins = item.endMins;
       }
     }
     if (currentCluster.length) {
@@ -75,36 +94,34 @@ export default function TimelineGrid({
     for (const cluster of clusters) {
       const columns = []; // array of end times for each column
 
-      for (const block of cluster) {
-        const start = new Date(block.startTime).getTime();
-        const end = new Date(block.endTime).getTime();
-
+      for (const item of cluster) {
         let assignedCol = -1;
         for (let i = 0; i < columns.length; i++) {
-          if (columns[i] <= start) {
+          if (columns[i] <= item.startMins) {
             assignedCol = i;
-            columns[i] = end;
+            columns[i] = item.endMins;
             break;
           }
         }
 
         if (assignedCol === -1) {
           assignedCol = columns.length;
-          columns.push(end);
+          columns.push(item.endMins);
         }
 
         result.push({
-          block,
+          block: item.block,
           column: assignedCol,
-          totalColumns: cluster.length > 1 ? Math.max(columns.length, 2) : 1,
+          totalColumns: columns.length,
         });
       }
 
       // Normalize totalColumns for all blocks in cluster
       const maxCols = columns.length;
-      for (const item of result) {
-        if (cluster.some((b) => b._id === item.block._id)) {
-          item.totalColumns = maxCols;
+      for (const resItem of result) {
+        const resId = resItem.block._id || resItem.block.id;
+        if (cluster.some((c) => (c.block._id || c.block.id) === resId)) {
+          resItem.totalColumns = maxCols;
         }
       }
     }
@@ -210,7 +227,7 @@ export default function TimelineGrid({
 
   return (
     <div className="flex flex-col flex-1 bg-card/60 border border-border/60 rounded-2xl p-4 overflow-hidden backdrop-blur-xs min-h-[700px]">
-      <div className="flex flex-1 relative overflow-y-auto">
+      <div ref={scrollContainerRef} className="flex flex-1 relative overflow-y-auto">
         {/* Left Column: Hour labels */}
         <div className="w-14 shrink-0 flex flex-col justify-between py-2 text-right pr-3 select-none">
           {HOURS.map((hour) => (
@@ -227,7 +244,7 @@ export default function TimelineGrid({
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
-          className="timeline-grid-container flex-1 relative border-l border-border/60 min-h-[900px] cursor-pointer"
+          className="timeline-grid-container flex-1 relative border-l border-border/60 min-h-[1350px] cursor-pointer"
         >
           {/* Hour grid lines */}
           {HOURS.map((hour, idx) => (

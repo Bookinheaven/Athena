@@ -4,9 +4,9 @@ import scheduleService from "../../../../services/scheduleService.js";
 import { getTodayProductDate } from "@/utils/dateUtils.js";
 import toast from "react-hot-toast";
 
-export const START_HOUR = 7;
-export const END_HOUR = 23;
-export const TOTAL_MINUTES = (END_HOUR - START_HOUR) * 60; // 960 minutes
+export const START_HOUR = 0;
+export const END_HOUR = 24;
+export const TOTAL_MINUTES = (END_HOUR - START_HOUR) * 60; // 1440 minutes
 
 export const useTimelineData = (selectedDate, setSelectedDate) => {
   const navigate = useNavigate();

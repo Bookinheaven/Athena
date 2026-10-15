@@ -51,6 +51,8 @@ async function hydrateSession(db, sessionRow) {
 
   const clientSessionId = sessionRow.clientSessionId || sessionRow.client_session_id;
   const scheduleBlockId = sessionRow.scheduleBlockId || sessionRow.schedule_block_id;
+  const routineOccurrenceId = sessionRow.routineOccurrenceId || sessionRow.routine_occurrence_id || null;
+  const routineStepOccurrenceId = sessionRow.routineStepOccurrenceId || sessionRow.routine_step_occurrence_id || null;
   const rawSchedDate = sessionRow.snapshotScheduleDate || sessionRow.snapshot_schedule_date;
   const pDate = rawSchedDate instanceof Date
     ? rawSchedDate.toISOString().slice(0, 10)
@@ -109,6 +111,8 @@ async function hydrateSession(db, sessionRow) {
     clientSessionId,
     userId: sessionRow.userId || sessionRow.user_id,
     scheduleBlockId,
+    routineOccurrenceId,
+    routineStepOccurrenceId,
     scheduleSnapshot,
     title: sessionRow.title,
     sessionType: sessionRow.sessionType || sessionRow.session_type,
@@ -286,16 +290,33 @@ class SessionRepository {
       const snapshotEndTime = scheduleBlock?.endTime ? new Date(scheduleBlock.endTime) : null;
       const snapshotDuration = scheduleBlock?.durationMinutes || null;
 
+      const rawRoutineOccId =
+        (typeof scheduleBlock?.routineOccurrenceId === "object"
+          ? scheduleBlock.routineOccurrenceId?.id
+          : scheduleBlock?.routineOccurrenceId) ||
+        (typeof payload.routineOccurrenceId === "object"
+          ? payload.routineOccurrenceId?.id
+          : payload.routineOccurrenceId);
+      const routineOccurrenceId = normalizeSessionId(rawRoutineOccId);
+
+      const rawRoutineStepOccId =
+        typeof payload.routineStepOccurrenceId === "object"
+          ? payload.routineStepOccurrenceId?.id
+          : payload.routineStepOccurrenceId;
+      const routineStepOccurrenceId = normalizeSessionId(rawRoutineStepOccId);
+
       const sessionInsertRes = await client.query(
         `INSERT INTO sessions (
-          id, client_session_id, user_id, schedule_block_id, title, session_type, status,
+          id, client_session_id, user_id, schedule_block_id,
+          routine_occurrence_id, routine_step_occurrence_id,
+          title, session_type, status,
           started_at, checkpoint_revision, planned_duration_seconds, duration_seconds,
           total_focus_minutes, total_break_minutes, snapshot_schedule_date,
           snapshot_schedule_start_time, snapshot_schedule_end_time, snapshot_schedule_duration_minutes,
           created_at, updated_at
         ) VALUES (
-          gen_random_uuid(), $1, $2, $3, $4, $5, 'active',
-          NOW(), 0, $6, 0, $7, $8, $9, $10, $11, $12, NOW(), NOW()
+          gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, 'active',
+          NOW(), 0, $8, 0, $9, $10, $11, $12, $13, $14, NOW(), NOW()
         )
         ON CONFLICT (user_id, client_session_id)
         DO UPDATE SET updated_at = NOW()
@@ -304,6 +325,8 @@ class SessionRepository {
           clientSessionId,
           cleanUserId,
           scheduleBlockId,
+          routineOccurrenceId,
+          routineStepOccurrenceId,
           title,
           sessionType,
           plannedDuration,

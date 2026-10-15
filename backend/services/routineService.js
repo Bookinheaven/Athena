@@ -5,6 +5,7 @@ import routineOccurrenceRepository, {
   normalizeOccurrenceId,
   normalizeStepOccurrenceId,
 } from "../repositories/routineOccurrenceRepository.js";
+import scheduleBlockRepository from "../repositories/scheduleBlockRepository.js";
 import goalRepository from "../repositories/goalRepository.js";
 import {
   getProductDate,
@@ -329,6 +330,20 @@ class RoutineService {
       throw err;
     }
 
+    try {
+      const block = await scheduleBlockRepository.findByRoutineOccurrenceId(userId, cleanOccId);
+      if (block) {
+        if (updated.status === "completed" && block.status === "scheduled") {
+          await scheduleBlockRepository.update(userId, block.id, { status: "completed" });
+        } else if (
+          (updated.status === "in_progress" || updated.status === "pending") &&
+          (block.status === "completed" || block.status === "skipped")
+        ) {
+          await scheduleBlockRepository.update(userId, block.id, { status: "scheduled" });
+        }
+      }
+    } catch (_) {}
+
     return updated;
   }
 
@@ -347,6 +362,13 @@ class RoutineService {
       throw err;
     }
 
+    try {
+      const block = await scheduleBlockRepository.findByRoutineOccurrenceId(userId, cleanOccId);
+      if (block && block.status === "scheduled") {
+        await scheduleBlockRepository.update(userId, block.id, { status: "skipped" });
+      }
+    } catch (_) {}
+
     return updated;
   }
 
@@ -364,6 +386,13 @@ class RoutineService {
       err.statusCode = 404;
       throw err;
     }
+
+    try {
+      const block = await scheduleBlockRepository.findByRoutineOccurrenceId(userId, cleanOccId);
+      if (block && block.status === "skipped") {
+        await scheduleBlockRepository.update(userId, block.id, { status: "scheduled" });
+      }
+    } catch (_) {}
 
     return updated;
   }

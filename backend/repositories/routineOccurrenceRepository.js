@@ -73,8 +73,23 @@ export function toDomainOccurrence(row, steps = []) {
 }
 
 class RoutineOccurrenceRepository {
-  async findById(occurrenceId) {
-    const cleanId = normalizeOccurrenceId(occurrenceId);
+  async findById(param1, param2 = null) {
+    let cleanId;
+    let expectedUserId = null;
+
+    if (param2 !== null && param2 !== undefined) {
+      // Could be (userId, occurrenceId) or (occurrenceId, userId)
+      if (typeof param1 === "string" && isNaN(Number(param1))) {
+        expectedUserId = param1;
+        cleanId = normalizeOccurrenceId(param2);
+      } else {
+        cleanId = normalizeOccurrenceId(param1);
+        expectedUserId = param2;
+      }
+    } else {
+      cleanId = normalizeOccurrenceId(param1);
+    }
+
     if (!cleanId) return null;
 
     const db = getDrizzleDb();
@@ -102,6 +117,7 @@ class RoutineOccurrenceRepository {
       .limit(1);
 
     if (!rows.length) return null;
+    if (expectedUserId && rows[0].userId !== expectedUserId) return null;
 
     const steps = await db
       .select()
@@ -110,6 +126,54 @@ class RoutineOccurrenceRepository {
       .orderBy(asc(routineStepOccurrences.sortOrder));
 
     return toDomainOccurrence(rows[0], steps);
+  }
+
+  async findByIds(occurrenceIds) {
+    if (!Array.isArray(occurrenceIds) || occurrenceIds.length === 0) return [];
+    const cleanIds = occurrenceIds.map(normalizeOccurrenceId).filter(Boolean);
+    if (cleanIds.length === 0) return [];
+
+    const db = getDrizzleDb();
+    const rows = await db
+      .select({
+        id: routineOccurrences.id,
+        userId: routineOccurrences.userId,
+        routineId: routineOccurrences.routineId,
+        productDate: routineOccurrences.productDate,
+        status: routineOccurrences.status,
+        completedAt: routineOccurrences.completedAt,
+        totalSteps: routineOccurrences.totalSteps,
+        completedSteps: routineOccurrences.completedSteps,
+        snapshotTitle: routineOccurrences.snapshotTitle,
+        snapshotGoalId: routineOccurrences.snapshotGoalId,
+        createdAt: routineOccurrences.createdAt,
+        updatedAt: routineOccurrences.updatedAt,
+        targetTime: routines.targetTime,
+        estimatedMinutes: routines.estimatedMinutes,
+        routineStatus: routines.status,
+      })
+      .from(routineOccurrences)
+      .leftJoin(routines, eq(routineOccurrences.routineId, routines.id))
+      .where(inArray(routineOccurrences.id, cleanIds));
+
+    if (rows.length === 0) return [];
+
+    const steps = await db
+      .select()
+      .from(routineStepOccurrences)
+      .where(inArray(routineStepOccurrences.occurrenceId, cleanIds))
+      .orderBy(asc(routineStepOccurrences.sortOrder));
+
+    const stepsByOccId = new Map();
+    for (const step of steps) {
+      const occId = String(step.occurrenceId);
+      if (!stepsByOccId.has(occId)) stepsByOccId.set(occId, []);
+      stepsByOccId.get(occId).push(step);
+    }
+
+    return rows.map((row) =>
+      toDomainOccurrence(row, stepsByOccId.get(String(row.id)) || [])
+    );
   }
 
   async findByUserAndDate(userId, productDate) {

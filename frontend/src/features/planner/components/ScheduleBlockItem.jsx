@@ -23,7 +23,10 @@ export default function ScheduleBlockItem({
 
   // Task details
   const task = block.taskId || {};
-  const taskTitle = typeof task === "object" ? task.title : "Untitled Task";
+  const taskTitle =
+    (typeof task === "object" ? task.title : null) ||
+    block.routineOccurrence?.snapshotTitle ||
+    "Untitled Task";
   const goalTitle = task?.goal?.title || null;
   const isCompleted = block.status === "completed";
   const isSkipped = block.status === "skipped";
@@ -37,8 +40,8 @@ export default function ScheduleBlockItem({
     const startMinutes = start.getHours() * 60 + start.getMinutes() - START_HOUR * 60;
     const duration = block.durationMinutes || Math.max(15, Math.round((end - start) / (1000 * 60)));
 
-    const top = Math.max(0, (startMinutes / TOTAL_MINUTES) * 100);
-    const height = Math.max(2.5, (duration / TOTAL_MINUTES) * 100);
+    const top = Math.max(0, Math.min(100, (startMinutes / TOTAL_MINUTES) * 100));
+    const height = Math.max(3.5, Math.min(100 - top, (duration / TOTAL_MINUTES) * 100));
 
     const formatTime = (d) =>
       d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", hour12: true });
@@ -53,6 +56,9 @@ export default function ScheduleBlockItem({
   // Overlap positioning
   const leftPercent = (column / totalColumns) * 100;
   const widthPercent = (1 / totalColumns) * 100;
+
+  // Determine if this is a compact block (under 60 minutes)
+  const isCompact = (block.durationMinutes || 60) < 60;
 
   // Drag start handler for moving existing block
   const handleDragStart = (e) => {
@@ -125,7 +131,7 @@ export default function ScheduleBlockItem({
         left: `${leftPercent}%`,
         width: `calc(${widthPercent}% - 6px)`,
       }}
-      className={`absolute z-10 mx-1 rounded-xl p-2.5 transition-all group flex flex-col justify-between overflow-hidden select-none border ${
+      className={`absolute z-10 mx-1 rounded-xl py-1.5 px-2.5 transition-all group flex flex-col justify-start gap-1 overflow-hidden select-none border ${
         isScheduled
           ? "bg-card/95 hover:bg-card border-primary/40 hover:border-primary text-card-foreground shadow-xs cursor-grab active:cursor-grabbing hover:shadow-md"
           : isCompleted
@@ -143,7 +149,7 @@ export default function ScheduleBlockItem({
       )}
 
       {/* Header row: Time label and action buttons */}
-      <div className="flex items-start justify-between gap-1.5 min-w-0">
+      <div className="flex items-center justify-between gap-1.5 min-w-0 shrink-0">
         <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
           {isScheduled && (
             <GripVertical className="w-3 h-3 text-muted-foreground/60 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
@@ -165,18 +171,42 @@ export default function ScheduleBlockItem({
         {/* Action icons */}
         <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
           {isScheduled && (
-            <Button
-              size="icon"
-              variant="secondary"
-              onClick={(e) => {
-                e.stopPropagation();
-                onStartFocus(block);
-              }}
-              className="h-6 w-6 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 shadow-2xs"
-              title="Start Focus Session"
-            >
-              <Play className="w-3 h-3 fill-current" />
-            </Button>
+            <>
+              <Button
+                size="icon"
+                variant="secondary"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onStartFocus(block);
+                }}
+                className="h-5 w-5 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 shadow-2xs"
+                title="Start Focus Session"
+              >
+                <Play className="w-2.5 h-2.5 fill-current" />
+              </Button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onUpdateBlock(block._id, { status: "completed" });
+                }}
+                className="p-1 rounded text-muted-foreground hover:text-emerald-500 hover:bg-emerald-500/10 transition-colors"
+                title="Mark completed"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onUpdateBlock(block._id, { status: "skipped" });
+                }}
+                className="p-1 rounded text-muted-foreground hover:text-amber-500 hover:bg-amber-500/10 transition-colors"
+                title="Mark skipped"
+              >
+                <SkipForward className="w-3.5 h-3.5" />
+              </button>
+            </>
           )}
 
           <Button
@@ -186,7 +216,7 @@ export default function ScheduleBlockItem({
               e.stopPropagation();
               onDeleteBlock(block._id);
             }}
-            className="h-6 w-6 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+            className="h-5 w-5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10"
             title="Remove from schedule"
           >
             <Trash2 className="w-3 h-3" />
@@ -195,16 +225,17 @@ export default function ScheduleBlockItem({
       </div>
 
       {/* Task Title and Context */}
-      <div className="my-auto py-0.5 min-w-0">
+      <div className="min-w-0 flex-1 flex flex-col justify-center">
         <p
-          className={`text-xs font-semibold leading-snug truncate ${
+          className={`text-xs font-semibold leading-tight truncate ${
             isCompleted ? "line-through text-muted-foreground" : "text-foreground"
           }`}
+          title={taskTitle}
         >
           {taskTitle}
         </p>
 
-        {goalTitle && (
+        {goalTitle && !isCompact && (
           <div className="flex items-center gap-1 mt-0.5 text-[10px] text-muted-foreground truncate">
             <Target className="w-2.5 h-2.5 shrink-0" />
             <span className="truncate">{goalTitle}</span>
@@ -212,36 +243,14 @@ export default function ScheduleBlockItem({
         )}
       </div>
 
-      {/* Status indicator badge (for small blocks) */}
-      <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-        <span className="capitalize font-medium text-[10px]">
-          {block.status}
-        </span>
-        {isScheduled && (
-          <div className="flex items-center gap-1">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onUpdateBlock(block._id, { status: "completed" });
-              }}
-              className="hover:text-emerald-500 transition-colors p-0.5"
-              title="Mark completed"
-            >
-              <CheckCircle2 className="w-3 h-3" />
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onUpdateBlock(block._id, { status: "skipped" });
-              }}
-              className="hover:text-amber-500 transition-colors p-0.5"
-              title="Mark skipped"
-            >
-              <SkipForward className="w-3 h-3" />
-            </button>
-          </div>
-        )}
-      </div>
+      {/* Status indicator badge (only for large blocks) */}
+      {!isCompact && (
+        <div className="flex items-center justify-between text-[10px] text-muted-foreground shrink-0 mt-auto pt-0.5">
+          <span className="capitalize font-medium text-[10px]">
+            {block.status}
+          </span>
+        </div>
+      )}
 
       {/* Bottom resize handle */}
       {isScheduled && (

@@ -11,6 +11,8 @@ import {
 } from "drizzle-orm/pg-core";
 import { users } from "./users.js";
 import { scheduleBlocks } from "./scheduleBlocks.js";
+import { routineOccurrences } from "./routineOccurrences.js";
+import { routineStepOccurrences } from "./routineStepOccurrences.js";
 
 export const sessionTypeEnum = pgEnum("session_type", ["task", "quick"]);
 export const sessionStatusEnum = pgEnum("session_status", ["active", "completed"]);
@@ -35,6 +37,14 @@ export const sessions = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     scheduleBlockId: uuid("schedule_block_id").references(
       () => scheduleBlocks.id,
+      { onDelete: "set null" }
+    ),
+    routineOccurrenceId: uuid("routine_occurrence_id").references(
+      () => routineOccurrences.id,
+      { onDelete: "set null" }
+    ),
+    routineStepOccurrenceId: uuid("routine_step_occurrence_id").references(
+      () => routineStepOccurrences.id,
       { onDelete: "set null" }
     ),
 
@@ -96,5 +106,7 @@ export const sessions = pgTable(
     index("idx_sessions_user_created").on(table.userId, table.createdAt),
     index("idx_sessions_status").on(table.userId, table.status),
     index("idx_sessions_schedule_block").on(table.scheduleBlockId),
+    index("idx_sessions_routine_occ").on(table.routineOccurrenceId),
+    index("idx_sessions_routine_step_occ").on(table.routineStepOccurrenceId),
   ]
 );

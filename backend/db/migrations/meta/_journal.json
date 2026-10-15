@@ -15,6 +15,13 @@
       "when": 1791958110314,
       "tag": "0001_rapid_patriot",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792040205373,
+      "tag": "0002_tough_kate_bishop",
+      "breakpoints": true
     }
   ]
 }
