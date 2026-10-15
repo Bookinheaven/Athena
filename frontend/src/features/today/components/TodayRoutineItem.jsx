@@ -1,7 +1,6 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
-  CheckCircle2,
-  Circle,
   Clock,
   FastForward,
   ChevronDown,
@@ -9,18 +8,36 @@ import {
   Loader2,
   ListChecks,
   Check,
+  RotateCcw,
+  MoreVertical,
+  ExternalLink,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu.jsx";
 import { formatTargetTime } from "../../planner/utils/routineUtils.js";
 
 export default function TodayRoutineItem({
   occurrence,
   onCompleteStep,
   onSkipOccurrence,
+  onUnskipOccurrence,
   initiallyExpanded = false,
 }) {
+  let navigate = null;
+  try {
+    navigate = useNavigate();
+  } catch {
+    navigate = null;
+  }
+
   const [isExpanded, setIsExpanded] = useState(initiallyExpanded);
   const [mutatingStepId, setMutatingStepId] = useState(null);
   const [isSkipping, setIsSkipping] = useState(false);
+  const [isUnskipping, setIsUnskipping] = useState(false);
 
   const isCompleted = occurrence.status === "completed";
   const isSkipped = occurrence.status === "skipped";
@@ -33,7 +50,7 @@ export default function TodayRoutineItem({
   const singleStep = isSingleStep ? steps[0] : null;
 
   const handleStepClick = async (step) => {
-    if (isSkipped || mutatingStepId || isSkipping) return;
+    if (mutatingStepId || isSkipping || isUnskipping) return;
     const nextCompleted = step.status !== "completed";
     setMutatingStepId(step.id || step._id);
     try {
@@ -44,8 +61,8 @@ export default function TodayRoutineItem({
   };
 
   const handleSkipClick = async (e) => {
-    e.stopPropagation();
-    if (isSkipped || isCompleted || isSkipping || mutatingStepId) return;
+    if (e) e.stopPropagation();
+    if (isSkipped || isCompleted || isSkipping || isUnskipping || mutatingStepId) return;
     setIsSkipping(true);
     try {
       await onSkipOccurrence(occurrence.id || occurrence._id);
@@ -54,32 +71,53 @@ export default function TodayRoutineItem({
     }
   };
 
+  const handleUnskipClick = async (e) => {
+    if (e) e.stopPropagation();
+    if (!isSkipped || isUnskipping || isSkipping || mutatingStepId) return;
+    if (!onUnskipOccurrence) return;
+    setIsUnskipping(true);
+    try {
+      await onUnskipOccurrence(occurrence.id || occurrence._id);
+    } finally {
+      setIsUnskipping(false);
+    }
+  };
+
+  const handleManageClick = (e) => {
+    if (e) e.stopPropagation();
+    navigate("/planner?tab=routines");
+  };
+
   // Case 1: Single-step compact recurring task item
   if (isSingleStep && singleStep) {
     const isStepDone = singleStep.status === "completed";
 
     return (
       <div
-        className={`group flex items-center justify-between p-3.5 rounded-xl border transition-all ${
-          isCompleted
-            ? "bg-emerald-500/5 border-emerald-500/20"
-            : isSkipped
-            ? "bg-muted/40 border-border/50 opacity-60"
+        className={`group flex items-center justify-between p-3.5 rounded-xl border transition-all ${isCompleted
+          ? "bg-emerald-500/5 border-emerald-500/20"
+          : isSkipped
+            ? "bg-muted/30 border-border/60 opacity-75 hover:opacity-100"
             : "bg-card border-border hover:border-border/80 shadow-2xs"
-        }`}
+          }`}
       >
         <div className="flex items-center gap-3 min-w-0 flex-1">
           {/* Checkbox button */}
           <button
             type="button"
-            disabled={isSkipped || mutatingStepId === (singleStep.id || singleStep._id)}
+            disabled={mutatingStepId === (singleStep.id || singleStep._id) || isSkipping || isUnskipping}
             onClick={() => handleStepClick(singleStep)}
-            className={`w-5 h-5 rounded-lg flex items-center justify-center transition-all shrink-0 ${
+            className={`w-5 h-5 rounded-lg flex items-center justify-center transition-all shrink-0 ${isStepDone
+              ? "bg-emerald-500 text-white"
+              : "border border-muted-foreground/40 hover:border-primary text-transparent"
+              } disabled:cursor-not-allowed`}
+            title={
               isStepDone
-                ? "bg-emerald-500 text-white"
-                : "border border-muted-foreground/40 hover:border-primary text-transparent"
-            } disabled:cursor-not-allowed`}
-            title={isStepDone ? "Mark incomplete" : "Mark step completed"}
+                ? "Mark incomplete"
+                : isSkipped
+                  ? "Complete and unskip routine"
+                  : "Mark step completed"
+            }
           >
             {mutatingStepId === (singleStep.id || singleStep._id) ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
@@ -91,13 +129,12 @@ export default function TodayRoutineItem({
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
               <span
-                className={`text-sm font-medium leading-tight truncate ${
-                  isStepDone
-                    ? "line-through text-muted-foreground"
-                    : isSkipped
+                className={`text-sm font-medium leading-tight truncate ${isStepDone
+                  ? "line-through text-muted-foreground"
+                  : isSkipped
                     ? "line-through text-muted-foreground"
                     : "text-foreground"
-                }`}
+                  }`}
               >
                 {occurrence.snapshotTitle || occurrence.titleSnapshot || occurrence.title || "Routine"}
               </span>
@@ -120,25 +157,48 @@ export default function TodayRoutineItem({
           </div>
         </div>
 
-        {/* Skip action */}
-        {!isCompleted && !isSkipped && (
-          <button
-            type="button"
-            disabled={isSkipping}
-            onClick={handleSkipClick}
-            className="text-xs text-muted-foreground hover:text-foreground p-1 rounded-md transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 flex items-center gap-1"
-            title="Skip this occurrence today"
-          >
-            {isSkipping ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <>
-                <FastForward className="w-3.5 h-3.5" />
-                <span className="text-[11px] hidden sm:inline">Skip</span>
-              </>
-            )}
-          </button>
-        )}
+        {/* Right side actions: Unskip / Skip + Options Menu */}
+        <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+          {/* Explicit Unskip button when skipped */}
+          {isSkipped && onUnskipOccurrence && (
+            <button
+              type="button"
+              disabled={isUnskipping}
+              onClick={handleUnskipClick}
+              className="text-xs font-medium text-primary hover:text-primary/90 bg-primary/10 hover:bg-primary/15 px-2 py-1 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+              title="Restore skipped routine"
+            >
+              {isUnskipping ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <>
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span className="text-[11px]">Unskip</span>
+                </>
+              )}
+            </button>
+          )}
+
+          {/* Skip action when active */}
+          {!isCompleted && !isSkipped && (
+            <button
+              type="button"
+              disabled={isSkipping}
+              onClick={handleSkipClick}
+              className="text-xs text-muted-foreground hover:text-foreground p-1 rounded-md transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 flex items-center gap-1 cursor-pointer"
+              title="Skip this occurrence today"
+            >
+              {isSkipping ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <>
+                  <FastForward className="w-3.5 h-3.5" />
+                  <span className="text-[11px] hidden sm:inline">Skip</span>
+                </>
+              )}
+            </button>
+          )}
+        </div>
       </div>
     );
   }
@@ -146,15 +206,14 @@ export default function TodayRoutineItem({
   // Case 2: Multi-step routine expandable card
   return (
     <div
-      className={`rounded-2xl border transition-all overflow-hidden ${
-        isCompleted
-          ? "bg-emerald-500/5 border-emerald-500/20"
-          : isSkipped
-          ? "bg-muted/30 border-border/50 opacity-60"
+      className={`rounded-2xl border transition-all overflow-hidden ${isCompleted
+        ? "bg-emerald-500/5 border-emerald-500/20"
+        : isSkipped
+          ? "bg-muted/20 border-border/60 opacity-80 hover:opacity-100"
           : isInProgress
-          ? "bg-card border-primary/30 shadow-xs"
-          : "bg-card border-border shadow-2xs"
-      }`}
+            ? "bg-card border-primary/30 shadow-xs"
+            : "bg-card border-border shadow-2xs"
+        }`}
     >
       {/* Header bar */}
       <div
@@ -163,13 +222,12 @@ export default function TodayRoutineItem({
       >
         <div className="flex items-center gap-3 min-w-0 flex-1">
           <div
-            className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 ${
-              isCompleted
-                ? "bg-emerald-500/20 text-emerald-500"
-                : isInProgress
+            className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 ${isCompleted
+              ? "bg-emerald-500/20 text-emerald-500"
+              : isInProgress
                 ? "bg-primary/10 text-primary"
                 : "bg-secondary text-muted-foreground"
-            }`}
+              }`}
           >
             <ListChecks className="w-4 h-4" />
           </div>
@@ -177,32 +235,30 @@ export default function TodayRoutineItem({
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
               <h4
-                className={`text-sm font-semibold tracking-tight truncate ${
-                  isCompleted ? "line-through text-muted-foreground" : "text-foreground"
-                }`}
+                className={`text-sm font-semibold tracking-tight truncate ${isCompleted ? "line-through text-muted-foreground" : "text-foreground"
+                  }`}
               >
                 {occurrence.snapshotTitle || occurrence.titleSnapshot || occurrence.title || "Routine"}
               </h4>
 
               {/* Status pill */}
               <span
-                className={`text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full border ${
-                  isCompleted
-                    ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
-                    : isSkipped
+                className={`text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full border ${isCompleted
+                  ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                  : isSkipped
                     ? "bg-muted text-muted-foreground border-border"
                     : isInProgress
-                    ? "bg-primary/10 text-primary border-primary/20"
-                    : "bg-secondary text-muted-foreground border-border/50"
-                }`}
+                      ? "bg-primary/10 text-primary border-primary/20"
+                      : "bg-secondary text-muted-foreground border-border/50"
+                  }`}
               >
                 {isCompleted
                   ? "Completed"
                   : isSkipped
-                  ? "Skipped"
-                  : isInProgress
-                  ? "In Progress"
-                  : "Pending"}
+                    ? "Skipped"
+                    : isInProgress
+                      ? "In Progress"
+                      : "Pending"}
               </span>
 
               {/* Target time */}
@@ -221,9 +277,8 @@ export default function TodayRoutineItem({
               </span>
               <div className="w-16 h-1.5 rounded-full bg-secondary overflow-hidden shrink-0">
                 <div
-                  className={`h-full transition-all duration-300 ${
-                    isCompleted ? "bg-emerald-500" : "bg-primary"
-                  }`}
+                  className={`h-full transition-all duration-300 ${isCompleted ? "bg-emerald-500" : "bg-primary"
+                    }`}
                   style={{
                     width: `${Math.min(
                       100,
@@ -238,14 +293,35 @@ export default function TodayRoutineItem({
           </div>
         </div>
 
-        {/* Right side controls: Skip + Chevron */}
+        {/* Right side controls: Unskip / Skip + Options Menu + Chevron */}
         <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+          {/* Explicit Unskip button when skipped */}
+          {isSkipped && onUnskipOccurrence && (
+            <button
+              type="button"
+              disabled={isUnskipping}
+              onClick={handleUnskipClick}
+              className="text-xs font-medium text-primary hover:text-primary/90 bg-primary/10 hover:bg-primary/15 px-2 py-1 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+              title="Restore skipped routine"
+            >
+              {isUnskipping ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <>
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span className="text-[11px]">Unskip</span>
+                </>
+              )}
+            </button>
+          )}
+
+          {/* Skip action when active */}
           {!isCompleted && !isSkipped && (
             <button
               type="button"
               disabled={isSkipping}
               onClick={handleSkipClick}
-              className="text-xs text-muted-foreground hover:text-foreground p-1.5 rounded-lg transition-colors flex items-center gap-1"
+              className="text-xs text-muted-foreground hover:text-foreground p-1.5 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
               title="Skip this occurrence today"
             >
               {isSkipping ? (
@@ -262,7 +338,7 @@ export default function TodayRoutineItem({
           <button
             type="button"
             onClick={() => setIsExpanded((prev) => !prev)}
-            className="p-1.5 text-muted-foreground hover:text-foreground rounded-lg transition-colors"
+            className="p-1.5 text-muted-foreground hover:text-foreground rounded-lg transition-colors cursor-pointer"
             title={isExpanded ? "Collapse checklist" : "Expand checklist"}
           >
             {isExpanded ? (
@@ -288,22 +364,20 @@ export default function TodayRoutineItem({
             return (
               <div
                 key={stepId || idx}
-                onClick={() => !isSkipped && handleStepClick(step)}
-                className={`flex items-center justify-between p-2.5 rounded-xl border transition-all cursor-pointer ${
-                  isStepDone
-                    ? "bg-emerald-500/5 border-emerald-500/20"
-                    : "bg-background border-border/70 hover:border-border"
-                } ${isSkipped ? "cursor-not-allowed opacity-60" : ""}`}
+                onClick={() => handleStepClick(step)}
+                className={`flex items-center justify-between p-2.5 rounded-xl border transition-all cursor-pointer ${isStepDone
+                  ? "bg-emerald-500/5 border-emerald-500/20"
+                  : "bg-background border-border/70 hover:border-border"
+                  }`}
               >
                 <div className="flex items-center gap-2.5 min-w-0 flex-1">
                   <button
                     type="button"
-                    disabled={isSkipped || isMutatingThis}
-                    className={`w-5 h-5 rounded-lg flex items-center justify-center transition-all shrink-0 ${
-                      isStepDone
-                        ? "bg-emerald-500 text-white"
-                        : "border border-muted-foreground/40 hover:border-primary text-transparent"
-                    }`}
+                    disabled={isMutatingThis || isSkipping || isUnskipping}
+                    className={`w-5 h-5 rounded-lg flex items-center justify-center transition-all shrink-0 ${isStepDone
+                      ? "bg-emerald-500 text-white"
+                      : "border border-muted-foreground/40 hover:border-primary text-transparent"
+                      }`}
                   >
                     {isMutatingThis ? (
                       <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
@@ -313,9 +387,8 @@ export default function TodayRoutineItem({
                   </button>
 
                   <span
-                    className={`text-xs font-medium truncate ${
-                      isStepDone ? "line-through text-muted-foreground" : "text-foreground"
-                    }`}
+                    className={`text-xs font-medium truncate ${isStepDone ? "line-through text-muted-foreground" : "text-foreground"
+                      }`}
                   >
                     {step.title || step.titleSnapshot || step.snapshotTitle || "Step"}
                   </span>

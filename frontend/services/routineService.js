@@ -60,6 +60,12 @@ class RoutineService extends RequestService {
       method: "POST",
     });
   }
+
+  unskipOccurrence(occurrenceId) {
+    return this.request(`/routines/occurrences/${occurrenceId}/unskip`, {
+      method: "POST",
+    });
+  }
 }
 
 export default new RoutineService();

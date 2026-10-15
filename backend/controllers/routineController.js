@@ -156,6 +156,27 @@ class RoutineController {
       res.status(statusCode).json({ success: false, message: error.message });
     }
   }
+
+  async unskipOccurrence(req, res) {
+    try {
+      const occurrence = await routineService.unskipOccurrence(
+        req.user.id,
+        req.params.occurrenceId
+      );
+
+      // Recalculate daily stats and streak with restored routine commitment outcome
+      await streakService
+        .processDailyStreak(req.user.id, new Date(), req.timezone)
+        .catch((err) => {
+          console.error("Streak processing error after routine unskip:", err);
+        });
+
+      res.json(occurrence);
+    } catch (error) {
+      const statusCode = error.statusCode || 500;
+      res.status(statusCode).json({ success: false, message: error.message });
+    }
+  }
 }
 
 export default new RoutineController();

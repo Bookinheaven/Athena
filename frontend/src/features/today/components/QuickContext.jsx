@@ -57,9 +57,19 @@ export default function QuickContext({
                 <CheckCircle2 className="w-4 h-4 text-muted-foreground/70" />
                 Tasks Done
               </span>
-              <span className="font-semibold text-foreground">
-                {completedTasksCount} of {totalTasksCount}
-              </span>
+              {
+                (totalTasksCount === 0 && completedTasksCount === 0) ?
+                  (
+                    <span className="font-semibold text-foreground">
+                      -
+                    </span>
+                  ) :
+                  (
+                    <span className="font-semibold text-foreground">
+                      {completedTasksCount} of {totalTasksCount}
+                    </span>
+                  )
+              }
             </div>
 
             {totalRoutinesCount > 0 && (
@@ -68,9 +78,19 @@ export default function QuickContext({
                   <Repeat className="w-4 h-4 text-muted-foreground/70" />
                   Routines Done
                 </span>
-                <span className="font-semibold text-foreground">
-                  {completedRoutinesCount} of {totalRoutinesCount}
-                </span>
+                {
+                  (completedRoutinesCount === totalRoutinesCount) ?
+                    (
+                      <span className="font-semibold text-foreground">
+                        Done
+                      </span>
+                    ) : (
+                      <span className="font-semibold text-foreground">
+                        {completedRoutinesCount} of {totalRoutinesCount}
+                      </span>
+
+                    )
+                }
               </div>
             )}
           </div>

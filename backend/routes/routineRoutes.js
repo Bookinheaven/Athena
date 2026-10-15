@@ -20,6 +20,8 @@ router.patch(
 );
 router.put("/occurrences/:occurrenceId/skip", routineController.skipOccurrence);
 router.post("/occurrences/:occurrenceId/skip", routineController.skipOccurrence);
+router.put("/occurrences/:occurrenceId/unskip", routineController.unskipOccurrence);
+router.post("/occurrences/:occurrenceId/unskip", routineController.unskipOccurrence);
 
 // Routine Definitions CRUD
 router.get("/", routineController.getRoutines);

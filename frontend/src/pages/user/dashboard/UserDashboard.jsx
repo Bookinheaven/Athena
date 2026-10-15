@@ -84,6 +84,7 @@ const UserDashboard = () => {
                   isError={routines.isError}
                   onCompleteStep={actions.handleCompleteRoutineStep}
                   onSkipOccurrence={actions.handleSkipRoutineOccurrence}
+                  onUnskipOccurrence={actions.handleUnskipRoutineOccurrence}
                   onRetry={actions.handleRefetchRoutines}
                 />
 

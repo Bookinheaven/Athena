@@ -79,8 +79,25 @@ class RoutineOccurrenceRepository {
 
     const db = getDrizzleDb();
     const rows = await db
-      .select()
+      .select({
+        id: routineOccurrences.id,
+        userId: routineOccurrences.userId,
+        routineId: routineOccurrences.routineId,
+        productDate: routineOccurrences.productDate,
+        status: routineOccurrences.status,
+        completedAt: routineOccurrences.completedAt,
+        totalSteps: routineOccurrences.totalSteps,
+        completedSteps: routineOccurrences.completedSteps,
+        snapshotTitle: routineOccurrences.snapshotTitle,
+        snapshotGoalId: routineOccurrences.snapshotGoalId,
+        createdAt: routineOccurrences.createdAt,
+        updatedAt: routineOccurrences.updatedAt,
+        targetTime: routines.targetTime,
+        estimatedMinutes: routines.estimatedMinutes,
+        routineStatus: routines.status,
+      })
       .from(routineOccurrences)
+      .leftJoin(routines, eq(routineOccurrences.routineId, routines.id))
       .where(eq(routineOccurrences.id, cleanId))
       .limit(1);
 
@@ -371,6 +388,64 @@ class RoutineOccurrenceRepository {
 
     if (!rows.length) return null;
     return this.findById(cleanOccId);
+  }
+
+  async unskipOccurrence(userId, occurrenceId) {
+    const cleanUserId = normalizeUserId(userId);
+    const cleanOccId = normalizeOccurrenceId(occurrenceId);
+    if (!cleanUserId || !cleanOccId) return null;
+
+    const pool = getPgPool();
+    const client = await pool.connect();
+
+    try {
+      await client.query("BEGIN");
+
+      // Verify user owns occurrence and retrieve it
+      const occRes = await client.query(
+        "SELECT * FROM routine_occurrences WHERE id = $1 AND user_id = $2 FOR UPDATE",
+        [cleanOccId, cleanUserId]
+      );
+      if (!occRes.rows.length) {
+        await client.query("ROLLBACK");
+        return null;
+      }
+
+      // Query steps
+      const allStepsRes = await client.query(
+        "SELECT * FROM routine_step_occurrences WHERE occurrence_id = $1 ORDER BY sort_order ASC",
+        [cleanOccId]
+      );
+      const allSteps = allStepsRes.rows;
+      const totalSteps = allSteps.length;
+      const completedSteps = allSteps.filter((s) => s.status === "completed").length;
+
+      // Determine restored status based on step completion
+      let parentStatus = "pending";
+      let parentCompletedAt = null;
+
+      if (completedSteps === totalSteps && totalSteps > 0) {
+        parentStatus = "completed";
+        parentCompletedAt = new Date();
+      } else if (completedSteps > 0) {
+        parentStatus = "in_progress";
+      }
+
+      await client.query(
+        `UPDATE routine_occurrences
+         SET status = $1, completed_steps = $2, total_steps = $3, completed_at = $4, updated_at = NOW()
+         WHERE id = $5`,
+        [parentStatus, completedSteps, totalSteps, parentCompletedAt, cleanOccId]
+      );
+
+      await client.query("COMMIT");
+      return this.findById(cleanOccId);
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
   }
 
   async deleteFuturePendingByRoutineId(userId, routineId, afterProductDate) {

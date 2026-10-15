@@ -11,6 +11,7 @@ export default function TodayRoutines({
   isError = false,
   onCompleteStep,
   onSkipOccurrence,
+  onUnskipOccurrence,
   onRetry,
 }) {
   const navigate = useNavigate();
@@ -84,6 +85,7 @@ export default function TodayRoutines({
               occurrence={occ}
               onCompleteStep={onCompleteStep}
               onSkipOccurrence={onSkipOccurrence}
+              onUnskipOccurrence={onUnskipOccurrence}
             />
           ))}
         </div>

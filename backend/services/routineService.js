@@ -350,6 +350,24 @@ class RoutineService {
     return updated;
   }
 
+  async unskipOccurrence(userId, occurrenceId) {
+    const cleanOccId = normalizeOccurrenceId(occurrenceId);
+    if (!cleanOccId) {
+      const err = new Error("Invalid occurrenceId");
+      err.statusCode = 400;
+      throw err;
+    }
+
+    const updated = await routineOccurrenceRepository.unskipOccurrence(userId, cleanOccId);
+    if (!updated) {
+      const err = new Error("Routine occurrence not found or access denied");
+      err.statusCode = 404;
+      throw err;
+    }
+
+    return updated;
+  }
+
   async deleteRoutine(userId, routineId, timezone = null) {
     const tz = timezone || (await resolveUserTimezone(userId));
     const todayProductDate = getProductDate(new Date(), tz);

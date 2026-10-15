@@ -332,6 +332,46 @@ export const useTodayData = () => {
     [routineOccurrences]
   );
 
+  const handleUnskipRoutineOccurrence = useCallback(
+    async (occurrenceId) => {
+      const prevOccurrences = [...routineOccurrences];
+
+      // Optimistic update
+      setRoutineOccurrences((prev) =>
+        prev.map((occ) => {
+          if ((occ.id || occ._id) !== occurrenceId) return occ;
+          const completed = occ.completedSteps || 0;
+          const total = occ.totalSteps || 0;
+          const restoredStatus =
+            completed === total && total > 0
+              ? "completed"
+              : completed > 0
+              ? "in_progress"
+              : "pending";
+          return { ...occ, status: restoredStatus };
+        })
+      );
+
+      try {
+        const canonical = await routineService.unskipOccurrence(occurrenceId);
+        if (canonical) {
+          setRoutineOccurrences((prev) =>
+            prev.map((occ) => ((occ.id || occ._id) === occurrenceId ? canonical : occ))
+          );
+        }
+        toast.success("Routine restored");
+        return true;
+      } catch (err) {
+        console.error("Failed to unskip routine occurrence:", err);
+        toast.error(err.message || "Failed to restore routine");
+        // Revert on failure
+        setRoutineOccurrences(prevOccurrences);
+        return false;
+      }
+    },
+    [routineOccurrences]
+  );
+
   const handleRefetchRoutines = useCallback(async () => {
     setIsRoutinesLoading(true);
     setIsRoutinesError(false);
@@ -387,6 +427,7 @@ export const useTodayData = () => {
       handleApplyTarget,
       handleCompleteRoutineStep,
       handleSkipRoutineOccurrence,
+      handleUnskipRoutineOccurrence,
       handleRefetchRoutines,
     },
   };
