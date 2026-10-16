@@ -35,7 +35,9 @@ export const FocusSettings = () => {
       .catch(() => {});
 
     try {
-      const stored = localStorage.getItem(`athena_adaptive_target_enabled_${userId}`);
+      const stored =
+        localStorage.getItem("athena_adaptive_target_enabled") ||
+        (userId ? localStorage.getItem(`athena_adaptive_target_enabled_${userId}`) : null);
       if (stored !== null) {
         setAdaptiveEnabled(stored === "true");
       }
@@ -59,11 +61,48 @@ export const FocusSettings = () => {
     }
   };
 
+  const handleMinTargetChange = async (val) => {
+    const newMin = Math.max(5, Math.min(Number(val) || 20, maxTargetMinutes));
+    setMinTargetMinutes(newMin);
+    const newTarget = Math.max(newMin, targetMinutes);
+    setTargetMinutes(newTarget);
+    try {
+      await streakService.updateTargetSettings({
+        dailyTargetMinutes: newTarget,
+        minTargetMinutes: newMin,
+        maxTargetMinutes,
+      });
+      triggerSaveFeedback();
+    } catch (err) {
+      console.error("Failed to update min target:", err);
+    }
+  };
+
+  const handleMaxTargetChange = async (val) => {
+    const newMax = Math.max(minTargetMinutes, Math.min(Number(val) || 90, 360));
+    setMaxTargetMinutes(newMax);
+    const newTarget = Math.min(newMax, targetMinutes);
+    setTargetMinutes(newTarget);
+    try {
+      await streakService.updateTargetSettings({
+        dailyTargetMinutes: newTarget,
+        minTargetMinutes,
+        maxTargetMinutes: newMax,
+      });
+      triggerSaveFeedback();
+    } catch (err) {
+      console.error("Failed to update max target:", err);
+    }
+  };
+
   const handleAdaptiveToggle = () => {
     const next = !adaptiveEnabled;
     setAdaptiveEnabled(next);
     try {
-      localStorage.setItem(`athena_adaptive_target_enabled_${userId}`, String(next));
+      localStorage.setItem("athena_adaptive_target_enabled", String(next));
+      if (userId) {
+        localStorage.setItem(`athena_adaptive_target_enabled_${userId}`, String(next));
+      }
     } catch {
       /* ignore */
     }
@@ -146,39 +185,52 @@ export const FocusSettings = () => {
 
         {/* Daily Focus Commitment & Adaptive Target */}
         <div className="rounded-2xl border border-border/60 bg-card p-6 shadow-xs space-y-5">
-          <div className="flex items-center gap-2.5">
-            <div className="h-8 w-8 rounded-lg bg-secondary flex items-center justify-center text-foreground">
-              <Target className="h-4 w-4" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="h-8 w-8 rounded-lg bg-secondary flex items-center justify-center text-foreground">
+                <Target className="h-4 w-4" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">Daily Focus Commitment</h3>
+                <p className="text-xs text-muted-foreground">
+                  Configure your baseline commitment, target presets, and adaptive boundary limits.
+                </p>
+              </div>
             </div>
-            <div>
-              <h3 className="text-sm font-semibold text-foreground">Daily Focus Commitment</h3>
-              <p className="text-xs text-muted-foreground">
-                Your daily focus target and adaptive adjustment preferences.
-              </p>
+
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-mono font-semibold px-2.5 py-1 rounded-lg bg-primary/10 text-primary border border-primary/20 tabular-nums">
+                {targetMinutes} min / day
+              </span>
             </div>
           </div>
 
-          <div className="space-y-4 pt-1">
-            {/* Daily Target Presets */}
+          <div className="space-y-5 pt-1">
+            {/* Target Presets & Quick Buttons */}
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-medium text-foreground">Daily Focus Target</label>
-                <span className="text-xs font-mono font-medium text-primary tabular-nums">
-                  {targetMinutes} min / day
+              <div className="flex items-center justify-between text-xs">
+                <label className="font-medium text-foreground">Target Presets</label>
+                <span className="text-muted-foreground text-[11px]">
+                  Floor: {minTargetMinutes}m — Cap: {maxTargetMinutes}m
                 </span>
               </div>
-              <div className="grid grid-cols-5 gap-2.5 max-w-md">
-                {[20, 25, 30, 45, 60].map((mins) => {
+
+              <div className="flex flex-wrap gap-2">
+                {[20, 25, 30, 35, 45, 60, 90, 120].map((mins) => {
                   const isSelected = targetMinutes === mins;
+                  const isOutOfBounds = mins < minTargetMinutes || mins > maxTargetMinutes;
                   return (
                     <button
                       key={mins}
                       type="button"
+                      disabled={isOutOfBounds}
                       onClick={() => handleTargetChange(mins)}
-                      className={`h-9 rounded-lg text-xs font-mono font-medium border transition-colors cursor-pointer ${
+                      className={`h-8 px-3 rounded-lg text-xs font-mono font-medium border transition-all cursor-pointer ${
                         isSelected
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "bg-secondary/40 text-foreground border-border/60 hover:bg-secondary"
+                          ? "bg-primary text-primary-foreground border-primary shadow-2xs"
+                          : isOutOfBounds
+                          ? "opacity-35 cursor-not-allowed bg-muted/40 border-border/40 text-muted-foreground"
+                          : "bg-secondary/40 text-foreground border-border/60 hover:bg-secondary hover:text-foreground"
                       }`}
                     >
                       {mins}m
@@ -188,22 +240,108 @@ export const FocusSettings = () => {
               </div>
             </div>
 
-            {/* Target Limits / Bounds */}
-            <div className="flex items-center gap-4 text-xs text-muted-foreground pt-1">
-              <span>Boundaries:</span>
-              <span className="font-mono bg-secondary/50 px-2 py-0.5 rounded border border-border/40">
-                Min: {minTargetMinutes}m
-              </span>
-              <span className="font-mono bg-secondary/50 px-2 py-0.5 rounded border border-border/40">
-                Max: {maxTargetMinutes}m
-              </span>
+            {/* Interactive Slider & Stepper */}
+            <div className="space-y-2 p-3.5 rounded-xl bg-muted/30 border border-border/50">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-medium text-foreground">Fine-Tune Commitment</span>
+                <div className="flex items-center gap-1.5 font-mono text-xs">
+                  <button
+                    type="button"
+                    onClick={() => handleTargetChange(targetMinutes - 5)}
+                    disabled={targetMinutes <= minTargetMinutes}
+                    className="h-6 w-6 rounded flex items-center justify-center border border-border/70 hover:bg-muted text-muted-foreground hover:text-foreground disabled:opacity-30 cursor-pointer"
+                  >
+                    -
+                  </button>
+                  <span className="px-2 font-semibold text-foreground tabular-nums">
+                    {targetMinutes}m
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleTargetChange(targetMinutes + 5)}
+                    disabled={targetMinutes >= maxTargetMinutes}
+                    className="h-6 w-6 rounded flex items-center justify-center border border-border/70 hover:bg-muted text-muted-foreground hover:text-foreground disabled:opacity-30 cursor-pointer"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+
+              <input
+                type="range"
+                min={minTargetMinutes}
+                max={maxTargetMinutes}
+                step={5}
+                value={targetMinutes}
+                onChange={(e) => handleTargetChange(Number(e.target.value))}
+                className="w-full accent-primary h-1.5 bg-secondary rounded-lg appearance-none cursor-pointer"
+              />
+              <div className="flex justify-between text-[10px] text-muted-foreground font-mono">
+                <span>{minTargetMinutes}m (min)</span>
+                <span>{maxTargetMinutes}m (max)</span>
+              </div>
+            </div>
+
+            {/* Target Boundaries (Min & Max Floors/Ceilings) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
+              <div className="p-3.5 rounded-xl border border-border/50 bg-card space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-medium text-foreground">Minimum Target Floor</label>
+                  <span className="text-xs font-mono text-muted-foreground">{minTargetMinutes}m</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-normal">
+                  Guarantees Athena never steps your daily target below this momentum baseline.
+                </p>
+                <div className="flex gap-1.5 pt-1">
+                  {[10, 15, 20, 25, 30].map((val) => (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => handleMinTargetChange(val)}
+                      className={`h-7 px-2 rounded text-[11px] font-mono border transition-all cursor-pointer ${
+                        minTargetMinutes === val
+                          ? "bg-foreground text-background border-foreground font-semibold"
+                          : "bg-secondary/40 text-muted-foreground border-border/60 hover:text-foreground"
+                      }`}
+                    >
+                      {val}m
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-xl border border-border/50 bg-card space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-medium text-foreground">Maximum Target Ceiling</label>
+                  <span className="text-xs font-mono text-muted-foreground">{maxTargetMinutes}m</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-normal">
+                  Caps adaptive scaling to prevent burnout and protect sustainable momentum.
+                </p>
+                <div className="flex gap-1.5 pt-1 flex-wrap">
+                  {[60, 90, 120, 180, 240].map((val) => (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => handleMaxTargetChange(val)}
+                      className={`h-7 px-2 rounded text-[11px] font-mono border transition-all cursor-pointer ${
+                        maxTargetMinutes === val
+                          ? "bg-foreground text-background border-foreground font-semibold"
+                          : "bg-secondary/40 text-muted-foreground border-border/60 hover:text-foreground"
+                      }`}
+                    >
+                      {val}m
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
 
             {/* Adaptive Toggle */}
             <div className="pt-2 border-t border-border/40">
               <ToggleRow
                 label="Adaptive Focus Target Recommendations"
-                description="Allow Athena to suggest ±5m gradual target adjustments based on your 7-day consistency and recovery."
+                description="Allow Athena to suggest personalized adjustments on your Today dashboard based on your 7-day focus pace."
                 checked={adaptiveEnabled}
                 onChange={handleAdaptiveToggle}
               />
