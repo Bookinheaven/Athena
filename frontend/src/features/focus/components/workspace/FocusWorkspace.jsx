@@ -305,6 +305,10 @@ export const FocusWorkspace = ({
                 onSkipReview={() => commands.stop()}
                 isSingleTask={linkedTasks.length === 1}
                 linkedTasks={linkedTasks}
+                routineOccurrenceId={runtime?.state?.routineOccurrenceId}
+                routineStepOccurrenceId={runtime?.state?.routineStepOccurrenceId}
+                routineTitle={runtime?.state?.routineTitle}
+                routineStepTitle={runtime?.state?.routineStepTitle}
                 taskTitle={
                   linkedTasks[0]?.title ||
                   todos?.find((t) => String(t.id || t._id) === String(runtime?.state?.taskIds?.[0]))?.title ||

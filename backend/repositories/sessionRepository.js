@@ -7,6 +7,8 @@ import { sessionSegments } from "../db/schema/sessionSegments.js";
 import { sessionPauseEvents } from "../db/schema/sessionPauseEvents.js";
 import { sessionFeedback } from "../db/schema/sessionFeedback.js";
 import { scheduleBlocks } from "../db/schema/scheduleBlocks.js";
+import { routineOccurrences } from "../db/schema/routineOccurrences.js";
+import { routineStepOccurrences } from "../db/schema/routineStepOccurrences.js";
 import { normalizeUserId } from "./userRepository.js";
 import { normalizeTaskId } from "./taskRepository.js";
 import { normalizeBlockId } from "./scheduleBlockRepository.js";
@@ -104,6 +106,29 @@ async function hydrateSession(db, sessionRow) {
       }
     : null;
 
+  let routineTitle = null;
+  let routineStepTitle = null;
+  if (routineStepOccurrenceId) {
+    try {
+      const stepRow = await db
+        .select({ title: routineStepOccurrences.title })
+        .from(routineStepOccurrences)
+        .where(eq(routineStepOccurrences.id, routineStepOccurrenceId))
+        .limit(1);
+      if (stepRow[0]) routineStepTitle = stepRow[0].title;
+    } catch (_) {}
+  }
+  if (routineOccurrenceId) {
+    try {
+      const occRow = await db
+        .select({ snapshotTitle: routineOccurrences.snapshotTitle })
+        .from(routineOccurrences)
+        .where(eq(routineOccurrences.id, routineOccurrenceId))
+        .limit(1);
+      if (occRow[0]) routineTitle = occRow[0].snapshotTitle;
+    } catch (_) {}
+  }
+
   return {
     id: sessionRow.id,
     _id: sessionRow.id,
@@ -113,6 +138,8 @@ async function hydrateSession(db, sessionRow) {
     scheduleBlockId,
     routineOccurrenceId,
     routineStepOccurrenceId,
+    routineTitle,
+    routineStepTitle,
     scheduleSnapshot,
     title: sessionRow.title,
     sessionType: sessionRow.sessionType || sessionRow.session_type,
@@ -300,9 +327,12 @@ class SessionRepository {
       const routineOccurrenceId = normalizeSessionId(rawRoutineOccId);
 
       const rawRoutineStepOccId =
-        typeof payload.routineStepOccurrenceId === "object"
+        (typeof scheduleBlock?.routineStepOccurrenceId === "object"
+          ? scheduleBlock.routineStepOccurrenceId?.id
+          : scheduleBlock?.routineStepOccurrenceId) ||
+        (typeof payload.routineStepOccurrenceId === "object"
           ? payload.routineStepOccurrenceId?.id
-          : payload.routineStepOccurrenceId;
+          : payload.routineStepOccurrenceId);
       const routineStepOccurrenceId = normalizeSessionId(rawRoutineStepOccId);
 
       const sessionInsertRes = await client.query(

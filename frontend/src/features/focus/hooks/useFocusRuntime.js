@@ -373,6 +373,12 @@ export function useFocusRuntime({ context = {}, settings = {}, onSoundEvent, use
         if (state.scheduleBlockId) {
           startPayload.scheduleBlockId = state.scheduleBlockId;
         }
+        if (state.routineOccurrenceId) {
+          startPayload.routineOccurrenceId = state.routineOccurrenceId;
+        }
+        if (state.routineStepOccurrenceId) {
+          startPayload.routineStepOccurrenceId = state.routineStepOccurrenceId;
+        }
 
         sessionService.startSession(startPayload)
           .then(() => {
