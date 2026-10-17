@@ -72,7 +72,7 @@ export function DayCell({ dayObj, stats, isSelected, isToday, onClick }) {
   };
 
   const s = stateStyles[state] || stateStyles.neutral;
-  const hasStats = stats && effectivePlanned > 0;
+  const hasStats = stats && (effectivePlanned > 0 || state !== "neutral");
 
   return (
     <button

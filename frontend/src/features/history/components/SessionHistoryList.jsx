@@ -5,6 +5,8 @@ import {
   formatTimeOnly,
   formatTimeRange,
 } from "../utils/dateUtils.js";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 
 const STATUS_COLOR = {
@@ -36,8 +38,8 @@ function SessionExpandedDetail({ session }) {
   const actualDuration = formatDuration(session.duration || 0);
   const plannedDuration = session.plannedDuration
     ? `${Math.round(session.plannedDuration / 60)}m`
-    : snapshot?.plannedDurationMinutes
-      ? `${snapshot.plannedDurationMinutes}m`
+    : snapshot?.plannedDurationMinutes || snapshot?.durationMinutes
+      ? `${snapshot.plannedDurationMinutes || snapshot.durationMinutes}m`
       : null;
   const outcome = session.completionType || session.status || "completed";
   const outcomeLabel = STATUS_LABEL[outcome] ?? outcome;
@@ -55,95 +57,105 @@ function SessionExpandedDetail({ session }) {
   return (
     <div
       data-testid={`session-detail-${session._id}`}
-      className="mx-0 mb-1 rounded-b-lg border border-t-0 border-border/60 bg-muted/30 px-4 py-3 text-xs space-y-3"
+      className="mx-0 mb-1.5 rounded-b-lg border border-t-0 border-border/50 bg-muted/20 px-4 py-3 text-xs space-y-3"
     >
-      {/* Section: Duration + Outcome */}
+      {/* Session Performance Breakdown */}
       <div className="space-y-1.5">
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
-          Duration
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+          Session Breakdown
         </p>
-        <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-          <span className="text-muted-foreground">Actual</span>
-          <span className="font-semibold font-mono text-foreground tabular-nums">
-            {actualDuration}
-          </span>
-          {plannedDuration && (
-            <>
-              <span className="text-muted-foreground">Planned</span>
-              <span className="font-semibold font-mono text-foreground tabular-nums">
-                {plannedDuration}
+        <div className="flex flex-wrap items-center gap-2 pt-0.5">
+          <div className="flex items-center gap-1.5 bg-background/70 border border-border/50 rounded-md px-2.5 py-1">
+            <span className="text-muted-foreground text-[11px]">Duration:</span>
+            <span className="font-semibold text-foreground font-mono tabular-nums">
+              {actualDuration}
+            </span>
+            {plannedDuration && (
+              <span className="text-muted-foreground/70 text-[11px]">
+                ({plannedDuration} planned)
               </span>
-            </>
-          )}
-          <span className="text-muted-foreground">Outcome</span>
-          <span className={`font-medium capitalize ${outcomeColor}`}>
-            {outcomeLabel}
-          </span>
-        </div>
-      </div>
-
-      <div className="border-t border-border/40" />
-
-      {/* Section: Telemetry */}
-      <div className="space-y-1.5">
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
-          Telemetry
-        </p>
-        <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-          <span className="text-muted-foreground">Focus segments</span>
-          <span className="font-semibold text-foreground tabular-nums">
-            {focusSegs}
-          </span>
-          <span className="text-muted-foreground">Break segments</span>
-          <span className="font-semibold text-foreground tabular-nums">
-            {breakSegs}
-          </span>
-          <span className="text-muted-foreground">Interruptions</span>
-          <span className="font-semibold text-foreground tabular-nums">
-            {interruptions}
-          </span>
-          {scheduleWindow && (
-            <>
-              <span className="text-muted-foreground">Scheduled</span>
-              <span className="font-mono text-foreground">{scheduleWindow}</span>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Section: Reflection — only when data is present */}
-      {hasReflection && (
-        <>
-          <div className="border-t border-border/40" />
-          <div className="space-y-1.5">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
-              Reflection
-            </p>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-              {fb.focus && (
-                <>
-                  <span className="text-muted-foreground">Focus quality</span>
-                  <span className="font-semibold text-foreground">
-                    {fb.focus} / 5
-                  </span>
-                </>
-              )}
-              {fb.mood && (
-                <>
-                  <span className="text-muted-foreground">Mood</span>
-                  <span className="font-semibold text-foreground">
-                    {fb.mood} / 5
-                  </span>
-                </>
-              )}
-            </div>
-            {(fb.distractions || fb.notes) && (
-              <blockquote className="text-muted-foreground border-l-2 border-border pl-2.5 mt-1.5 leading-relaxed italic">
-                {fb.distractions || fb.notes}
-              </blockquote>
             )}
           </div>
-        </>
+
+          <div className="flex items-center gap-1.5 bg-background/70 border border-border/50 rounded-md px-2.5 py-1">
+            <span className="text-muted-foreground text-[11px]">Outcome:</span>
+            <span className={`font-medium capitalize ${outcomeColor}`}>
+              {outcomeLabel}
+            </span>
+          </div>
+
+          {focusSegs > 0 && (
+            <div className="flex items-center gap-1.5 bg-background/70 border border-border/50 rounded-md px-2.5 py-1">
+              <span className="text-muted-foreground text-[11px]">Focus:</span>
+              <span className="font-semibold text-foreground tabular-nums">
+                {focusSegs} {focusSegs === 1 ? "segment" : "segments"}
+              </span>
+            </div>
+          )}
+
+          {breakSegs > 0 && (
+            <div className="flex items-center gap-1.5 bg-background/70 border border-border/50 rounded-md px-2.5 py-1">
+              <span className="text-muted-foreground text-[11px]">Breaks:</span>
+              <span className="font-semibold text-foreground tabular-nums">
+                {breakSegs} {breakSegs === 1 ? "segment" : "segments"}
+              </span>
+            </div>
+          )}
+
+          {interruptions > 0 && (
+            <div className="flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/20 text-amber-500 rounded-md px-2.5 py-1">
+              <span className="text-[11px]">Pauses:</span>
+              <span className="font-semibold tabular-nums">
+                {interruptions}
+              </span>
+            </div>
+          )}
+
+          {scheduleWindow && (
+            <div className="flex items-center gap-1.5 bg-background/70 border border-border/50 rounded-md px-2.5 py-1">
+              <span className="text-muted-foreground text-[11px]">Scheduled:</span>
+              <span className="font-medium text-foreground">{scheduleWindow}</span>
+            </div>
+          )}
+
+          {session.routineTitle && (
+            <div className="flex items-center gap-1.5 bg-primary/5 border border-primary/20 text-primary rounded-md px-2.5 py-1">
+              <span className="text-[11px]">Routine:</span>
+              <span className="font-medium">
+                {session.routineTitle}
+                {session.routineStepTitle && ` · ${session.routineStepTitle}`}
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Reflection & Notes */}
+      {hasReflection && (
+        <div className="border-t border-border/40 pt-2.5 space-y-1.5">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+            Reflection
+          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            {fb.focus && (
+              <div className="flex items-center gap-1.5 text-xs">
+                <span className="text-muted-foreground">Focus quality:</span>
+                <span className="font-semibold text-foreground">{fb.focus} / 5</span>
+              </div>
+            )}
+            {fb.mood && (
+              <div className="flex items-center gap-1.5 text-xs">
+                <span className="text-muted-foreground">Mood:</span>
+                <span className="font-semibold text-foreground">{fb.mood} / 5</span>
+              </div>
+            )}
+          </div>
+          {(fb.distractions || fb.notes) && (
+            <blockquote className="text-xs text-foreground/80 bg-background/70 border-l-2 border-primary/60 rounded-r-md p-2.5 italic leading-relaxed mt-1">
+              {fb.distractions || fb.notes}
+            </blockquote>
+          )}
+        </div>
       )}
     </div>
   );
@@ -184,8 +196,10 @@ export function SessionHistoryList({
       <div>
         {sessions.map((session) => {
           const snapshot = session.scheduleSnapshot;
-          const title =
+          const rawTitle =
             snapshot?.taskTitle || session.title || "Untitled Session";
+          const title =
+            rawTitle.replace(/^Focus Session:\s*/i, "").trim() || rawTitle;
           const completionType =
             session.completionType || session.status || "completed";
           const duration = formatDuration(session.duration || 0);
@@ -200,16 +214,19 @@ export function SessionHistoryList({
           const statusColor =
             STATUS_COLOR[completionType] ?? "text-muted-foreground";
 
-          const timePart = startedAt;
-          const segsPart = `${focusSegs} focus ${focusSegs === 1 ? "segment" : "segments"
-            }`;
+          const windowPart = snapshot?.startTime
+            ? formatTimeRange(snapshot.startTime, snapshot.endTime)
+            : null;
+          // Prefer scheduled time range if available; otherwise show start time
+          const timePart = windowPart || startedAt;
+
+          const segsPart = `${focusSegs} focus ${
+            focusSegs === 1 ? "segment" : "segments"
+          }`;
           const pausesPart =
             pauses > 0
               ? `${pauses} ${pauses === 1 ? "pause" : "pauses"}`
               : null;
-          const windowPart = snapshot?.startTime
-            ? formatTimeRange(snapshot.startTime, snapshot.endTime)
-            : null;
 
           const isExpanded = expandedId === session._id;
 
@@ -234,19 +251,22 @@ export function SessionHistoryList({
                       {title}
                     </span>
                     {snapshot?.blockId && (
-                      <span className="text-[10px] text-primary/60 shrink-0 font-medium">
+                      <Badge variant="secondary" className="text-[10px] text-primary/80 font-medium h-4 px-1.5">
                         scheduled
-                      </span>
+                      </Badge>
+                    )}
+                    {session.routineOccurrenceId && (
+                      <Badge variant="outline" className="text-[10px] text-amber-500 font-medium h-4 px-1.5 border-amber-500/30">
+                        routine
+                      </Badge>
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground/70 mt-0.5">
-                    {timePart}
-                    {" · "}
+                    {timePart && `${timePart} · `}
                     <span className={statusColor}>{statusLabel}</span>
                     {" · "}
                     {segsPart}
                     {pausesPart && ` · ${pausesPart}`}
-                    {windowPart && ` · ${windowPart}`}
                   </p>
                 </div>
 
@@ -265,28 +285,32 @@ export function SessionHistoryList({
 
       {/* Pagination */}
       {pagination?.totalPages > 1 && (
-        <div className="flex items-center justify-between pt-3 text-xs text-muted-foreground">
+        <div className="flex items-center justify-between pt-2.5 text-xs text-muted-foreground border-t border-border/40 mt-1.5">
           <span>
             {pagination.page} / {pagination.totalPages} · {pagination.total}{" "}
             sessions
           </span>
           <div className="flex items-center gap-1">
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="icon-xs"
               disabled={!pagination.hasPrevPage}
               onClick={() => onPageChange?.(pagination.page - 1)}
-              className="p-1 rounded border border-border text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30 disabled:pointer-events-none transition-colors"
+              className="size-7"
             >
               <ChevronLeft className="w-3.5 h-3.5" />
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="outline"
+              size="icon-xs"
               disabled={!pagination.hasNextPage}
               onClick={() => onPageChange?.(pagination.page + 1)}
-              className="p-1 rounded border border-border text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30 disabled:pointer-events-none transition-colors"
+              className="size-7"
             >
               <ChevronRight className="w-3.5 h-3.5" />
-            </button>
+            </Button>
           </div>
         </div>
       )}
