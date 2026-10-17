@@ -7,6 +7,7 @@ import {
   MoreVertical,
   Target,
   GripVertical,
+  Repeat,
 } from "lucide-react";
 import { Button } from "@/components/ui/button.jsx";
 import { START_HOUR, TOTAL_MINUTES } from "../hooks/useTimelineData.js";
@@ -21,16 +22,23 @@ export default function ScheduleBlockItem({
 }) {
   const [isResizing, setIsResizing] = useState(null); // 'top' | 'bottom' | null
 
-  // Task details
+  // Task or Routine details
+  const isRoutine = Boolean(block.routineOccurrenceId || block.routineOccurrence);
+  const routineOcc = block.routineOccurrence || {};
   const task = block.taskId || {};
-  const taskTitle =
-    (typeof task === "object" ? task.title : null) ||
-    block.routineOccurrence?.snapshotTitle ||
-    "Untitled Task";
-  const goalTitle = task?.goal?.title || null;
-  const isCompleted = block.status === "completed";
-  const isSkipped = block.status === "skipped";
-  const isScheduled = block.status === "scheduled";
+
+  const title = isRoutine
+    ? (routineOcc.snapshotTitle || routineOcc.titleSnapshot || routineOcc.title || "Routine")
+    : ((typeof task === "object" ? task.title : null) || "Untitled Task");
+  const goalTitle = isRoutine ? null : (task?.goal?.title || null);
+
+  const isCompleted = block.status === "completed" || (isRoutine && routineOcc.status === "completed");
+  const isSkipped = block.status === "skipped" || (isRoutine && routineOcc.status === "skipped");
+  const isScheduled = block.status === "scheduled" && !isCompleted && !isSkipped;
+
+  const totalSteps = routineOcc.totalSteps ?? (Array.isArray(routineOcc.steps) ? routineOcc.steps.length : null);
+  const completedSteps = routineOcc.completedSteps ?? (Array.isArray(routineOcc.steps) ? routineOcc.steps.filter((s) => s.status === "completed").length : 0);
+  const hasStepProgress = isRoutine && totalSteps != null && totalSteps > 0;
 
   // Position calculation
   const { topPercent, heightPercent, timeLabel } = useMemo(() => {
@@ -41,7 +49,9 @@ export default function ScheduleBlockItem({
     const duration = block.durationMinutes || Math.max(15, Math.round((end - start) / (1000 * 60)));
 
     const top = Math.max(0, Math.min(100, (startMinutes / TOTAL_MINUTES) * 100));
-    const height = Math.max(3.5, Math.min(100 - top, (duration / TOTAL_MINUTES) * 100));
+    // Visual height scales accurately with duration to prevent overlapping adjacent blocks
+    const rawHeight = (duration / TOTAL_MINUTES) * 100;
+    const height = Math.max(1.8, Math.min(100 - top, rawHeight));
 
     const formatTime = (d) =>
       d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", hour12: true });
@@ -57,8 +67,8 @@ export default function ScheduleBlockItem({
   const leftPercent = (column / totalColumns) * 100;
   const widthPercent = (1 / totalColumns) * 100;
 
-  // Determine if this is a compact block (under 60 minutes)
-  const isCompact = (block.durationMinutes || 60) < 60;
+  // Determine if this is a compact block (under 45 minutes)
+  const isCompact = (block.durationMinutes || 60) < 45;
 
   // Drag start handler for moving existing block
   const handleDragStart = (e) => {
@@ -131,16 +141,21 @@ export default function ScheduleBlockItem({
         left: `${leftPercent}%`,
         width: `calc(${widthPercent}% - 6px)`,
       }}
-      className={`absolute z-10 mx-1 rounded-xl py-1.5 px-2.5 transition-all group flex flex-col justify-start gap-1 overflow-hidden select-none border ${
+      className={`absolute z-10 hover:z-20 mx-1 rounded-xl transition-all group flex flex-col justify-center overflow-hidden select-none border ${
+        isCompact ? "py-0.5 px-2" : "py-1.5 px-2.5 justify-start gap-1"
+      } ${
         isScheduled
-          ? "bg-card/95 hover:bg-card border-primary/40 hover:border-primary text-card-foreground shadow-xs cursor-grab active:cursor-grabbing hover:shadow-md"
+          ? isRoutine
+            ? "bg-card/95 hover:bg-card border-violet-500/40 hover:border-violet-500 text-card-foreground shadow-2xs cursor-grab active:cursor-grabbing hover:shadow-md"
+            : "bg-card/95 hover:bg-card border-primary/40 hover:border-primary text-card-foreground shadow-2xs cursor-grab active:cursor-grabbing hover:shadow-md"
           : isCompleted
           ? "bg-secondary/50 border-border/40 text-muted-foreground opacity-80"
           : "bg-muted/30 border-dashed border-border/60 text-muted-foreground opacity-60"
       }`}
+      data-testid={isRoutine ? `routine-block-${block._id || block.id}` : `task-block-${block._id || block.id}`}
     >
       {/* Top resize handle */}
-      {isScheduled && (
+      {isScheduled && !isCompact && (
         <div
           onMouseDown={(e) => handleResizeStart(e, "top")}
           className="absolute top-0 left-0 right-0 h-2 cursor-ns-resize hover:bg-primary/30 z-20"
@@ -148,112 +163,226 @@ export default function ScheduleBlockItem({
         />
       )}
 
-      {/* Header row: Time label and action buttons */}
-      <div className="flex items-center justify-between gap-1.5 min-w-0 shrink-0">
-        <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
-          {isScheduled && (
-            <GripVertical className="w-3 h-3 text-muted-foreground/60 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-          )}
-          {isCompleted && (
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-          )}
-          {isSkipped && (
-            <SkipForward className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-          )}
-          <span className="text-[11px] font-mono font-medium text-muted-foreground truncate">
-            {timeLabel}
-          </span>
-          <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-secondary text-foreground font-semibold shrink-0">
-            {block.durationMinutes}m
-          </span>
-        </div>
+      {isCompact ? (
+        /* Compact single-row layout for blocks under 45m: prevents text trimming and height clipping */
+        <div className="flex items-center justify-between gap-1.5 min-w-0 w-full">
+          <div className="flex items-center gap-1.5 min-w-0 flex-1 overflow-hidden">
+            {isScheduled && (
+              <GripVertical className="w-3 h-3 text-muted-foreground/60 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+            )}
+            {isCompleted && (
+              <CheckCircle2 className="w-3 h-3 text-emerald-500 shrink-0" />
+            )}
+            {isSkipped && (
+              <SkipForward className="w-3 h-3 text-muted-foreground shrink-0" />
+            )}
+            <span
+              className={`text-xs font-semibold leading-tight truncate ${
+                isCompleted ? "line-through text-muted-foreground" : "text-foreground"
+              }`}
+              title={title}
+            >
+              {title}
+            </span>
+            {isRoutine && (
+              <span
+                data-testid="routine-indicator"
+                className="inline-flex items-center gap-0.5 text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.2 rounded bg-violet-500/15 text-violet-700 dark:text-violet-300 border border-violet-500/25 shrink-0"
+                title="Routine"
+              >
+                <Repeat className="w-2.5 h-2.5" />
+                <span>Routine</span>
+              </span>
+            )}
+            {isRoutine && hasStepProgress && (
+              <span
+                data-testid="routine-step-progress"
+                className="text-[9px] text-muted-foreground truncate shrink-0 hidden sm:inline"
+                title={`${completedSteps} of ${totalSteps} steps completed`}
+              >
+                {completedSteps} of {totalSteps} steps completed
+              </span>
+            )}
+            <span className="text-[10px] font-mono text-muted-foreground shrink-0">
+              {block.durationMinutes}m
+            </span>
+          </div>
 
-        {/* Action icons */}
-        <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-          {isScheduled && (
-            <>
+          {/* Action buttons on hover */}
+          <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+            {isScheduled && (
+              <>
+                <Button
+                  size="icon"
+                  variant="secondary"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onStartFocus(block);
+                  }}
+                  className="h-4.5 w-4.5 rounded bg-primary text-primary-foreground hover:bg-primary/90"
+                  title="Start Focus Session"
+                >
+                  <Play className="w-2 h-2 fill-current" />
+                </Button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onUpdateBlock(block._id || block.id, { status: "completed" });
+                  }}
+                  className="p-0.5 rounded text-muted-foreground hover:text-emerald-500 hover:bg-emerald-500/10 transition-colors"
+                  title="Mark completed"
+                >
+                  <CheckCircle2 className="w-3 h-3" />
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onUpdateBlock(block._id || block.id, { status: "skipped" });
+                  }}
+                  className="p-0.5 rounded text-muted-foreground hover:text-amber-500 hover:bg-amber-500/10 transition-colors"
+                  title="Mark skipped"
+                >
+                  <SkipForward className="w-3 h-3" />
+                </button>
+              </>
+            )}
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDeleteBlock(block._id || block.id);
+              }}
+              className="h-4.5 w-4.5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+              title="Remove from schedule"
+            >
+              <Trash2 className="w-2.5 h-2.5" />
+            </Button>
+          </div>
+        </div>
+      ) : (
+        /* Multi-row layout for larger blocks (>= 45m) */
+        <>
+          {/* Header row: Time label and action buttons */}
+          <div className="flex items-center justify-between gap-1.5 min-w-0 shrink-0">
+            <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
+              {isScheduled && (
+                <GripVertical className="w-3 h-3 text-muted-foreground/60 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+              )}
+              {isCompleted && (
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+              )}
+              {isSkipped && (
+                <SkipForward className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+              )}
+              <span className="text-[11px] font-mono font-medium text-muted-foreground truncate">
+                {timeLabel}
+              </span>
+              <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-secondary text-foreground font-semibold shrink-0">
+                {block.durationMinutes}m
+              </span>
+              {isRoutine && (
+                <span
+                  data-testid="routine-indicator"
+                  className="inline-flex items-center gap-0.5 text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.2 rounded bg-violet-500/15 text-violet-700 dark:text-violet-300 border border-violet-500/25 shrink-0"
+                  title="Routine"
+                >
+                  <Repeat className="w-2.5 h-2.5" />
+                  <span>Routine</span>
+                </span>
+              )}
+            </div>
+
+            {/* Action icons */}
+            <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+              {isScheduled && (
+                <>
+                  <Button
+                    size="icon"
+                    variant="secondary"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onStartFocus(block);
+                    }}
+                    className="h-5 w-5 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 shadow-2xs"
+                    title="Start Focus Session"
+                  >
+                    <Play className="w-2.5 h-2.5 fill-current" />
+                  </Button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onUpdateBlock(block._id || block.id, { status: "completed" });
+                    }}
+                    className="p-1 rounded text-muted-foreground hover:text-emerald-500 hover:bg-emerald-500/10 transition-colors"
+                    title="Mark completed"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onUpdateBlock(block._id || block.id, { status: "skipped" });
+                    }}
+                    className="p-1 rounded text-muted-foreground hover:text-amber-500 hover:bg-amber-500/10 transition-colors"
+                    title="Mark skipped"
+                  >
+                    <SkipForward className="w-3.5 h-3.5" />
+                  </button>
+                </>
+              )}
+
               <Button
                 size="icon"
-                variant="secondary"
+                variant="ghost"
                 onClick={(e) => {
                   e.stopPropagation();
-                  onStartFocus(block);
+                  onDeleteBlock(block._id || block.id);
                 }}
-                className="h-5 w-5 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 shadow-2xs"
-                title="Start Focus Session"
+                className="h-5 w-5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                title="Remove from schedule"
               >
-                <Play className="w-2.5 h-2.5 fill-current" />
+                <Trash2 className="w-3 h-3" />
               </Button>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onUpdateBlock(block._id, { status: "completed" });
-                }}
-                className="p-1 rounded text-muted-foreground hover:text-emerald-500 hover:bg-emerald-500/10 transition-colors"
-                title="Mark completed"
-              >
-                <CheckCircle2 className="w-3.5 h-3.5" />
-              </button>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onUpdateBlock(block._id, { status: "skipped" });
-                }}
-                className="p-1 rounded text-muted-foreground hover:text-amber-500 hover:bg-amber-500/10 transition-colors"
-                title="Mark skipped"
-              >
-                <SkipForward className="w-3.5 h-3.5" />
-              </button>
-            </>
-          )}
-
-          <Button
-            size="icon"
-            variant="ghost"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDeleteBlock(block._id);
-            }}
-            className="h-5 w-5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-            title="Remove from schedule"
-          >
-            <Trash2 className="w-3 h-3" />
-          </Button>
-        </div>
-      </div>
-
-      {/* Task Title and Context */}
-      <div className="min-w-0 flex-1 flex flex-col justify-center">
-        <p
-          className={`text-xs font-semibold leading-tight truncate ${
-            isCompleted ? "line-through text-muted-foreground" : "text-foreground"
-          }`}
-          title={taskTitle}
-        >
-          {taskTitle}
-        </p>
-
-        {goalTitle && !isCompact && (
-          <div className="flex items-center gap-1 mt-0.5 text-[10px] text-muted-foreground truncate">
-            <Target className="w-2.5 h-2.5 shrink-0" />
-            <span className="truncate">{goalTitle}</span>
+            </div>
           </div>
-        )}
-      </div>
 
-      {/* Status indicator badge (only for large blocks) */}
-      {!isCompact && (
-        <div className="flex items-center justify-between text-[10px] text-muted-foreground shrink-0 mt-auto pt-0.5">
-          <span className="capitalize font-medium text-[10px]">
-            {block.status}
-          </span>
-        </div>
+          {/* Title, Context, and Progress */}
+          <div className="min-w-0 flex-1 flex flex-col justify-center">
+            <p
+              className={`text-xs font-semibold leading-tight truncate ${
+                isCompleted ? "line-through text-muted-foreground" : "text-foreground"
+              }`}
+              title={title}
+            >
+              {title}
+            </p>
+
+            {isRoutine && hasStepProgress && (
+              <div
+                data-testid="routine-step-progress"
+                className="flex items-center gap-1.5 mt-0.5 text-[10px] text-muted-foreground truncate"
+              >
+                <span>{completedSteps} of {totalSteps} steps completed</span>
+              </div>
+            )}
+
+            {goalTitle && (
+              <div className="flex items-center gap-1 mt-0.5 text-[10px] text-muted-foreground truncate">
+                <Target className="w-2.5 h-2.5 shrink-0" />
+                <span className="truncate">{goalTitle}</span>
+              </div>
+            )}
+          </div>
+        </>
       )}
 
       {/* Bottom resize handle */}
-      {isScheduled && (
+      {isScheduled && !isCompact && (
         <div
           onMouseDown={(e) => handleResizeStart(e, "bottom")}
           className="absolute bottom-0 left-0 right-0 h-2 cursor-ns-resize hover:bg-primary/30 z-20"

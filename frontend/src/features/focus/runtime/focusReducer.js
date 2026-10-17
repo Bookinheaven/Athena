@@ -179,11 +179,12 @@ export function transition(state, event) {
       const isDifferentTask = Boolean(
         (incomingContext.title && incomingContext.title !== state.sessionTitle) ||
         (incomingContext.scheduleBlockId && incomingContext.scheduleBlockId !== state.scheduleBlockId) ||
-        (incomingContext.taskIds?.length && JSON.stringify(incomingContext.taskIds) !== JSON.stringify(state.taskIds))
+        (incomingContext.taskIds?.length && JSON.stringify(incomingContext.taskIds) !== JSON.stringify(state.taskIds)) ||
+        (incomingContext.routineStepOccurrenceId && incomingContext.routineStepOccurrenceId !== state.routineStepOccurrenceId)
       );
       const hasExplicitNewTask = Boolean(
         incomingContext.source &&
-        (incomingContext.title || incomingContext.taskIds?.length) &&
+        (incomingContext.title || incomingContext.taskIds?.length || incomingContext.routineStepOccurrenceId) &&
         isDifferentTask
       );
 

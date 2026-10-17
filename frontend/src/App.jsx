@@ -41,7 +41,7 @@ function App() {
             <ThemeSelectorModal />
             <div className="flex flex-col h-screen max-h-screen w-full overflow-hidden bg-white dark:bg-[#0c0c0e]">
               <Titlebar />
-              <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
+              <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
                 <Routes>
                   <Route element={<AuthLayout />}>
                     <Route path="/login" element={<Login />} />

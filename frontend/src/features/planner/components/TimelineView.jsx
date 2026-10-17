@@ -25,6 +25,7 @@ export default function TimelineView({
 
   const {
     blocks,
+    routineOccurrences,
     capacityAlert,
     isLoading,
     isSaving,
@@ -59,6 +60,38 @@ export default function TimelineView({
 
       await createBlock({
         taskId,
+        startTime,
+        endTime,
+        date: selectedDate,
+      });
+    },
+    [selectedDate, blocks, createBlock]
+  );
+
+  // Quick schedule a routine occurrence into the next open slot or default target time
+  const handleQuickScheduleRoutine = useCallback(
+    async (routineOccurrenceId, durationMinutes = 30) => {
+      const [year, month, day] = selectedDate.split("-").map(Number);
+      const effectiveMinutes = durationMinutes || 30;
+
+      // Find an open hour slot
+      const existingStarts = new Set(
+        blocks.map((b) => new Date(b.startTime).getHours())
+      );
+
+      let targetHour = 9;
+      for (let h = 9; h <= 18; h++) {
+        if (!existingStarts.has(h)) {
+          targetHour = h;
+          break;
+        }
+      }
+
+      const startTime = new Date(year, month - 1, day, targetHour, 0, 0, 0);
+      const endTime = new Date(startTime.getTime() + effectiveMinutes * 60 * 1000);
+
+      await createBlock({
+        routineOccurrenceId,
         startTime,
         endTime,
         date: selectedDate,
@@ -166,8 +199,9 @@ export default function TimelineView({
       {/* Mobile Toggle Controls */}
       <div className="flex sm:hidden items-center justify-center p-1 bg-secondary/40 border border-border/40 rounded-xl">
         <button
+          type="button"
           onClick={() => setMobileView("timeline")}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+          className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-semibold rounded-lg transition-all duration-200 ease-out active:scale-[0.98] ${
             mobileView === "timeline"
               ? "bg-card text-foreground shadow-2xs"
               : "text-muted-foreground hover:text-foreground"
@@ -177,8 +211,9 @@ export default function TimelineView({
           <span>Timeline</span>
         </button>
         <button
+          type="button"
           onClick={() => setMobileView("tasks")}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+          className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-semibold rounded-lg transition-all duration-200 ease-out active:scale-[0.98] ${
             mobileView === "tasks"
               ? "bg-card text-foreground shadow-2xs"
               : "text-muted-foreground hover:text-foreground"
@@ -193,10 +228,10 @@ export default function TimelineView({
       {isLoading ? (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div className="lg:col-span-8">
-            <Skeleton className="h-[700px] w-full rounded-2xl" />
+            <Skeleton className="h-[560px] sm:h-[600px] w-full rounded-2xl" />
           </div>
           <div className="lg:col-span-4">
-            <Skeleton className="h-[700px] w-full rounded-2xl" />
+            <Skeleton className="h-[560px] sm:h-[600px] w-full rounded-2xl" />
           </div>
         </div>
       ) : (
@@ -228,8 +263,10 @@ export default function TimelineView({
               tasks={tasks}
               goals={goals}
               scheduledBlocks={blocks}
+              routineOccurrences={routineOccurrences}
               selectedDate={selectedDate}
               onScheduleTask={handleQuickSchedule}
+              onScheduleRoutine={handleQuickScheduleRoutine}
               onOpenCreateTask={onOpenCreateTask}
             />
           </div>

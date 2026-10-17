@@ -94,11 +94,12 @@ export default function PlannerHeader({
           return (
             <button
               key={tab.id}
+              type="button"
               onClick={() => onTabChange(tab.id)}
-              className={`flex items-center gap-2 px-3.5 py-1.5 text-xs font-medium rounded-lg transition-all whitespace-nowrap ${
+              className={`flex items-center gap-2 px-3.5 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ease-out active:scale-[0.98] whitespace-nowrap ${
                 isActive
                   ? "bg-card text-foreground shadow-2xs font-semibold"
-                  : "text-muted-foreground hover:text-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-secondary/40"
               }`}
             >
               <Icon className="w-3.5 h-3.5 shrink-0" />

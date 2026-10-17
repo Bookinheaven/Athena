@@ -41,7 +41,7 @@ const UserDashboard = () => {
         {isLoading ? (
           <TodaySkeleton />
         ) : (
-          <>
+          <div className="space-y-8 animate-in fade-in-50 duration-200 transition-all">
             {/* 1. Header */}
             <TodayHeader
               greeting={header.greeting}
@@ -85,6 +85,7 @@ const UserDashboard = () => {
                   onCompleteStep={actions.handleCompleteRoutineStep}
                   onSkipOccurrence={actions.handleSkipRoutineOccurrence}
                   onUnskipOccurrence={actions.handleUnskipRoutineOccurrence}
+                  onStartFocusStep={actions.handleStartRoutineStepFocus}
                   onRetry={actions.handleRefetchRoutines}
                 />
 
@@ -132,7 +133,7 @@ const UserDashboard = () => {
               streak={streak}
               goals={tasks.goals}
             />
-          </>
+          </div>
         )}
       </div>
     </div>

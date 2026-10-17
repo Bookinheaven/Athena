@@ -11,6 +11,7 @@ import {
   RotateCcw,
   MoreVertical,
   ExternalLink,
+  Play,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -25,6 +26,7 @@ export default function TodayRoutineItem({
   onCompleteStep,
   onSkipOccurrence,
   onUnskipOccurrence,
+  onStartFocusStep,
   initiallyExpanded = false,
 }) {
   let navigate = null;
@@ -176,6 +178,24 @@ export default function TodayRoutineItem({
                   <span className="text-[11px]">Unskip</span>
                 </>
               )}
+            </button>
+          )}
+
+          {/* Focus action when eligible */}
+          {!isStepDone && !isSkipped && !isCompleted && onStartFocusStep && (
+            <button
+              type="button"
+              data-testid={`focus-step-${singleStep.id || singleStep._id}`}
+              disabled={mutatingStepId === (singleStep.id || singleStep._id) || isSkipping || isUnskipping}
+              onClick={(e) => {
+                e.stopPropagation();
+                onStartFocusStep(occurrence, singleStep);
+              }}
+              className="text-xs font-semibold text-primary hover:text-primary/90 bg-primary/10 hover:bg-primary/15 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Start Focus for this routine step"
+            >
+              <Play className="w-3.5 h-3.5 fill-current" />
+              <span className="text-[11px]">Focus</span>
             </button>
           )}
 
@@ -394,11 +414,30 @@ export default function TodayRoutineItem({
                   </span>
                 </div>
 
-                {step.estimatedMinutes && (
-                  <span className="text-[10px] text-muted-foreground font-medium shrink-0 ml-2">
-                    ~{step.estimatedMinutes}m
-                  </span>
-                )}
+                <div className="flex items-center gap-2 shrink-0 ml-2">
+                  {step.estimatedMinutes && (
+                    <span className="text-[10px] text-muted-foreground font-medium">
+                      ~{step.estimatedMinutes}m
+                    </span>
+                  )}
+
+                  {!isStepDone && !isSkipped && !isCompleted && onStartFocusStep && (
+                    <button
+                      type="button"
+                      data-testid={`focus-step-${stepId}`}
+                      disabled={isMutatingThis || isSkipping || isUnskipping}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onStartFocusStep(occurrence, step);
+                      }}
+                      className="h-6 px-2 text-[11px] font-semibold text-primary hover:text-primary/90 bg-primary/10 hover:bg-primary/15 rounded-md transition-colors flex items-center gap-1 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Start Focus for this routine step"
+                    >
+                      <Play className="w-3 h-3 fill-current" />
+                      <span>Focus</span>
+                    </button>
+                  )}
+                </div>
               </div>
             );
           })}

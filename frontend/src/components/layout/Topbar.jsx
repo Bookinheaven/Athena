@@ -135,7 +135,10 @@ export const Topbar = () => {
         <span className="hidden lg:block h-4 w-px bg-sidebar-border/70 mx-1" />
 
         {/* Page title */}
-        <span className="text-[13px] font-semibold text-sidebar-foreground tracking-tight">
+        <span
+          key={currentTitle}
+          className="text-[13px] font-semibold text-sidebar-foreground tracking-tight animate-in fade-in-50 duration-150"
+        >
           {currentTitle}
         </span>
       </div>

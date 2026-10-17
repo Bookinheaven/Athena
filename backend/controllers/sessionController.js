@@ -12,7 +12,7 @@ class SessionController {
       const session = await SessionService.start(req.user.id, req.body);
       res.status(201).json({ success: true, session });
     } catch (err) {
-      res.status(400).json({
+      res.status(err.statusCode || 400).json({
         success: false,
         message: err.message,
       });

@@ -73,6 +73,16 @@ class ScheduleService {
       if (!resolvedRoutineOcc || resolvedRoutineOcc.userId !== userId) {
         throw this._createError("Routine occurrence not found or access denied", 404);
       }
+      if (
+        resolvedRoutineOcc.status === "completed" ||
+        resolvedRoutineOcc.status === "skipped" ||
+        resolvedRoutineOcc.status === "missed"
+      ) {
+        throw this._createError(
+          `Cannot schedule routine occurrence with status '${resolvedRoutineOcc.status}'`,
+          400
+        );
+      }
       const existing = await scheduleBlockRepository.findByRoutineOccurrenceId(userId, routineOccurrenceId);
       if (existing) {
         throw this._createError("A schedule block already exists for this routine occurrence", 400);
@@ -177,6 +187,9 @@ class ScheduleService {
     if (data.routineOccurrenceId && data.routineOccurrenceId !== existing.routineOccurrenceId) {
       const occ = await routineOccurrenceRepository.findById(data.routineOccurrenceId);
       if (!occ || occ.userId !== userId) throw this._createError("Routine occurrence not found or access denied", 404);
+      if (occ.status === "completed" || occ.status === "skipped" || occ.status === "missed") {
+        throw this._createError(`Cannot schedule routine occurrence with status '${occ.status}'`, 400);
+      }
       const duplicate = await scheduleBlockRepository.findByRoutineOccurrenceId(userId, data.routineOccurrenceId);
       if (duplicate && duplicate.id !== blockId) {
         throw this._createError("A schedule block already exists for this routine occurrence", 400);

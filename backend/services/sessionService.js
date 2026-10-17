@@ -119,6 +119,79 @@ class SessionService {
       }
     }
 
+    // Direct routine associations validation
+    const routineOccId = payload.routineOccurrenceId;
+    const routineStepOccId = payload.routineStepOccurrenceId;
+
+    if (routineOccId || routineStepOccId) {
+      let occ = null;
+      if (routineOccId) {
+        occ = await routineOccurrenceRepository.findById(userId, routineOccId);
+        if (!occ) {
+          const err = new Error("Associated routine occurrence not found or access denied");
+          err.statusCode = 404;
+          throw err;
+        }
+
+        if (occ.status === "skipped") {
+          const err = new Error("Cannot start Focus session: Routine occurrence is skipped");
+          err.statusCode = 400;
+          throw err;
+        }
+
+        if (occ.status === "archived" || occ.routineStatus === "archived") {
+          const err = new Error("Cannot start Focus session: Routine is archived");
+          err.statusCode = 400;
+          throw err;
+        }
+      }
+
+      if (routineStepOccId) {
+        const stepOcc = await routineOccurrenceRepository.findStepOccurrenceById(routineStepOccId);
+        if (!stepOcc) {
+          const err = new Error("Associated routine step occurrence not found");
+          err.statusCode = 404;
+          throw err;
+        }
+
+        // Validate step belongs to the specified routine occurrence
+        if (routineOccId && String(stepOcc.occurrenceId) !== String(routineOccId)) {
+          const err = new Error("Routine step occurrence does not match the associated routine occurrence");
+          err.statusCode = 400;
+          throw err;
+        }
+
+        if (!occ) {
+          occ = await routineOccurrenceRepository.findById(userId, stepOcc.occurrenceId);
+          if (!occ) {
+            const err = new Error("Associated routine occurrence not found or access denied");
+            err.statusCode = 404;
+            throw err;
+          }
+        }
+
+        if (occ.status === "skipped") {
+          const err = new Error("Cannot start Focus session: Routine occurrence is skipped");
+          err.statusCode = 400;
+          throw err;
+        }
+
+        if (stepOcc.status === "completed") {
+          const err = new Error("Cannot start Focus session: Routine step is already completed");
+          err.statusCode = 400;
+          throw err;
+        }
+      }
+
+      if (resolvedScheduleBlock?.routineOccurrenceId) {
+        if (routineOccId && String(resolvedScheduleBlock.routineOccurrenceId) !== String(routineOccId)) {
+          const err = new Error("Routine occurrence does not match schedule block");
+          err.statusCode = 400;
+          throw err;
+        }
+      }
+    }
+
     // 1. If exact requested session already exists and is active, return it
     const oldSession = await this.getSession(userId, sessionId);
     if (oldSession && oldSession.status === "active") return oldSession;

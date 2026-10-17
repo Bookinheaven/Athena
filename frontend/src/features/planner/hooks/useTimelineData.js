@@ -1,16 +1,18 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import scheduleService from "../../../../services/scheduleService.js";
+import routineService from "../../../../services/routineService.js";
 import { getTodayProductDate } from "@/utils/dateUtils.js";
 import toast from "react-hot-toast";
 
-export const START_HOUR = 0;
+export const START_HOUR = 6;
 export const END_HOUR = 24;
-export const TOTAL_MINUTES = (END_HOUR - START_HOUR) * 60; // 1440 minutes
+export const TOTAL_MINUTES = (END_HOUR - START_HOUR) * 60; // 1080 minutes (6 AM to 12 AM midnight)
 
 export const useTimelineData = (selectedDate, setSelectedDate) => {
   const navigate = useNavigate();
   const [blocks, setBlocks] = useState([]);
+  const [routineOccurrences, setRoutineOccurrences] = useState([]);
   const [capacityAlert, setCapacityAlert] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -27,14 +29,18 @@ export const useTimelineData = (selectedDate, setSelectedDate) => {
     }
   }, []);
 
-  // Fetch blocks for the selected calendar date
+  // Fetch blocks and routine occurrences for the selected calendar date
   const loadScheduleBlocks = useCallback(async (dateStr) => {
     if (!dateStr) return;
     setIsLoading(true);
     setError(null);
     try {
-      const data = await scheduleService.getScheduleBlocks({ date: dateStr });
+      const [data, occs] = await Promise.all([
+        scheduleService.getScheduleBlocks({ date: dateStr }),
+        routineService.getOccurrencesByDate(dateStr).catch(() => []),
+      ]);
       setBlocks(Array.isArray(data) ? data : []);
+      setRoutineOccurrences(Array.isArray(occs) ? occs : []);
       loadCapacityAlert(dateStr);
     } catch (err) {
       console.error("Failed to load schedule blocks:", err);
@@ -81,12 +87,13 @@ export const useTimelineData = (selectedDate, setSelectedDate) => {
 
   // Create a new ScheduleBlock
   const handleCreateBlock = useCallback(
-    async ({ taskId, startTime, endTime, date }) => {
+    async ({ taskId, routineOccurrenceId, startTime, endTime, date }) => {
       const targetDate = date || selectedDate;
       setIsSaving(true);
       try {
         const created = await scheduleService.createScheduleBlock({
           taskId,
+          routineOccurrenceId,
           date: targetDate,
           startTime: startTime instanceof Date ? startTime.toISOString() : startTime,
           endTime: endTime instanceof Date ? endTime.toISOString() : endTime,
@@ -95,12 +102,12 @@ export const useTimelineData = (selectedDate, setSelectedDate) => {
         if (created) {
           setBlocks((prev) => [...prev, created]);
           loadCapacityAlert(selectedDate);
-          toast.success("Task scheduled on timeline");
+          toast.success(routineOccurrenceId ? "Routine scheduled on timeline" : "Task scheduled on timeline");
           return created;
         }
       } catch (err) {
         console.error("Failed to create schedule block:", err);
-        toast.error(err.message || "Failed to schedule task");
+        toast.error(err.message || "Failed to schedule item");
       } finally {
         setIsSaving(false);
       }
@@ -113,7 +120,7 @@ export const useTimelineData = (selectedDate, setSelectedDate) => {
     async (blockId, updates) => {
       const originalBlocks = [...blocks];
       setBlocks((prev) =>
-        prev.map((b) => (b._id === blockId ? { ...b, ...updates } : b))
+        prev.map((b) => ((b._id || b.id) === blockId ? { ...b, ...updates } : b))
       );
       setIsSaving(true);
       try {
@@ -131,7 +138,7 @@ export const useTimelineData = (selectedDate, setSelectedDate) => {
         const updated = await scheduleService.updateScheduleBlock(blockId, payload);
         if (updated) {
           setBlocks((prev) =>
-            prev.map((b) => (b._id === blockId ? updated : b))
+            prev.map((b) => ((b._id || b.id) === blockId ? updated : b))
           );
           loadCapacityAlert(selectedDate);
         }
@@ -151,7 +158,7 @@ export const useTimelineData = (selectedDate, setSelectedDate) => {
   const handleDeleteBlock = useCallback(
     async (blockId) => {
       const originalBlocks = [...blocks];
-      setBlocks((prev) => prev.filter((b) => b._id !== blockId));
+      setBlocks((prev) => prev.filter((b) => (b._id || b.id) !== blockId));
       try {
         await scheduleService.deleteScheduleBlock(blockId);
         loadCapacityAlert(selectedDate);
@@ -177,15 +184,23 @@ export const useTimelineData = (selectedDate, setSelectedDate) => {
         return;
       }
 
-      const durationSeconds = block.durationMinutes * 60;
+      const durationSeconds = (block.durationMinutes || 25) * 60;
+      const isRoutine = Boolean(block.routineOccurrenceId || block.routineOccurrence);
+      const routineOcc = block.routineOccurrence;
+      const routineOccId = block.routineOccurrenceId || routineOcc?.id || routineOcc?._id;
+      const routineTitle = routineOcc?.snapshotTitle || routineOcc?.titleSnapshot || routineOcc?.title;
       const task   = block.taskId;
-      const taskId = task?._id || task;
-      const title  = task?.title || "Scheduled Focus";
+      const taskId = task?._id || (typeof task === "string" ? task : null);
+      const title  = isRoutine
+        ? (routineTitle || "Routine Focus")
+        : (task?.title || "Scheduled Focus");
 
       navigate("/focus-page", {
         state: {
-          scheduleBlockId: block._id,
+          scheduleBlockId: block._id || block.id,
           taskIds:         taskId ? [taskId] : [],
+          routineOccurrenceId: routineOccId || null,
+          routineTitle: isRoutine ? routineTitle : null,
           title,
           source:          "timeline",
           plannedDuration: durationSeconds,
@@ -200,6 +215,7 @@ export const useTimelineData = (selectedDate, setSelectedDate) => {
 
   return {
     blocks,
+    routineOccurrences,
     capacityAlert,
     isLoading,
     isSaving,

@@ -29,9 +29,9 @@ export default function TimelineGrid({
   useEffect(() => {
     if (scrollContainerRef.current) {
       const now = new Date();
-      // Scroll to 1 hour before current time, or default 7 AM if earlier
-      const targetHour = Math.max(0, Math.min(20, (now.getHours() - 1) || 7));
-      const targetScroll = (targetHour / (END_HOUR - START_HOUR)) * scrollContainerRef.current.scrollHeight;
+      // Scroll to 1 hour before current time, or default 8 AM if earlier
+      const targetHour = Math.max(START_HOUR, Math.min(END_HOUR - 4, (now.getHours() - 1) || 8));
+      const targetScroll = ((targetHour - START_HOUR) / (END_HOUR - START_HOUR)) * scrollContainerRef.current.scrollHeight;
       scrollContainerRef.current.scrollTop = targetScroll;
     }
   }, []);
@@ -200,6 +200,13 @@ export default function TimelineGrid({
           endTime,
           date: selectedDate,
         });
+      } else if (data.type === "new_routine") {
+        onCreateBlock({
+          routineOccurrenceId: data.routineOccurrenceId,
+          startTime,
+          endTime,
+          date: selectedDate,
+        });
       } else if (data.type === "move_block") {
         onUpdateBlock(data.blockId, {
           startTime,
@@ -226,26 +233,50 @@ export default function TimelineGrid({
   };
 
   return (
-    <div className="flex flex-col flex-1 bg-card/60 border border-border/60 rounded-2xl p-4 overflow-hidden backdrop-blur-xs min-h-[700px]">
-      <div ref={scrollContainerRef} className="flex flex-1 relative overflow-y-auto">
-        {/* Left Column: Hour labels */}
-        <div className="w-14 shrink-0 flex flex-col justify-between py-2 text-right pr-3 select-none">
-          {HOURS.map((hour) => (
-            <div key={hour} className="h-14 -mt-2 text-xs font-mono font-medium text-muted-foreground">
-              {hour.toString().padStart(2, "0")}:00
-            </div>
-          ))}
-        </div>
+    <div className="flex flex-col flex-1 bg-card/60 border border-border/60 rounded-2xl p-4 overflow-hidden backdrop-blur-xs h-[560px] sm:h-[600px] shadow-xs">
+      <div ref={scrollContainerRef} className="flex-1 relative overflow-y-auto overflow-x-hidden scroll-smooth focus:outline-none">
+        {/* Exact-height content canvas to prevent any empty space during scrolling */}
+        <div className="flex relative w-full" style={{ height: `${(END_HOUR - START_HOUR) * 48}px` }}>
+          {/* Left Column: Hour labels */}
+          <div className="w-16 shrink-0 relative select-none">
+            {HOURS.map((hour, idx) => {
+              const formattedHour =
+                hour === 0 || hour === 24
+                  ? "12 AM"
+                  : hour < 12
+                  ? `${hour} AM`
+                  : hour === 12
+                  ? "12 PM"
+                  : `${hour - 12} PM`;
 
-        {/* Right Column: Interactive Grid Container */}
-        <div
-          ref={gridRef}
-          onClick={handleGridClick}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-          className="timeline-grid-container flex-1 relative border-l border-border/60 min-h-[1350px] cursor-pointer"
-        >
+              const translateClass =
+                idx === 0
+                  ? "translate-y-0"
+                  : idx === HOURS.length - 1
+                  ? "-translate-y-full"
+                  : "-translate-y-1/2";
+
+              return (
+                <div
+                  key={hour}
+                  style={{ top: `${(idx / (HOURS.length - 1)) * 100}%` }}
+                  className={`absolute right-3 ${translateClass} text-[11px] font-mono font-medium text-muted-foreground whitespace-nowrap`}
+                >
+                  {formattedHour}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Right Column: Interactive Grid Container */}
+          <div
+            ref={gridRef}
+            onClick={handleGridClick}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            className="timeline-grid-container flex-1 relative border-l border-border/60 h-full cursor-pointer select-none"
+          >
           {/* Hour grid lines */}
           {HOURS.map((hour, idx) => (
             <div
@@ -255,7 +286,7 @@ export default function TimelineGrid({
             >
               {/* Subtle 30-minute divider */}
               {idx < HOURS.length - 1 && (
-                <div className="w-full border-t border-border/15 border-dashed mt-7 pointer-events-none" />
+                <div className="w-full border-t border-border/15 border-dashed mt-6 pointer-events-none" />
               )}
             </div>
           ))}
@@ -315,5 +346,6 @@ export default function TimelineGrid({
         </div>
       </div>
     </div>
-  );
+  </div>
+);
 }

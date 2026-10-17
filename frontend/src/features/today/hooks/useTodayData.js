@@ -18,21 +18,40 @@ export const formatMinutes = (minutes = 0) => {
   return `${m}m`;
 };
 
+// Module-level in-memory cache for smooth page navigation without skeleton flashing (SWR)
+let todayDataCache = {
+  data: null,
+  routineOccurrences: null,
+  userId: null,
+};
+
 export const useTodayData = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const [isLoading, setIsLoading] = useState(true);
-  const [isError, setIsError] = useState(false);
-  const [data, setData] = useState({
-    tasks: [],
-    goals: [],
-    streak: null,
-    insights: null,
-  });
+  const currentUserId = (user?.id || user?._id)?.toString();
+  const hasValidCache =
+    todayDataCache.userId === currentUserId && todayDataCache.data !== null;
 
-  const [routineOccurrences, setRoutineOccurrences] = useState([]);
-  const [isRoutinesLoading, setIsRoutinesLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(!hasValidCache);
+  const [isError, setIsError] = useState(false);
+  const [data, setData] = useState(
+    hasValidCache
+      ? todayDataCache.data
+      : {
+          tasks: [],
+          goals: [],
+          streak: null,
+          insights: null,
+        }
+  );
+
+  const [routineOccurrences, setRoutineOccurrences] = useState(
+    hasValidCache && todayDataCache.routineOccurrences
+      ? todayDataCache.routineOccurrences
+      : []
+  );
+  const [isRoutinesLoading, setIsRoutinesLoading] = useState(!hasValidCache);
   const [isRoutinesError, setIsRoutinesError] = useState(false);
 
   const loadData = useCallback(async ({ isInitial = false } = {}) => {
@@ -55,22 +74,33 @@ export const useTodayData = () => {
           }),
         ]);
 
-      setData({
+      const nextData = {
         tasks: Array.isArray(tasksData) ? tasksData : [],
         goals: Array.isArray(goalsData) ? goalsData : [],
         streak: streakData || null,
         insights: todaysInsights?.insights || null,
-      });
+      };
+      setData(nextData);
 
+      let activeOccurrences = [];
       if (routinesData === null) {
         if (isInitial) setIsRoutinesError(true);
       } else {
         // Exclude occurrences for archived routines from Today dashboard
-        const activeOccurrences = Array.isArray(routinesData)
+        activeOccurrences = Array.isArray(routinesData)
           ? routinesData.filter((occ) => occ.routineStatus !== "archived" && occ.status !== "archived")
           : [];
         setRoutineOccurrences(activeOccurrences);
         setIsRoutinesError(false);
+      }
+
+      // Persist to memory cache for instantaneous navigation
+      if (currentUserId) {
+        todayDataCache = {
+          data: nextData,
+          routineOccurrences: activeOccurrences,
+          userId: currentUserId,
+        };
       }
     } catch (err) {
       console.error("Failed to load Today data", err);
@@ -81,15 +111,16 @@ export const useTodayData = () => {
         setIsRoutinesLoading(false);
       }
     }
-  }, []);
+  }, [currentUserId]);
 
   const refetch = useCallback(() => {
     return loadData({ isInitial: true });
   }, [loadData]);
 
   useEffect(() => {
-    loadData({ isInitial: true });
-  }, [loadData]);
+    // If cache is already primed, fetch fresh data silently in background without jarring skeleton flash
+    loadData({ isInitial: !hasValidCache });
+  }, [loadData, hasValidCache]);
 
   // Synchronize whenever task/outcome/routine changes occur across Today, Planner, or Focus
   useEffect(() => {
@@ -168,6 +199,48 @@ export const useTodayData = () => {
           title: task.title,
           source: "today",
           plannedDuration: 25 * 60,
+        },
+      });
+    },
+    [navigate]
+  );
+
+  const handleStartRoutineStepFocus = useCallback(
+    (occurrence, step) => {
+      if (!occurrence || !step) return;
+
+      if (occurrence.status === "skipped") {
+        toast.error("Cannot launch focus for a skipped routine");
+        return;
+      }
+
+      if (occurrence.status === "archived" || occurrence.routineStatus === "archived") {
+        toast.error("Cannot launch focus for an archived routine");
+        return;
+      }
+
+      if (step.status === "completed") {
+        toast.error("This routine step is already completed");
+        return;
+      }
+
+      const occId = occurrence.id || occurrence._id;
+      const stepId = step.id || step._id;
+      const routineTitle =
+        occurrence.snapshotTitle || occurrence.titleSnapshot || occurrence.title || "Routine";
+      const stepTitle =
+        step.title || step.titleSnapshot || step.snapshotTitle || "Routine Step";
+      const durationSeconds = Math.max(1, (step.estimatedMinutes || 25)) * 60;
+
+      navigate("/focus-page", {
+        state: {
+          routineOccurrenceId: occId,
+          routineStepOccurrenceId: stepId,
+          routineTitle,
+          routineStepTitle: stepTitle,
+          title: `${routineTitle}: ${stepTitle}`,
+          source: "today",
+          plannedDuration: durationSeconds,
         },
       });
     },
@@ -422,6 +495,7 @@ export const useTodayData = () => {
     insight: data.insights,
     actions: {
       handleStartFocus,
+      handleStartRoutineStepFocus,
       handleToggleTaskStatus,
       handleQuickAddTask,
       handleApplyTarget,

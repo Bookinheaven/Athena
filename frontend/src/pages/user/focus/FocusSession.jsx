@@ -33,7 +33,7 @@ const FocusSession = () => {
   const isExplicitTaskRequest = Boolean(
     navContext &&
       navContext.source &&
-      (navContext.title || (navContext.taskIds && navContext.taskIds.length > 0))
+      (navContext.title || (navContext.taskIds && navContext.taskIds.length > 0) || navContext.routineStepOccurrenceId)
   );
 
   // If arriving with navigation context and runtime can accept new session (idle or completed)

@@ -44,12 +44,15 @@ export const StandardWorkspace = ({
     if (sessionTitle && sessionTitle !== "Untitled Work") {
       return sessionTitle;
     }
+    if (state.routineTitle && state.routineStepTitle) {
+      return `${state.routineTitle}: ${state.routineStepTitle}`;
+    }
     if (state.taskIds?.length > 0) {
       const task = todos?.find((t) => String(t.id || t._id) === String(state.taskIds[0]));
       if (task?.title) return task.title;
     }
     return navContext?.title || sessionTitle || "Focus Session";
-  }, [sessionTitle, state.taskIds, todos, navContext?.title]);
+  }, [sessionTitle, state.routineTitle, state.routineStepTitle, state.taskIds, todos, navContext?.title]);
 
   const handleUpdateTitle = (newTitle) => {
     const trimmed = newTitle?.trim();
