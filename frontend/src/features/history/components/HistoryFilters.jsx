@@ -12,12 +12,12 @@ export function HistoryFilters({
 }) {
   return (
     <div className="flex items-center gap-2">
-      <Filter className="w-3.5 h-3.5 text-muted-foreground" />
-      <span className="text-xs text-muted-foreground font-medium">Outcome:</span>
+      <Filter className="w-3.5 h-3.5 text-muted-foreground/80 shrink-0" />
+      <span className="text-xs text-muted-foreground font-medium hidden sm:inline">Outcome:</span>
       <select
         value={completionType}
         onChange={(e) => onCompletionTypeChange?.(e.target.value)}
-        className="text-xs bg-background border border-border/60 rounded-lg px-2.5 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+        className="text-xs bg-muted/30 border border-border/70 rounded-lg px-2.5 py-1 text-foreground font-medium focus:outline-none focus:ring-1 focus:ring-primary hover:bg-muted/50 transition-colors cursor-pointer"
       >
         <option value="all">All Outcomes</option>
         <option value="completed">Completed</option>

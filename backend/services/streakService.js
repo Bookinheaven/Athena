@@ -2,6 +2,8 @@ import streakRepository from "../repositories/streakRepository.js";
 import dailyStatsRepository from "../repositories/dailyStatsRepository.js";
 import taskOccurrenceRepository from "../repositories/taskOccurrenceRepository.js";
 import taskOccurrenceService from "./taskOccurrenceService.js";
+import routineOccurrenceRepository from "../repositories/routineOccurrenceRepository.js";
+import routineService from "./routineService.js";
 import sessionRepository from "../repositories/sessionRepository.js";
 import {
   calculateAdaptiveTarget,
@@ -19,51 +21,95 @@ import {
 
 class StreakService {
   /**
-   * Helper to compute task outcome metrics for an array of occurrences on a single day.
+   * Helper to compute unified task & routine commitment outcome metrics on a single day.
    *
-   * @param {Array<object>} occurrences
+   * @param {Array<object>} taskOccurrences
+   * @param {Array<object>} routineOccurrences
    * @param {boolean} isCurrentDay
    * @returns {object}
    */
-  evaluateOccurrencesArray(occurrences = [], isCurrentDay = false) {
-    const totalPlanned = occurrences.length;
-    let completed = 0;
-    let partiallyCompleted = 0;
-    let rescheduled = 0;
-    let cancelled = 0;
-    let missed = 0;
-    let pending = 0;
+  evaluateCommitmentsArray(taskOccurrences = [], routineOccurrences = [], isCurrentDay = false) {
+    // 1. Task outcomes
+    const tasksTotalPlanned = taskOccurrences.length;
+    let tasksCompleted = 0;
+    let tasksPartiallyCompleted = 0;
+    let tasksRescheduled = 0;
+    let tasksCancelled = 0;
+    let tasksMissed = 0;
+    let tasksPending = 0;
 
-    for (const occ of occurrences) {
+    for (const occ of taskOccurrences) {
       switch (occ.outcome) {
         case "completed":
-          completed++;
+          tasksCompleted++;
           break;
         case "partially_completed":
-          partiallyCompleted++;
+          tasksPartiallyCompleted++;
           break;
         case "rescheduled":
-          rescheduled++;
+          tasksRescheduled++;
           break;
         case "cancelled":
-          cancelled++;
+          tasksCancelled++;
           break;
         case "missed":
-          missed++;
+          tasksMissed++;
           break;
         case "pending":
-          pending++;
+          tasksPending++;
           break;
         default:
           break;
       }
     }
 
-    const effectivePlanned = totalPlanned - rescheduled - cancelled;
-    const weightedCompleted = completed * 1.0 + partiallyCompleted * 0.5;
-    const completionRate =
-      effectivePlanned > 0 ? weightedCompleted / effectivePlanned : 0;
+    const tasksEffectivePlanned = tasksTotalPlanned - tasksRescheduled - tasksCancelled;
+    const taskWeightedCompleted = tasksCompleted * 1.0 + tasksPartiallyCompleted * 0.5;
 
+    // 2. Routine outcomes
+    // Filter out occurrences for archived routines if any were retrieved
+    const activeRoutineOccs = routineOccurrences.filter(
+      (r) => r.routineStatus !== "archived" && r.status !== "archived"
+    );
+    const routinesTotalPlanned = activeRoutineOccs.length;
+    let routinesCompleted = 0;
+    let routinesSkipped = 0;
+    let routinesMissed = 0;
+    let routinesPending = 0;
+
+    for (const r of activeRoutineOccs) {
+      switch (r.status) {
+        case "completed":
+          routinesCompleted++;
+          break;
+        case "skipped":
+          routinesSkipped++;
+          break;
+        case "missed":
+          routinesMissed++;
+          break;
+        case "in_progress":
+        case "pending":
+          routinesPending++;
+          break;
+        default:
+          break;
+      }
+    }
+
+    // Skipped routines excluded from effective planned denominator
+    const routinesEffectivePlanned = routinesTotalPlanned - routinesSkipped;
+    const routineWeightedCompleted = routinesCompleted * 1.0; // zero credit for partial step completion
+
+    // 3. Combined Commitments
+    const totalPlanned = tasksTotalPlanned + routinesTotalPlanned;
+    const effectivePlanned = tasksEffectivePlanned + routinesEffectivePlanned;
+    const completedCommitments = tasksCompleted + routinesCompleted;
+    const weightedCompleted = taskWeightedCompleted + routineWeightedCompleted;
+    const completionRate = effectivePlanned > 0 ? weightedCompleted / effectivePlanned : 0;
+    const pendingCommitments = tasksPending + routinesPending;
+
+    // 4. Threshold & State Evaluation (80% threshold, neutral day when 0 effective)
     let state = "neutral";
     let resultType = "neutral";
 
@@ -74,8 +120,8 @@ class StreakService {
       state = "green";
       resultType = "success";
     } else {
-      if (isCurrentDay && pending > 0) {
-        // Current day is still in progress / undecided
+      if (isCurrentDay && pendingCommitments > 0) {
+        // Current day is still in progress / undecided while commitments remain pending
         state = "neutral";
         resultType = "neutral";
       } else {
@@ -90,18 +136,45 @@ class StreakService {
     }
 
     return {
+      // Combined totals
       totalPlanned,
       effectivePlanned,
-      completed,
-      partiallyCompleted,
-      rescheduled,
-      cancelled,
-      missed,
-      pending,
+      completedCommitments,
       completionRate,
       state,
       resultType,
+
+      // Task breakdown (preserved for existing callers/tests)
+      tasksTotalPlanned,
+      tasksEffectivePlanned,
+      tasksCompleted,
+      tasksPartiallyCompleted,
+      tasksRescheduled,
+      tasksCancelled,
+      tasksMissed,
+      tasksPending,
+      completed: tasksCompleted,
+      partiallyCompleted: tasksPartiallyCompleted,
+      rescheduled: tasksRescheduled,
+      cancelled: tasksCancelled,
+      missed: tasksMissed,
+      pending: tasksPending,
+
+      // Routine breakdown
+      routinesTotalPlanned,
+      routinesEffectivePlanned,
+      routinesCompleted,
+      routinesSkipped,
+      routinesMissed,
+      routinesPending,
     };
+  }
+
+  /**
+   * Preserved compatibility helper for task-only callers.
+   */
+  evaluateOccurrencesArray(occurrences = [], isCurrentDay = false) {
+    return this.evaluateCommitmentsArray(occurrences, [], isCurrentDay);
   }
 
   /**
@@ -147,12 +220,17 @@ class StreakService {
 
     const streak = pgStreak || { currentStreak: 0, longestStreak: 0, dailyTargetMinutes: 25 };
 
-    // 1. Transition past pending occurrences (before today in user's timezone) to "missed"
+    // 1. Transition past pending task and routine occurrences (before today in user's timezone) to "missed"
     await taskOccurrenceService.evaluateMissedOccurrences(userId, asOfDate, tz);
+    await routineService.evaluateMissedOccurrences(userId, asOfDate, tz);
 
     // 2. Load all historical occurrences and DailyStats before today
-    const allPastOccurrences = await taskOccurrenceRepository.findPastOccurrences(userId, todayProductDate);
-    const allPastStats = await dailyStatsRepository.findPastStats(userId, todayProductDate);
+    const [allPastOccurrences, allPastRoutineOccurrences, allPastStats] =
+      await Promise.all([
+        taskOccurrenceRepository.findPastOccurrences(userId, todayProductDate),
+        routineOccurrenceRepository.findPastOccurrences(userId, todayProductDate),
+        dailyStatsRepository.findPastStats(userId, todayProductDate),
+      ]);
 
     // Group past occurrences by product day string
     const pastOccsByDate = new Map();
@@ -162,6 +240,20 @@ class StreakService {
         pastOccsByDate.set(pDate, []);
       }
       pastOccsByDate.get(pDate).push(occ);
+    }
+
+    // Group past routine occurrences by product day string
+    const pastRoutinesByDate = new Map();
+    for (const occ of allPastRoutineOccurrences) {
+      const pDate =
+        occ.productDate ||
+        (occ.date instanceof Date
+          ? occ.date.toISOString().slice(0, 10)
+          : String(occ.date).slice(0, 10));
+      if (!pastRoutinesByDate.has(pDate)) {
+        pastRoutinesByDate.set(pDate, []);
+      }
+      pastRoutinesByDate.get(pDate).push(occ);
     }
 
     // Group past stats by product day string
@@ -175,6 +267,7 @@ class StreakService {
     const uniquePastDates = Array.from(
       new Set([
         ...Array.from(pastOccsByDate.keys()),
+        ...Array.from(pastRoutinesByDate.keys()),
         ...Array.from(pastStatsByDate.keys()),
       ]),
     ).sort();
@@ -187,7 +280,8 @@ class StreakService {
     for (const pDate of uniquePastDates) {
       const dayDate = toStartOfDayUTC(pDate, "UTC");
       const occurrences = pastOccsByDate.get(pDate) || [];
-      const dayEval = this.evaluateOccurrencesArray(occurrences, false);
+      const routineOccs = pastRoutinesByDate.get(pDate) || [];
+      const dayEval = this.evaluateCommitmentsArray(occurrences, routineOccs, false);
 
       if (dayEval.state === "green") {
         runningStreak += 1;
@@ -212,11 +306,11 @@ class StreakService {
         state: dayEval.state,
         resultType: dayEval.resultType,
         streakCount: runningStreak,
-        tasksCompleted: dayEval.completed,
-        tasksPartiallyCompleted: dayEval.partiallyCompleted,
-        tasksRescheduled: dayEval.rescheduled,
-        tasksMissed: dayEval.missed,
-        tasksCancelled: dayEval.cancelled,
+        tasksCompleted: dayEval.tasksCompleted,
+        tasksPartiallyCompleted: dayEval.tasksPartiallyCompleted,
+        tasksRescheduled: dayEval.tasksRescheduled,
+        tasksMissed: dayEval.tasksMissed,
+        tasksCancelled: dayEval.tasksCancelled,
         totalPlanned: dayEval.totalPlanned,
         effectivePlanned: dayEval.effectivePlanned,
       };
@@ -225,8 +319,15 @@ class StreakService {
     }
 
     // 3. Evaluate today
-    const todayOccurrences = await taskOccurrenceRepository.findByUserAndDate(userId, todayProductDate);
-    const todayEval = this.evaluateOccurrencesArray(todayOccurrences, true);
+    const [todayOccurrences, todayRoutineOccurrences] = await Promise.all([
+      taskOccurrenceRepository.findByUserAndDate(userId, todayProductDate),
+      routineOccurrenceRepository.findByUserAndDate(userId, todayProductDate),
+    ]);
+    const todayEval = this.evaluateCommitmentsArray(
+      todayOccurrences,
+      todayRoutineOccurrences,
+      true
+    );
 
     let currentStreak = runningStreak;
     let todayCountedDate = lastPastCountedDate;
@@ -246,7 +347,11 @@ class StreakService {
       currentStreak,
       longestStreak: maxHistoricalStreak,
       lastProcessedDate: todayProductDate,
-      lastCountedDate: todayCountedDate ? (typeof todayCountedDate === "string" ? todayCountedDate : todayCountedDate.toISOString().slice(0, 10)) : null,
+      lastCountedDate: todayCountedDate
+        ? typeof todayCountedDate === "string"
+          ? todayCountedDate
+          : todayCountedDate.toISOString().slice(0, 10)
+        : null,
     });
 
     // 4. Update DailyStats for today
@@ -257,16 +362,21 @@ class StreakService {
       state: todayEval.state,
       resultType: todayEval.resultType,
       streakCount: currentStreak,
-      tasksCompleted: todayEval.completed,
-      tasksPartiallyCompleted: todayEval.partiallyCompleted,
-      tasksRescheduled: todayEval.rescheduled,
-      tasksMissed: todayEval.missed,
-      tasksCancelled: todayEval.cancelled,
+      tasksCompleted: todayEval.tasksCompleted,
+      tasksPartiallyCompleted: todayEval.tasksPartiallyCompleted,
+      tasksRescheduled: todayEval.tasksRescheduled,
+      tasksMissed: todayEval.tasksMissed,
+      tasksCancelled: todayEval.tasksCancelled,
       totalPlanned: todayEval.totalPlanned,
       effectivePlanned: todayEval.effectivePlanned,
     };
 
-    const stats = (await dailyStatsRepository.upsert(userId, todayProductDate, todayStatPayload)) || {};
+    const stats =
+      (await dailyStatsRepository.upsert(
+        userId,
+        todayProductDate,
+        todayStatPayload
+      )) || {};
 
     return {
       state: todayEval.state,
@@ -278,11 +388,19 @@ class StreakService {
       longestStreak: maxHistoricalStreak,
       plannedCount: todayEval.totalPlanned,
       effectivePlanned: todayEval.effectivePlanned,
-      completedCount: todayEval.completed,
-      partialCount: todayEval.partiallyCompleted,
-      rescheduledCount: todayEval.rescheduled,
-      missedCount: todayEval.missed,
-      cancelledCount: todayEval.cancelled,
+      completedCount: todayEval.completedCommitments,
+      tasksPlanned: todayEval.tasksTotalPlanned,
+      tasksCompleted: todayEval.tasksCompleted,
+      tasksEffectivePlanned: todayEval.tasksEffectivePlanned,
+      routinesPlanned: todayEval.routinesTotalPlanned,
+      routinesCompleted: todayEval.routinesCompleted,
+      routinesSkipped: todayEval.routinesSkipped,
+      routinesMissed: todayEval.routinesMissed,
+      routinesEffectivePlanned: todayEval.routinesEffectivePlanned,
+      partialCount: todayEval.tasksPartiallyCompleted,
+      rescheduledCount: todayEval.tasksRescheduled,
+      missedCount: todayEval.tasksMissed + todayEval.routinesMissed,
+      cancelledCount: todayEval.tasksCancelled,
       completionRate: todayEval.completionRate,
       streakRate: todayEval.completionRate,
       freezeUsed: stats.usedFreeze || 0,
@@ -326,7 +444,47 @@ class StreakService {
     const startPDate = `${parsedYear}-${monthStr}-01`;
     const endPDate = `${parsedYear}-${monthStr}-${String(daysInMonth).padStart(2, "0")}`;
 
-    return await dailyStatsRepository.findByUserAndDateRange(userId, startPDate, endPDate).catch(() => []);
+    const [statsList, routineOccs] = await Promise.all([
+      dailyStatsRepository.findByUserAndDateRange(userId, startPDate, endPDate).catch(() => []),
+      routineOccurrenceRepository.findByUserAndDateRange(userId, startPDate, endPDate).catch(() => []),
+    ]);
+
+    const routinesByDate = new Map();
+    for (const r of routineOccs) {
+      const pDate =
+        r.productDate ||
+        (r.date instanceof Date
+          ? r.date.toISOString().slice(0, 10)
+          : String(r.date).slice(0, 10));
+      if (!routinesByDate.has(pDate)) routinesByDate.set(pDate, []);
+      routinesByDate.get(pDate).push(r);
+    }
+
+    return statsList.map((stat) => {
+      const dayRoutines = (routinesByDate.get(stat.productDate) || []).filter(
+        (r) => r.routineStatus !== "archived" && r.status !== "archived"
+      );
+      const routinesPlanned = dayRoutines.length;
+      const routinesCompleted = dayRoutines.filter((r) => r.status === "completed").length;
+      const routinesSkipped = dayRoutines.filter((r) => r.status === "skipped").length;
+      const routinesMissed = dayRoutines.filter((r) => r.status === "missed").length;
+
+      return {
+        ...stat,
+        tasksPlanned: Math.max(0, (stat.totalPlanned ?? 0) - routinesPlanned),
+        tasksEffectivePlanned: Math.max(
+          0,
+          (stat.effectivePlanned ?? 0) - (routinesPlanned - routinesSkipped)
+        ),
+        routinesPlanned,
+        routinesCompleted,
+        routinesSkipped,
+        routinesMissed,
+        commitmentsPlanned: stat.totalPlanned ?? 0,
+        commitmentsEffective: stat.effectivePlanned ?? 0,
+        commitmentsCompleted: (stat.tasksCompleted ?? 0) + routinesCompleted,
+      };
+    });
   }
 
   /**

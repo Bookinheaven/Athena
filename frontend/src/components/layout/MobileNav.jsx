@@ -62,9 +62,9 @@ export const MobileNav = () => {
                 to={to}
                 onClick={handleNavClick}
                 className={cn(
-                  "flex items-center h-8.5 rounded-md px-2.5 text-[13px] transition-colors",
+                  "flex items-center h-8.5 rounded-md px-2.5 text-[13px] transition-all duration-150 ease-out active:scale-[0.98]",
                   isActive
-                    ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                    ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-2xs"
                     : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground font-normal"
                 )}
               >

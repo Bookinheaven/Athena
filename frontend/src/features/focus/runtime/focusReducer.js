@@ -5,13 +5,6 @@ import {
   findCurrentSegmentIndex,
 } from './segmentUtils.js';
 
-/**
- * Focus Session Reducer  
- * 
- * This reducer is used by the focus session engine to manage the state of a focus session.
- * It is a pure function that takes the current state and an event, and returns the new state.
- */
-
 export const INITIAL_STATE = {
   phase: PHASES.IDLE,
 
@@ -24,6 +17,10 @@ export const INITIAL_STATE = {
   taskIds: [],
   sessionType: 'quick',
   source: null, // ['today', 'planner', 'timeline', null]
+  routineOccurrenceId: null,
+  routineStepOccurrenceId: null,
+  routineTitle: null,
+  routineStepTitle: null,
 
   // Segments
   segments: [],
@@ -155,6 +152,10 @@ export function transition(state, event) {
           segmentIndex,
           taskIds: session.taskIds || [],
           sessionType: session.sessionType || 'quick',
+          routineOccurrenceId: session.routineOccurrenceId || null,
+          routineStepOccurrenceId: session.routineStepOccurrenceId || null,
+          routineTitle: session.routineTitle || null,
+          routineStepTitle: session.routineStepTitle || null,
           todos: (session.todos || []).map((t, idx) => ({
             ...t,
             id: t.id || t._id || `todo-${idx}`,
@@ -178,11 +179,12 @@ export function transition(state, event) {
       const isDifferentTask = Boolean(
         (incomingContext.title && incomingContext.title !== state.sessionTitle) ||
         (incomingContext.scheduleBlockId && incomingContext.scheduleBlockId !== state.scheduleBlockId) ||
-        (incomingContext.taskIds?.length && JSON.stringify(incomingContext.taskIds) !== JSON.stringify(state.taskIds))
+        (incomingContext.taskIds?.length && JSON.stringify(incomingContext.taskIds) !== JSON.stringify(state.taskIds)) ||
+        (incomingContext.routineStepOccurrenceId && incomingContext.routineStepOccurrenceId !== state.routineStepOccurrenceId)
       );
       const hasExplicitNewTask = Boolean(
         incomingContext.source &&
-        (incomingContext.title || incomingContext.taskIds?.length) &&
+        (incomingContext.title || incomingContext.taskIds?.length || incomingContext.routineStepOccurrenceId) &&
         isDifferentTask
       );
 
@@ -205,6 +207,10 @@ export function transition(state, event) {
         source = null,
         plannedDuration = 25 * 60,
         sessionId = null,
+        routineOccurrenceId = null,
+        routineStepOccurrenceId = null,
+        routineTitle = null,
+        routineStepTitle = null,
       } = payload.context || {};
 
       const effects = [];
@@ -232,6 +238,10 @@ export function transition(state, event) {
           plannedDuration,
           taskIds,
           sessionType: taskIds.length > 0 ? 'task' : 'quick',
+          routineOccurrenceId,
+          routineStepOccurrenceId,
+          routineTitle,
+          routineStepTitle,
           source,
           backendCreated: false,
           segments: [],        // segments created by hook before START

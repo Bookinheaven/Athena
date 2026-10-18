@@ -164,7 +164,27 @@ export function formatDuration(seconds) {
 
 export function formatTimeRange(startStr, endStr) {
   if (!startStr) return null;
-  return endStr ? `${startStr} – ${endStr}` : startStr;
+  const formatTimeVal = (val) => {
+    if (!val) return "";
+    // If it's already a clean simple time like "09:00" or "14:00", keep as is
+    if (typeof val === "string" && /^\d{1,2}:\d{2}$/.test(val.trim())) {
+      return val.trim();
+    }
+    // If it's an ISO date string or timestamp, format into local user time
+    try {
+      const d = new Date(val);
+      if (!isNaN(d.getTime())) {
+        return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+      }
+    } catch {
+      // fallback
+    }
+    return val;
+  };
+
+  const startFormatted = formatTimeVal(startStr);
+  const endFormatted = formatTimeVal(endStr);
+  return endFormatted ? `${startFormatted} – ${endFormatted}` : startFormatted;
 }
 
 export function formatTimeOnly(dateInput) {

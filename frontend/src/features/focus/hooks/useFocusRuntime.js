@@ -296,7 +296,7 @@ export function useFocusRuntime({ context = {}, settings = {}, onSoundEvent, use
             const isExplicitResume = Boolean(contextRef.current?.resume);
             const hasExplicitNewTask = Boolean(
               contextRef.current?.source &&
-              (contextRef.current?.title || contextRef.current?.taskIds?.length)
+              (contextRef.current?.title || contextRef.current?.taskIds?.length || contextRef.current?.routineStepOccurrenceId)
             );
 
             // Check if segments are all complete
@@ -372,6 +372,12 @@ export function useFocusRuntime({ context = {}, settings = {}, onSoundEvent, use
 
         if (state.scheduleBlockId) {
           startPayload.scheduleBlockId = state.scheduleBlockId;
+        }
+        if (state.routineOccurrenceId) {
+          startPayload.routineOccurrenceId = state.routineOccurrenceId;
+        }
+        if (state.routineStepOccurrenceId) {
+          startPayload.routineStepOccurrenceId = state.routineStepOccurrenceId;
         }
 
         sessionService.startSession(startPayload)

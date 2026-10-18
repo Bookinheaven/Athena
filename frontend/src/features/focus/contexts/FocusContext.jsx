@@ -41,6 +41,7 @@ export function FocusProvider({ children, initialContext }) {
     distractions: '',
     taskOutcome: null,
     taskOutcomes: {},
+    routineStepOutcome: null,
   });
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
 
@@ -50,7 +51,7 @@ export function FocusProvider({ children, initialContext }) {
     if (runtime.sessionId !== lastSessionIdRef.current) {
       lastSessionIdRef.current = runtime.sessionId;
       if (runtime.phase === PHASES.IDLE || runtime.phase === PHASES.RUNNING) {
-        setSessionReview({ mood: null, focus: null, distractions: '', taskOutcome: null, taskOutcomes: {} });
+        setSessionReview({ mood: null, focus: null, distractions: '', taskOutcome: null, taskOutcomes: {}, routineStepOutcome: null });
         setIsSubmittingReview(false);
       }
     }
@@ -94,13 +95,20 @@ export function FocusProvider({ children, initialContext }) {
                 },
               })
             );
+            window.dispatchEvent(
+              new CustomEvent('athena:routines-changed', {
+                detail: {
+                  routineStepOutcome: sessionReview.routineStepOutcome || sessionReview.taskOutcome,
+                },
+              })
+            );
           } catch { }
         } catch (err) {
           console.error('[FocusContext] Feedback save failed:', err);
         }
       }
       runtime.commands.stop();
-      setSessionReview({ mood: null, focus: null, distractions: '', taskOutcome: null, taskOutcomes: {} });
+      setSessionReview({ mood: null, focus: null, distractions: '', taskOutcome: null, taskOutcomes: {}, routineStepOutcome: null });
     } finally {
       setIsSubmittingReview(false);
     }

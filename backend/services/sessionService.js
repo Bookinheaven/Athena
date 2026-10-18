@@ -2,6 +2,8 @@ import sessionRepository from "../repositories/sessionRepository.js";
 import scheduleBlockRepository from "../repositories/scheduleBlockRepository.js";
 import taskRepository from "../repositories/taskRepository.js";
 import taskOccurrenceRepository from "../repositories/taskOccurrenceRepository.js";
+import routineOccurrenceRepository from "../repositories/routineOccurrenceRepository.js";
+import routineService from "./routineService.js";
 import TaskOccurrenceService from "./taskOccurrenceService.js";
 import TaskService from "./taskService.js";
 import streakService from "./streakService.js";
@@ -87,19 +89,106 @@ class SessionService {
         throw new Error("Cannot start Focus session: ScheduleBlock already has an associated session");
       }
 
-      // Verify the referenced Task also belongs to this user
-      const task = await taskRepository.findById(userId, resolvedScheduleBlock.taskId);
+      if (resolvedScheduleBlock.taskId) {
+        // Verify the referenced Task also belongs to this user
+        const task = await taskRepository.findById(userId, resolvedScheduleBlock.taskId);
 
-      if (!task) {
-        throw new Error("Associated task not found or access denied");
+        if (!task) {
+          throw new Error("Associated task not found or access denied");
+        }
+
+        effectivePlannedDuration = resolvedScheduleBlock.durationMinutes * 60;
+
+        const taskIdStr = String(resolvedScheduleBlock.taskId);
+        const existingTaskIdStrs = (effectiveTaskIds || []).map((id) => String(id));
+        if (!existingTaskIdStrs.includes(taskIdStr)) {
+          effectiveTaskIds = [resolvedScheduleBlock.taskId, ...effectiveTaskIds];
+        }
+      } else if (resolvedScheduleBlock.routineOccurrenceId) {
+        // Verify the referenced Routine Occurrence also belongs to this user
+        const occ = await routineOccurrenceRepository.findById(
+          userId,
+          resolvedScheduleBlock.routineOccurrenceId
+        );
+
+        if (!occ) {
+          throw new Error("Associated routine occurrence not found or access denied");
+        }
+
+        effectivePlannedDuration = resolvedScheduleBlock.durationMinutes * 60;
+      }
+    }
+
+    // Direct routine associations validation
+    const routineOccId = payload.routineOccurrenceId;
+    const routineStepOccId = payload.routineStepOccurrenceId;
+
+    if (routineOccId || routineStepOccId) {
+      let occ = null;
+      if (routineOccId) {
+        occ = await routineOccurrenceRepository.findById(userId, routineOccId);
+        if (!occ) {
+          const err = new Error("Associated routine occurrence not found or access denied");
+          err.statusCode = 404;
+          throw err;
+        }
+
+        if (occ.status === "skipped") {
+          const err = new Error("Cannot start Focus session: Routine occurrence is skipped");
+          err.statusCode = 400;
+          throw err;
+        }
+
+        if (occ.status === "archived" || occ.routineStatus === "archived") {
+          const err = new Error("Cannot start Focus session: Routine is archived");
+          err.statusCode = 400;
+          throw err;
+        }
       }
 
-      effectivePlannedDuration = resolvedScheduleBlock.durationMinutes * 60;
+      if (routineStepOccId) {
+        const stepOcc = await routineOccurrenceRepository.findStepOccurrenceById(routineStepOccId);
+        if (!stepOcc) {
+          const err = new Error("Associated routine step occurrence not found");
+          err.statusCode = 404;
+          throw err;
+        }
 
-      const taskIdStr = String(resolvedScheduleBlock.taskId);
-      const existingTaskIdStrs = (effectiveTaskIds || []).map((id) => String(id));
-      if (!existingTaskIdStrs.includes(taskIdStr)) {
-        effectiveTaskIds = [resolvedScheduleBlock.taskId, ...effectiveTaskIds];
+        // Validate step belongs to the specified routine occurrence
+        if (routineOccId && String(stepOcc.occurrenceId) !== String(routineOccId)) {
+          const err = new Error("Routine step occurrence does not match the associated routine occurrence");
+          err.statusCode = 400;
+          throw err;
+        }
+
+        if (!occ) {
+          occ = await routineOccurrenceRepository.findById(userId, stepOcc.occurrenceId);
+          if (!occ) {
+            const err = new Error("Associated routine occurrence not found or access denied");
+            err.statusCode = 404;
+            throw err;
+          }
+        }
+
+        if (occ.status === "skipped") {
+          const err = new Error("Cannot start Focus session: Routine occurrence is skipped");
+          err.statusCode = 400;
+          throw err;
+        }
+
+        if (stepOcc.status === "completed") {
+          const err = new Error("Cannot start Focus session: Routine step is already completed");
+          err.statusCode = 400;
+          throw err;
+        }
+      }
+
+      if (resolvedScheduleBlock?.routineOccurrenceId) {
+        if (routineOccId && String(resolvedScheduleBlock.routineOccurrenceId) !== String(routineOccId)) {
+          const err = new Error("Routine occurrence does not match schedule block");
+          err.statusCode = 400;
+          throw err;
+        }
       }
     }
 
@@ -175,17 +264,30 @@ class SessionService {
       payload.taskOutcome ||
       payload.sessionTaskOutcome ||
       feedback?.taskOutcome ||
-      feedback?.sessionTaskOutcome;
+      feedback?.sessionTaskOutcome ||
+      payload.routineStepOutcome ||
+      feedback?.routineStepOutcome;
 
     const taskOutcomes =
       payload.taskOutcomes ||
       feedback?.taskOutcomes;
 
-    if (taskOutcome || taskOutcomes) {
+    const routineStepOutcome =
+      payload.routineStepOutcome ||
+      feedback?.routineStepOutcome;
+
+    if (
+      taskOutcome ||
+      taskOutcomes ||
+      routineStepOutcome ||
+      targetSession.routineStepOccurrenceId ||
+      targetSession.routineOccurrenceId
+    ) {
       await this.recordTaskOutcome(userId, {
         sessionId,
         taskOutcome,
         taskOutcomes,
+        routineStepOutcome,
         timezone,
         asOfDate: asOfDate || feedback?.asOfDate,
       });
@@ -200,7 +302,7 @@ class SessionService {
   }
 
   async recordTaskOutcome(userId, payload) {
-    const { sessionId, taskOutcome, taskOutcomes, timezone, asOfDate } = payload;
+    const { sessionId, taskOutcome, taskOutcomes, routineStepOutcome, timezone, asOfDate } = payload;
     if (!sessionId) {
       const err = new Error("sessionId is required");
       err.statusCode = 400;
@@ -208,6 +310,7 @@ class SessionService {
     }
 
     const validOutcomes = ["completed", "partially_completed", "not_completed"];
+    const effectiveOutcome = taskOutcome || routineStepOutcome;
 
     const session = await this.getSession(userId, sessionId);
     if (!session) {
@@ -216,6 +319,61 @@ class SessionService {
       throw err;
     }
 
+    // 1. Routine-step completion and consistency validation
+    if (session.routineOccurrenceId || session.routineStepOccurrenceId) {
+      let occ = null;
+      if (session.routineOccurrenceId) {
+        occ = await routineOccurrenceRepository.findById(userId, session.routineOccurrenceId);
+        if (!occ) {
+          const err = new Error("Associated routine occurrence not found or access denied");
+          err.statusCode = 404;
+          throw err;
+        }
+      }
+
+      if (session.routineStepOccurrenceId) {
+        const stepOcc = await routineOccurrenceRepository.findStepOccurrenceById(session.routineStepOccurrenceId);
+        if (!stepOcc) {
+          const err = new Error("Associated routine step occurrence not found");
+          err.statusCode = 404;
+          throw err;
+        }
+
+        // Validate consistency: stepOcc must belong to session.routineOccurrenceId if both set
+        if (session.routineOccurrenceId && String(stepOcc.occurrenceId) !== String(session.routineOccurrenceId)) {
+          const err = new Error("Routine step occurrence does not match the associated routine occurrence");
+          err.statusCode = 400;
+          throw err;
+        }
+
+        if (!occ) {
+          occ = await routineOccurrenceRepository.findById(userId, stepOcc.occurrenceId);
+          if (!occ) {
+            const err = new Error("Associated routine occurrence not found or access denied");
+            err.statusCode = 404;
+            throw err;
+          }
+        }
+
+        if (effectiveOutcome) {
+          if (!validOutcomes.includes(effectiveOutcome)) {
+            const err = new Error(`Invalid outcome. Allowed: ${validOutcomes.join(", ")}`);
+            err.statusCode = 400;
+            throw err;
+          }
+
+          if (effectiveOutcome === "completed") {
+            // Explicit completed outcome marks the associated routine step occurrence completed
+            await routineService.completeStep(userId, occ.id, stepOcc.id, true);
+          }
+          // Non-completed outcome ("partially_completed" or "not_completed") does NOT complete the step.
+        }
+      }
+      // Note: A session associated only with a routine occurrence (no step)
+      // must NOT automatically complete every step in that routine.
+    }
+
+    // 2. Task outcome handling
     const effectiveTaskIds = (session.taskIds || []).map((id) => String(id));
     let fallbackSingleTaskId = null;
     if (effectiveTaskIds.length === 1) {
@@ -245,8 +403,8 @@ class SessionService {
       }
     }
 
-    // If no explicit taskOutcomes entries, but single taskOutcome is provided
-    if (normalizedEntries.length === 0 && taskOutcome) {
+    // If no explicit taskOutcomes entries, but single taskOutcome is provided and tasks exist
+    if (normalizedEntries.length === 0 && taskOutcome && (fallbackSingleTaskId || effectiveTaskIds.length > 0)) {
       if (!validOutcomes.includes(taskOutcome)) {
         const err = new Error(`Invalid task outcome. Allowed: ${validOutcomes.join(", ")}`);
         err.statusCode = 400;
@@ -257,11 +415,6 @@ class SessionService {
       } else if (effectiveTaskIds.length > 0) {
         normalizedEntries = effectiveTaskIds.map((tId) => ({ taskId: tId, outcome: taskOutcome }));
       }
-    }
-
-    // Zero linked tasks edge case: nothing to update on tasks/occurrences
-    if (normalizedEntries.length === 0) {
-      return session;
     }
 
     const tz = timezone || (await resolveUserTimezone(userId));
@@ -368,22 +521,28 @@ class SessionService {
     }
 
     // Determine overall sessionTaskOutcome
-    let aggregateOutcome = "not_completed";
-    const allOutcomes = normalizedEntries.map((e) => e.outcome);
-    if (allOutcomes.length > 0 && allOutcomes.every((o) => o === "completed")) {
-      aggregateOutcome = "completed";
-    } else if (allOutcomes.some((o) => o === "completed" || o === "partially_completed")) {
-      aggregateOutcome = "partially_completed";
-    } else {
-      aggregateOutcome = "not_completed";
+    let aggregateOutcome = null;
+    if (normalizedEntries.length > 0) {
+      const allOutcomes = normalizedEntries.map((e) => e.outcome);
+      if (allOutcomes.every((o) => o === "completed")) {
+        aggregateOutcome = "completed";
+      } else if (allOutcomes.some((o) => o === "completed" || o === "partially_completed")) {
+        aggregateOutcome = "partially_completed";
+      } else {
+        aggregateOutcome = "not_completed";
+      }
+
+      if (normalizedEntries.length === 1 && taskOutcome && validOutcomes.includes(taskOutcome)) {
+        aggregateOutcome = taskOutcome;
+      }
+    } else if (effectiveOutcome && validOutcomes.includes(effectiveOutcome)) {
+      aggregateOutcome = effectiveOutcome;
     }
 
-    if (normalizedEntries.length === 1 && taskOutcome && validOutcomes.includes(taskOutcome)) {
-      aggregateOutcome = taskOutcome;
+    if (aggregateOutcome) {
+      await sessionRepository.recordTaskOutcome(userId, sessionId, aggregateOutcome);
+      session.sessionTaskOutcome = aggregateOutcome;
     }
-
-    await sessionRepository.recordTaskOutcome(userId, sessionId, aggregateOutcome);
-    session.sessionTaskOutcome = aggregateOutcome;
 
     try {
       await streakService.processDailyStreak(userId, asOf, tz);

@@ -12,7 +12,7 @@ class SessionController {
       const session = await SessionService.start(req.user.id, req.body);
       res.status(201).json({ success: true, session });
     } catch (err) {
-      res.status(400).json({
+      res.status(err.statusCode || 400).json({
         success: false,
         message: err.message,
       });
@@ -69,6 +69,9 @@ class SessionController {
       const session = await SessionService.feedback(userId, {
         sessionId: req.params.id,
         feedback: feedbackData,
+        taskOutcome: req.body?.taskOutcome,
+        routineStepOutcome: req.body?.routineStepOutcome,
+        taskOutcomes: req.body?.taskOutcomes,
         timezone: req.timezone,
       });
       res.json({ success: true, session });
@@ -83,11 +86,12 @@ class SessionController {
   async recordTaskOutcome(req, res) {
     try {
       const userId = req.user.id;
-      const { taskOutcome, taskOutcomes, asOfDate } = req.body;
+      const { taskOutcome, taskOutcomes, routineStepOutcome, asOfDate } = req.body;
       const session = await SessionService.recordTaskOutcome(userId, {
         sessionId: req.params.id,
         taskOutcome,
         taskOutcomes,
+        routineStepOutcome,
         asOfDate,
         timezone: req.timezone || req.headers["x-timezone"] || req.body?.timezone,
       });

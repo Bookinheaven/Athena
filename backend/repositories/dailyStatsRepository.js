@@ -23,6 +23,7 @@ export function toDomainDailyStats(row) {
     sessionCount: row.sessionCount ?? 0,
     totalPlanned: row.totalPlanned ?? 0,
     effectivePlanned: row.effectivePlanned ?? 0,
+    tasksPlanned: row.totalPlanned ?? 0,
     tasksCompleted: row.tasksCompleted ?? 0,
     tasksPartiallyCompleted: row.tasksPartiallyCompleted ?? 0,
     tasksRescheduled: row.tasksRescheduled ?? 0,

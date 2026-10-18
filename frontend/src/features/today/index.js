@@ -9,5 +9,7 @@ export { default as QuickContext } from "./components/QuickContext.jsx";
 export { default as TodayInsight } from "./components/TodayInsight.jsx";
 export { default as TodaySkeleton } from "./components/TodaySkeleton.jsx";
 export { default as TodayError } from "./components/TodayError.jsx";
+export { default as TodayRoutines } from "./components/TodayRoutines.jsx";
+export { default as TodayRoutineItem } from "./components/TodayRoutineItem.jsx";
 export { default as DailyCloseoutModal } from "./components/DailyCloseoutModal.jsx";
 

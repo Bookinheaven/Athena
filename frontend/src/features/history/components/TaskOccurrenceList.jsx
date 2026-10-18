@@ -1,6 +1,7 @@
 import React from "react";
 import { ArrowRight, Clock } from "lucide-react";
 import { formatTimeOnly } from "../utils/dateUtils.js";
+import { Badge } from "@/components/ui/badge";
 
 /**
  * Planned task history list.
@@ -79,9 +80,9 @@ export function TaskOccurrenceList({ occurrences = [], isLoading = false }) {
                   {title}
                 </span>
                 {priority === "high" && (
-                  <span className="text-[10px] text-rose-500 font-medium uppercase tracking-wide shrink-0">
+                  <Badge variant="destructive" className="text-[10px] uppercase font-semibold h-4 px-1.5 shrink-0">
                     High
-                  </span>
+                  </Badge>
                 )}
                 {isArchived && (
                   <span className="text-[10px] text-muted-foreground/40 italic shrink-0">

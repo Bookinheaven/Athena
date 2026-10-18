@@ -5,6 +5,7 @@ import {
   DailyProgress,
   StreakSummary,
   NextAction,
+  TodayRoutines,
   TodayWork,
   QuickContext,
   TodayInsight,
@@ -20,6 +21,7 @@ const UserDashboard = () => {
     refetch,
     header,
     tasks,
+    routines,
     progress,
     streak,
     insight,
@@ -39,7 +41,7 @@ const UserDashboard = () => {
         {isLoading ? (
           <TodaySkeleton />
         ) : (
-          <>
+          <div className="space-y-8 animate-in fade-in-50 duration-200 transition-all">
             {/* 1. Header */}
             <TodayHeader
               greeting={header.greeting}
@@ -73,27 +75,48 @@ const UserDashboard = () => {
               onOpenQuickAdd={() => setIsAddingTask(true)}
             />
 
-            {/* 4. Today's Work & Quick Context */}
+            {/* 4. Today's Routines, Today's Work & Quick Context */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-              <TodayWork
-                tasks={tasks.today}
-                completedTasks={tasks.completed}
-                goals={tasks.goals}
-                onToggleStatus={actions.handleToggleTaskStatus}
-                onStartFocus={actions.handleStartFocus}
-                onQuickAddTask={actions.handleQuickAddTask}
-                isAddingTask={isAddingTask}
-                setIsAddingTask={setIsAddingTask}
-                onOpenCloseout={() => setIsCloseoutOpen(true)}
-              />
+              <div className="lg:col-span-7 xl:col-span-8 space-y-6">
+                <TodayRoutines
+                  occurrences={routines.occurrences}
+                  isLoading={routines.isLoading}
+                  isError={routines.isError}
+                  onCompleteStep={actions.handleCompleteRoutineStep}
+                  onSkipOccurrence={actions.handleSkipRoutineOccurrence}
+                  onUnskipOccurrence={actions.handleUnskipRoutineOccurrence}
+                  onStartFocusStep={actions.handleStartRoutineStepFocus}
+                  onRetry={actions.handleRefetchRoutines}
+                />
 
-              <div className="lg:col-span-5 xl:col-span-4 space-y-6">
+                <TodayWork
+                  tasks={tasks.today}
+                  completedTasks={tasks.completed}
+                  goals={tasks.goals}
+                  onToggleStatus={actions.handleToggleTaskStatus}
+                  onStartFocus={actions.handleStartFocus}
+                  onQuickAddTask={actions.handleQuickAddTask}
+                  isAddingTask={isAddingTask}
+                  setIsAddingTask={setIsAddingTask}
+                  onOpenCloseout={() => setIsCloseoutOpen(true)}
+                />
+              </div>
+
+              <div className="lg:col-span-5 xl:col-span-4 space-y-6 lg:sticky lg:top-8">
                 <QuickContext
                   targetMinutes={progress.targetMinutes}
                   focusMinutes={progress.focusMinutes}
                   remainingMinutes={progress.remainingMinutes}
                   completedTasksCount={tasks.completed.length}
                   totalTasksCount={tasks.today.length}
+                  completedRoutinesCount={
+                    routines.occurrences.filter((o) => o.status === "completed").length
+                  }
+                  totalRoutinesCount={
+                    routines.occurrences.filter(
+                      (o) => o.status !== "archived" && o.routineStatus !== "archived"
+                    ).length
+                  }
                 />
 
                 <TodayInsight insight={insight} />
@@ -110,7 +133,7 @@ const UserDashboard = () => {
               streak={streak}
               goals={tasks.goals}
             />
-          </>
+          </div>
         )}
       </div>
     </div>

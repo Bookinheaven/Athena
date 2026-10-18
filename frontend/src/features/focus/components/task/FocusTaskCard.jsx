@@ -1,5 +1,5 @@
 import React from "react";
-import { Clock, Calendar, Target, Coffee } from "lucide-react";
+import { Clock, Calendar, Target, Coffee, Repeat } from "lucide-react";
 import { EditableTitle } from "./EditableTitle.jsx";
 
 export const FocusTaskCard = ({
@@ -52,6 +52,13 @@ export const FocusTaskCard = ({
                 ? `Scheduled • ${scheduledTimeInterval}`
                 : "Scheduled Block"}
             </span>
+            <span className="opacity-40">•</span>
+            <span>{plannedMinutes}m</span>
+          </div>
+        ) : navContext?.routineStepOccurrenceId ? (
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold tracking-wide">
+            <Repeat size={13} />
+            <span>Routine Step</span>
             <span className="opacity-40">•</span>
             <span>{plannedMinutes}m</span>
           </div>

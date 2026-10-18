@@ -17,6 +17,7 @@ export default function TodayWork({
   isAddingTask,
   setIsAddingTask,
   onOpenCloseout,
+  className = "",
 }) {
   const navigate = useNavigate();
   const [newTaskTitle, setNewTaskTitle] = useState("");
@@ -36,7 +37,7 @@ export default function TodayWork({
   };
 
   return (
-    <section className="lg:col-span-7 xl:col-span-8 space-y-4">
+    <section className={`space-y-4 ${className}`}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -122,7 +123,7 @@ export default function TodayWork({
       )}
 
       {/* Task list */}
-      <div className="space-y-2.5">
+      <div className="space-y-2.5 max-h-[520px] sm:max-h-[620px] overflow-y-auto custom-scrollbar pr-1">
         {tasks.length > 0 ? (
           tasks.map((task) => {
             const goalObj = goals.find((g) => g._id === task.goal);

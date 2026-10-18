@@ -78,9 +78,9 @@ export const Sidebar = ({ className }) => {
         to={to}
         aria-label={label}
         className={cn(
-          "group relative flex items-center h-9 w-full rounded-md transition-colors duration-150 cursor-pointer select-none overflow-hidden",
+          "group relative flex items-center h-9 w-full rounded-md transition-all duration-150 ease-out active:scale-[0.98] cursor-pointer select-none overflow-hidden",
           isActive
-            ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+            ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-2xs"
             : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground font-normal"
         )}
       >

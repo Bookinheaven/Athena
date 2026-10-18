@@ -25,6 +25,7 @@ export function toDomainScheduleBlock(row) {
     user: row.userId,
     taskId: row.taskId,
     task: row.taskId,
+    routineOccurrenceId: row.routineOccurrenceId || null,
     date: pDate ? new Date(`${pDate}T00:00:00.000Z`) : null,
     productDate: pDate,
     startTime: row.startTime,
@@ -103,11 +104,33 @@ class ScheduleBlockRepository {
     return rows.map(toDomainScheduleBlock);
   }
 
+  async findByRoutineOccurrenceId(userId, routineOccurrenceId) {
+    const cleanUserId = normalizeUserId(userId);
+    const cleanOccId = normalizeBlockId(routineOccurrenceId);
+    if (!cleanOccId) return null;
+    const db = getDrizzleDb();
+    const conditions = [eq(scheduleBlocks.routineOccurrenceId, cleanOccId)];
+    if (cleanUserId) {
+      conditions.push(eq(scheduleBlocks.userId, cleanUserId));
+    }
+    const rows = await db
+      .select()
+      .from(scheduleBlocks)
+      .where(and(...conditions))
+      .limit(1);
+    return toDomainScheduleBlock(rows[0]);
+  }
+
   async create(userId, data) {
     const cleanUserId = normalizeUserId(userId);
     const cleanTaskId = normalizeTaskId(data.taskId || data.task);
-    if (!cleanUserId || !cleanTaskId) {
-      throw new Error("Valid userId and taskId required for ScheduleBlock");
+    const cleanRoutineOccurrenceId = normalizeBlockId(data.routineOccurrenceId);
+
+    if (!cleanUserId || (!cleanTaskId && !cleanRoutineOccurrenceId)) {
+      throw new Error("Valid userId and either taskId or routineOccurrenceId required for ScheduleBlock");
+    }
+    if (cleanTaskId && cleanRoutineOccurrenceId) {
+      throw new Error("ScheduleBlock cannot target both a task and a routine occurrence");
     }
 
     const startTime = new Date(data.startTime);
@@ -120,7 +143,8 @@ class ScheduleBlockRepository {
       .insert(scheduleBlocks)
       .values({
         userId: cleanUserId,
-        taskId: cleanTaskId,
+        taskId: cleanTaskId || null,
+        routineOccurrenceId: cleanRoutineOccurrenceId || null,
         productDate: pDate,
         startTime,
         endTime,
@@ -144,6 +168,9 @@ class ScheduleBlockRepository {
 
     if (data.taskId !== undefined || data.task !== undefined) {
       fieldsToSet.taskId = normalizeTaskId(data.taskId || data.task);
+    }
+    if (data.routineOccurrenceId !== undefined) {
+      fieldsToSet.routineOccurrenceId = normalizeBlockId(data.routineOccurrenceId);
     }
     if (data.startTime !== undefined) fieldsToSet.startTime = new Date(data.startTime);
     if (data.endTime !== undefined) fieldsToSet.endTime = new Date(data.endTime);
@@ -173,6 +200,27 @@ class ScheduleBlockRepository {
     return toDomainScheduleBlock(rows[0]);
   }
 
+  async updateStatusByRoutineOccurrenceId(userId, routineOccurrenceId, status) {
+    const cleanUserId = normalizeUserId(userId);
+    const cleanOccId = normalizeBlockId(routineOccurrenceId);
+    if (!cleanOccId) return [];
+
+    const db = getDrizzleDb();
+    const condition = cleanUserId
+      ? and(eq(scheduleBlocks.routineOccurrenceId, cleanOccId), eq(scheduleBlocks.userId, cleanUserId))
+      : eq(scheduleBlocks.routineOccurrenceId, cleanOccId);
+
+    const rows = await db
+      .update(scheduleBlocks)
+      .set({
+        status,
+        updatedAt: new Date(),
+      })
+      .where(condition)
+      .returning();
+    return rows.map(toDomainScheduleBlock);
+  }
+
   async delete(userId, blockId) {
     const cleanUserId = normalizeUserId(userId);
     const cleanBlockId = normalizeBlockId(blockId);
@@ -196,6 +244,20 @@ class ScheduleBlockRepository {
     const condition = cleanUserId
       ? and(eq(scheduleBlocks.taskId, cleanTaskId), eq(scheduleBlocks.userId, cleanUserId))
       : eq(scheduleBlocks.taskId, cleanTaskId);
+
+    const rows = await db.delete(scheduleBlocks).where(condition).returning();
+    return rows.length;
+  }
+
+  async deleteByRoutineOccurrenceId(userId, routineOccurrenceId) {
+    const cleanUserId = normalizeUserId(userId);
+    const cleanOccId = normalizeBlockId(routineOccurrenceId);
+    if (!cleanOccId) return 0;
+
+    const db = getDrizzleDb();
+    const condition = cleanUserId
+      ? and(eq(scheduleBlocks.routineOccurrenceId, cleanOccId), eq(scheduleBlocks.userId, cleanUserId))
+      : eq(scheduleBlocks.routineOccurrenceId, cleanOccId);
 
     const rows = await db.delete(scheduleBlocks).where(condition).returning();
     return rows.length;

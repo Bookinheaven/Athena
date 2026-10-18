@@ -103,12 +103,18 @@ export const SessionReview = ({
   isSingleTask = false,
   taskTitle = null,
   linkedTasks = [],
+  routineOccurrenceId = null,
+  routineStepOccurrenceId = null,
+  routineTitle = null,
+  routineStepTitle = null,
 }) => {
   const currentMood = reviewData?.mood || null;
   const currentFocus = reviewData?.focus || null;
 
-  const isMultiTask = Boolean(linkedTasks && linkedTasks.length > 1);
+  const isRoutineStep = Boolean(routineStepOccurrenceId);
+  const isMultiTask = !isRoutineStep && Boolean(linkedTasks && linkedTasks.length > 1);
   const showSingleTaskOutcome =
+    !isRoutineStep &&
     !isMultiTask &&
     (isSingleTask ||
       (linkedTasks && linkedTasks.length === 1) ||
@@ -153,6 +159,11 @@ export const SessionReview = ({
   const handleMultiTaskOutcome = (taskId, value) => {
     const current = reviewData?.taskOutcomes || {};
     onUpdate("taskOutcomes", { ...current, [taskId]: value });
+  };
+
+  const handleRoutineStepOutcome = (value) => {
+    onUpdate("routineStepOutcome", value);
+    onUpdate("taskOutcome", value);
   };
 
   // Parse preset tags and custom note from reviewData.distractions
@@ -291,6 +302,65 @@ export const SessionReview = ({
                       })}
                     </div>
                   </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* Routine Step Outcome Section */}
+        {isRoutineStep && (
+          <section
+            data-testid="routine-step-review"
+            className="space-y-3 p-4 rounded-2xl bg-secondary/30 border border-border/60"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                    Routine Step
+                  </span>
+                  {routineTitle && (
+                    <span className="text-xs font-semibold text-muted-foreground truncate max-w-[150px] sm:max-w-xs">
+                      {routineTitle}
+                    </span>
+                  )}
+                </div>
+                <label className="text-xs sm:text-sm font-bold uppercase tracking-wider text-foreground block mt-1">
+                  How did this routine step go?
+                </label>
+                {(routineStepTitle || singleTitle) && (
+                  <p className="text-xs text-muted-foreground truncate max-w-xs mt-0.5">
+                    {routineStepTitle || singleTitle}
+                  </p>
+                )}
+              </div>
+              {(reviewData?.routineStepOutcome || reviewData?.taskOutcome) && (
+                <span className="text-[11px] font-semibold text-primary capitalize">
+                  {(reviewData.routineStepOutcome || reviewData.taskOutcome).replace("_", " ")}
+                </span>
+              )}
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              {TASK_OUTCOME_OPTIONS.map(({ value, label, icon: Icon, activeClass }) => {
+                const currentVal = reviewData?.routineStepOutcome || reviewData?.taskOutcome;
+                const isSelected = currentVal === value;
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    data-testid={`routine-outcome-${value}`}
+                    onClick={() => handleRoutineStepOutcome(value)}
+                    className={`flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border text-xs font-semibold transition-all duration-200 cursor-pointer ${
+                      isSelected
+                        ? `${activeClass} shadow-2xs ring-1 ring-primary/30`
+                        : "bg-background border-border/60 text-muted-foreground hover:text-foreground hover:bg-secondary/60"
+                    }`}
+                  >
+                    <Icon className="w-5 h-5 shrink-0" strokeWidth={isSelected ? 2.5 : 2} />
+                    <span className="text-center leading-tight">{label}</span>
+                  </button>
                 );
               })}
             </div>

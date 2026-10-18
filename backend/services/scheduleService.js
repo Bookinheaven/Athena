@@ -1,5 +1,6 @@
 import scheduleBlockRepository from "../repositories/scheduleBlockRepository.js";
 import taskRepository from "../repositories/taskRepository.js";
+import routineOccurrenceRepository from "../repositories/routineOccurrenceRepository.js";
 import dailyStatsRepository from "../repositories/dailyStatsRepository.js";
 import { parseDateRange, resolveUserTimezone, getProductDate } from "../utils/dateUtils.js";
 import {
@@ -16,17 +17,76 @@ class ScheduleService {
     return error;
   }
 
-  async createScheduleBlock(userId, data) {
-    const { taskId, date, startTime, endTime, status } = data;
+  async _populateBlocks(userId, blocks) {
+    if (!Array.isArray(blocks) || blocks.length === 0) return blocks;
+    const taskIds = blocks
+      .map((b) => (typeof b.taskId === "object" ? b.taskId?.id : b.taskId))
+      .filter(Boolean);
+    const routineOccIds = blocks
+      .map((b) =>
+        typeof b.routineOccurrenceId === "object"
+          ? b.routineOccurrenceId?.id
+          : b.routineOccurrenceId
+      )
+      .filter(Boolean);
 
-    if (!taskId) {
-      throw this._createError("taskId is required", 400);
+    const [taskList, routineOccList] = await Promise.all([
+      taskIds.length > 0 ? taskRepository.findByIds(userId, taskIds) : Promise.resolve([]),
+      routineOccIds.length > 0 ? routineOccurrenceRepository.findByIds(routineOccIds) : Promise.resolve([]),
+    ]);
+
+    const taskMap = new Map(taskList.map((t) => [String(t.id), t]));
+    const routineOccMap = new Map(routineOccList.map((r) => [String(r.id), r]));
+
+    for (const b of blocks) {
+      if (b.taskId && typeof b.taskId !== "object") {
+        b.taskId = taskMap.get(String(b.taskId)) || b.taskId;
+      }
+      if (b.routineOccurrenceId) {
+        const occIdStr = typeof b.routineOccurrenceId === "object" ? String(b.routineOccurrenceId.id) : String(b.routineOccurrenceId);
+        b.routineOccurrence = routineOccMap.get(occIdStr) || null;
+      }
+    }
+    return blocks;
+  }
+
+  async createScheduleBlock(userId, data) {
+    const { taskId, routineOccurrenceId, date, startTime, endTime, status } = data;
+
+    const hasTaskId = Boolean(taskId || data.task);
+    const hasRoutineOccId = Boolean(routineOccurrenceId);
+
+    if ((!hasTaskId && !hasRoutineOccId) || (hasTaskId && hasRoutineOccId)) {
+      throw this._createError("ScheduleBlock must target either a taskId or a routineOccurrenceId, not both", 400);
     }
 
-    // Verify task existence and user ownership
-    const task = await taskRepository.findById(userId, taskId);
-    if (!task) {
-      throw this._createError("Task not found or access denied", 404);
+    let resolvedTask = null;
+    let resolvedRoutineOcc = null;
+
+    if (hasTaskId) {
+      resolvedTask = await taskRepository.findById(userId, taskId || data.task);
+      if (!resolvedTask) {
+        throw this._createError("Task not found or access denied", 404);
+      }
+    } else {
+      resolvedRoutineOcc = await routineOccurrenceRepository.findById(routineOccurrenceId);
+      if (!resolvedRoutineOcc || resolvedRoutineOcc.userId !== userId) {
+        throw this._createError("Routine occurrence not found or access denied", 404);
+      }
+      if (
+        resolvedRoutineOcc.status === "completed" ||
+        resolvedRoutineOcc.status === "skipped" ||
+        resolvedRoutineOcc.status === "missed"
+      ) {
+        throw this._createError(
+          `Cannot schedule routine occurrence with status '${resolvedRoutineOcc.status}'`,
+          400
+        );
+      }
+      const existing = await scheduleBlockRepository.findByRoutineOccurrenceId(userId, routineOccurrenceId);
+      if (existing) {
+        throw this._createError("A schedule block already exists for this routine occurrence", 400);
+      }
     }
 
     if (!startTime || !endTime) {
@@ -55,14 +115,21 @@ class ScheduleService {
     }
 
     const created = await scheduleBlockRepository.create(userId, {
-      taskId,
+      taskId: hasTaskId ? (taskId || data.task) : null,
+      routineOccurrenceId: hasRoutineOccId ? routineOccurrenceId : null,
       date: date || start.toISOString().slice(0, 10),
       startTime: start,
       endTime: end,
       durationMinutes,
       status: status || "scheduled",
     });
-    created.taskId = task;
+
+    if (resolvedTask) {
+      created.taskId = resolvedTask;
+    }
+    if (resolvedRoutineOcc) {
+      created.routineOccurrence = resolvedRoutineOcc;
+    }
     return created;
   }
 
@@ -72,13 +139,7 @@ class ScheduleService {
     if (query.date) {
       const pDate = getProductDate(query.date, tz);
       const blocks = await scheduleBlockRepository.findByUserAndDate(userId, pDate);
-      const taskIds = blocks.map((b) => b.taskId).filter(Boolean);
-      const taskList = await taskRepository.findByIds(userId, taskIds);
-      const taskMap = new Map(taskList.map((t) => [String(t.id), t]));
-      for (const b of blocks) {
-        b.taskId = taskMap.get(String(b.taskId)) || b.taskId;
-      }
-      return blocks;
+      return this._populateBlocks(userId, blocks);
     } else if (query.startDate || query.endDate) {
       const { startProductDate, endProductDate } = parseDateRange(
         query.startDate,
@@ -90,13 +151,7 @@ class ScheduleService {
         startProductDate,
         endProductDate
       );
-      const taskIds = blocks.map((b) => b.taskId).filter(Boolean);
-      const taskList = await taskRepository.findByIds(userId, taskIds);
-      const taskMap = new Map(taskList.map((t) => [String(t.id), t]));
-      for (const b of blocks) {
-        b.taskId = taskMap.get(String(b.taskId)) || b.taskId;
-      }
-      return blocks;
+      return this._populateBlocks(userId, blocks);
     }
 
     return [];
@@ -105,17 +160,46 @@ class ScheduleService {
   async getScheduleBlockById(userId, blockId) {
     const block = await scheduleBlockRepository.findById(blockId);
     if (block && block.userId === userId) {
-      block.taskId = (await taskRepository.findById(userId, block.taskId)) || block.taskId;
-      return block;
+      const [populated] = await this._populateBlocks(userId, [block]);
+      return populated;
     }
     throw this._createError("ScheduleBlock not found or access denied", 404);
   }
 
   async updateScheduleBlock(userId, blockId, data) {
+    const existing = await scheduleBlockRepository.findById(blockId);
+    if (!existing || existing.userId !== userId) {
+      throw this._createError("ScheduleBlock not found or access denied", 404);
+    }
+
+    const nextTaskId = data.taskId !== undefined ? data.taskId : (data.task !== undefined ? data.task : existing.taskId);
+    const nextRoutineOccId = data.routineOccurrenceId !== undefined ? data.routineOccurrenceId : existing.routineOccurrenceId;
+
+    if (nextTaskId && nextRoutineOccId) {
+      throw this._createError("ScheduleBlock cannot target both a task and a routine occurrence", 400);
+    }
+
+    if (data.taskId && data.taskId !== existing.taskId) {
+      const task = await taskRepository.findById(userId, data.taskId);
+      if (!task) throw this._createError("Task not found or access denied", 404);
+    }
+
+    if (data.routineOccurrenceId && data.routineOccurrenceId !== existing.routineOccurrenceId) {
+      const occ = await routineOccurrenceRepository.findById(data.routineOccurrenceId);
+      if (!occ || occ.userId !== userId) throw this._createError("Routine occurrence not found or access denied", 404);
+      if (occ.status === "completed" || occ.status === "skipped" || occ.status === "missed") {
+        throw this._createError(`Cannot schedule routine occurrence with status '${occ.status}'`, 400);
+      }
+      const duplicate = await scheduleBlockRepository.findByRoutineOccurrenceId(userId, data.routineOccurrenceId);
+      if (duplicate && duplicate.id !== blockId) {
+        throw this._createError("A schedule block already exists for this routine occurrence", 400);
+      }
+    }
+
     const updated = await scheduleBlockRepository.update(userId, blockId, data);
     if (updated) {
-      updated.taskId = (await taskRepository.findById(userId, updated.taskId)) || updated.taskId;
-      return updated;
+      const [populated] = await this._populateBlocks(userId, [updated]);
+      return populated;
     }
     throw this._createError("ScheduleBlock not found or access denied", 404);
   }

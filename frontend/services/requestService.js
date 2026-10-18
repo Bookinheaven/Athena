@@ -38,7 +38,10 @@ export default class RequestService {
 
         // Client errors -> do NOT retry
         if (!response.ok && response.status < 500) {
-          throw new Error(data?.message || "Request failed");
+          const clientError = new Error(data?.message || "Request failed");
+          clientError.status = response.status;
+          clientError.isClientError = true;
+          throw clientError;
         }
 
         // Server error -> retry
@@ -49,7 +52,8 @@ export default class RequestService {
         return data;
 
       } catch (error) {
-        if (attempt === retryOptions.retries) {
+        // Do not retry client errors (4xx, including 429 rate limit) or aborted requests
+        if (error?.isClientError || error?.name === "AbortError" || attempt === retryOptions.retries) {
           throw error;
         }
 
