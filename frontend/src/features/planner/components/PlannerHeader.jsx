@@ -1,4 +1,4 @@
-import { Plus, Calendar, Clock, CheckSquare, Target, FileText, Repeat } from "lucide-react";
+import { Plus, Calendar, Clock, CheckSquare, Target, FileText, Repeat, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button.jsx";
 
 export default function PlannerHeader({
@@ -13,6 +13,7 @@ export default function PlannerHeader({
   onOpenCreateTask,
   onOpenCreateGoal,
   onOpenCreateRoutine,
+  onOpenAiPlan,
 }) {
   const tabs = [
     {
@@ -67,6 +68,18 @@ export default function PlannerHeader({
         </div>
 
         <div className="flex items-center gap-2.5">
+          {onOpenAiPlan && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onOpenAiPlan}
+              className="group/ai rounded-xl font-semibold text-xs h-9 px-4 gap-2 border-primary/30 bg-gradient-to-r from-primary/10 to-violet-500/10 hover:from-primary/20 hover:to-violet-500/20 text-primary shadow-xs hover:shadow-md transition-all duration-300"
+              data-testid="planner-ai-plan-button"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-primary group-hover/ai:animate-pulse" />
+              AI Daily Plan
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"

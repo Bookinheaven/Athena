@@ -1,4 +1,5 @@
 import ScheduleService from "../services/scheduleService.js";
+import aiPlanningService from "../services/ai/aiPlanningService.js";
 
 class ScheduleController {
   async createScheduleBlock(req, res) {
@@ -71,6 +72,24 @@ class ScheduleController {
         req.query.date
       );
       res.json(alert);
+    } catch (error) {
+      const statusCode = error.statusCode || 500;
+      res.status(statusCode).json({ message: error.message });
+    }
+  }
+
+  async getAiDraft(req, res) {
+    try {
+      const { productDate, planningWindow, defaultTaskDurationMinutes } = req.body || {};
+      const result = await aiPlanningService.generateDailyPlanningDraft(
+        req.user.id,
+        {
+          productDate,
+          planningWindow,
+          defaultTaskDurationMinutes,
+        }
+      );
+      res.json(result);
     } catch (error) {
       const statusCode = error.statusCode || 500;
       res.status(statusCode).json({ message: error.message });

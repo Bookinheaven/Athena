@@ -86,6 +86,7 @@ app.use("/api/notes", apiLimiter, notesRoutes);
 app.use("/api/goal", apiLimiter, goalRoutes);
 app.use("/api/task", apiLimiter, taskRoutes);
 app.use("/api/planner", apiLimiter, plannerRoutes);
+app.use("/api/schedule", apiLimiter, scheduleRoutes);
 app.use("/api/schedule-block", apiLimiter, scheduleRoutes);
 app.use("/api/schedule-blocks", apiLimiter, scheduleRoutes);
 app.use("/api/task-occurrences", apiLimiter, taskOccurrenceRoutes);

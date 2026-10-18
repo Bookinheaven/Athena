@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, AlertCircle, CheckCircle2, Info } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, AlertCircle, CheckCircle2, Info, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button.jsx";
 import { Badge } from "@/components/ui/badge.jsx";
 import { formatPlannerDateHeader } from "@/utils/dateUtils.js";
@@ -10,6 +10,7 @@ export default function TimelineHeader({
   blocks = [],
   capacityAlert = null,
   isSaving = false,
+  onOpenAiPlan,
 }) {
   const headerInfo = useMemo(() => {
     return formatPlannerDateHeader(selectedDate);
@@ -154,6 +155,20 @@ export default function TimelineHeader({
             <strong className="text-foreground font-semibold">{formattedTotalTime}</strong> planned
           </span>
         </div>
+
+        {onOpenAiPlan && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onOpenAiPlan}
+            className="group/ai rounded-xl font-semibold text-xs h-8 px-3 gap-1.5 bg-gradient-to-r from-primary/10 to-violet-500/10 hover:from-primary/20 hover:to-violet-500/20 text-primary border-primary/30 shadow-xs hover:shadow-md transition-all duration-300"
+            data-testid="open-ai-plan-button"
+            title="Generate AI Daily Plan Draft"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-primary group-hover/ai:animate-pulse" />
+            <span>AI Daily Plan</span>
+          </Button>
+        )}
       </div>
     </div>
   );

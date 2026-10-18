@@ -13,6 +13,7 @@ export default function TimelineView({
   tasks = [],
   goals = [],
   onOpenCreateTask,
+  onOpenAiPlan,
 }) {
   const { selectedDate, setSelectedDate } = usePlannerStore();
   const [mobileView, setMobileView] = useState("timeline"); // 'timeline' | 'tasks'
@@ -142,6 +143,7 @@ export default function TimelineView({
         blocks={blocks}
         capacityAlert={capacityAlert}
         isSaving={isSaving}
+        onOpenAiPlan={onOpenAiPlan}
       />
 
       {/* Advisory Capacity Overload Banner */}

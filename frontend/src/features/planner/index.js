@@ -20,4 +20,4 @@ export { default as TaskModal } from "./components/TaskModal.jsx";
 export { default as GoalModal } from "./components/GoalModal.jsx";
 export { default as NoteModal } from "./components/NoteModal.jsx";
 export { default as DurationModal } from "./components/DurationModal.jsx";
-
+export { default as AiDailyPlanDrawer, AiDailyPlanReviewContent } from "./components/AiDailyPlanDrawer.jsx";

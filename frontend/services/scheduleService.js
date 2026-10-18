@@ -63,6 +63,16 @@ class ScheduleService extends RequestService {
       method: "DELETE",
     });
   }
+
+  /**
+   * Request a read-only AI Daily Planning draft for a target product date
+   */
+  getAiDraft(payload = {}) {
+    return this.request("/schedule-block/ai-draft", {
+      method: "POST",
+      body: payload,
+    });
+  }
 }
 
 export default new ScheduleService();

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { usePlannerStore } from "../../../stores/plannerStore.js";
 import {
@@ -14,6 +14,7 @@ import {
   GoalModal,
   NoteModal,
   DurationModal,
+  AiDailyPlanDrawer,
 } from "../../../features/planner";
 import { AlertCircle, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button.jsx";
@@ -24,6 +25,7 @@ export default function Planner() {
   const [searchParams] = useSearchParams();
   const dateParam = searchParams.get("date");
   const tabParam = searchParams.get("tab");
+  const [aiPlanDrawerOpen, setAiPlanDrawerOpen] = useState(false);
 
   const {
     activeTab,
@@ -34,6 +36,7 @@ export default function Planner() {
     setSelectedGoalId,
     selectedNoteId,
     setSelectedNoteId,
+    selectedDate,
     setSelectedDate,
   } = usePlannerStore();
 
@@ -137,6 +140,7 @@ export default function Planner() {
               actions.openCreateTask(null, activeTab === "today")
             }
             onOpenCreateGoal={actions.openCreateGoal}
+            onOpenAiPlan={() => setAiPlanDrawerOpen(true)}
           />
         )}
 
@@ -168,6 +172,7 @@ export default function Planner() {
                 tasks={tasks}
                 goals={goals}
                 onOpenCreateTask={() => actions.openCreateTask(null, false)}
+                onOpenAiPlan={() => setAiPlanDrawerOpen(true)}
               />
             )}
 
@@ -258,6 +263,12 @@ export default function Planner() {
         onOpenChange={modals.setDurationModalOpen}
         tasksToStart={modals.tasksToStart}
         onConfirmStart={actions.confirmStartFocus}
+      />
+
+      <AiDailyPlanDrawer
+        open={aiPlanDrawerOpen}
+        onOpenChange={setAiPlanDrawerOpen}
+        selectedDate={selectedDate}
       />
     </div>
   );
